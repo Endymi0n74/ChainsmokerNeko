@@ -3,6 +3,7 @@
 .cache
 cache
 build
+app/electron/.tmp/
 bundle
 deploy
 dist
