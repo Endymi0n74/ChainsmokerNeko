@@ -2,7 +2,6 @@
     import { Store as UI } from '../../stores/Stores.svelte';
 
     import Bookmarks from './Bookmarks.svelte';
-    import NewChapters from './NewChapters.svelte';
     import Main from './Main.svelte';
     import PathBar from './ContentPathBar.svelte';
 </script>
@@ -16,8 +15,6 @@
         <Main />
     {:else if UI.contentscreen === '/bookmarks'}
         <Bookmarks />
-    {:else if UI.contentscreen === '/newchapters'}
-        <NewChapters />
     {:else}
         Unknown content screen: {UI.contentscreen}
     {/if}
