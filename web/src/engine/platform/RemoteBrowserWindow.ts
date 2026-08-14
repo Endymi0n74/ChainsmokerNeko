@@ -30,3 +30,13 @@ export function CreateRemoteBrowserWindow(): IRemoteBrowserWindow {
         .Configure(Runtime.Electron, () => new ElectronRemoteBrowserWindow(GetIPC()))
         .Create();
 }
+
+/**
+ * Open the given {@link url} in a visible browser window that stays open for user interaction
+ * (e.g. to log into a website). The window shares the application's persistent session, so any
+ * cookies set here are reused by subsequent scraping requests.
+ */
+export async function OpenLoginWindow(url: URL): Promise<void> {
+    const window = CreateRemoteBrowserWindow();
+    await window.Open(new Request(url), true, '');
+}

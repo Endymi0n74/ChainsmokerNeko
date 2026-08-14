@@ -11,6 +11,7 @@
         onNextItem: () => void;
         onPreviousItem: () => void;
         onClose: () => void;
+        onCloseReader: () => void;
     };
 
     // UI
@@ -39,7 +40,7 @@
         viewer?.removeEventListener('scroll', onScroll);
     });
 
-    let { item, currentImageIndex, wide = $bindable(), onNextItem, onPreviousItem, onClose }: Props = $props();
+    let { item, currentImageIndex, wide = $bindable(), onNextItem, onPreviousItem, onClose, onCloseReader }: Props = $props();
     let entries = $derived(item.Entries.Value);
     let viewer: HTMLElement;
 
@@ -171,6 +172,7 @@
         {onNextItem}
         {onPreviousItem}
         onClose={viewerclose}
+        {onCloseReader}
     />
 {/if}
 <div

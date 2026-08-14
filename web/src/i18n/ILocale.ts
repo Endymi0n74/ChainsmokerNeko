@@ -170,6 +170,8 @@ export enum FrontendResourceKey {
     Frontend_Classic_Settings_ViewerReverseDirectionInfo = 'Frontend_Classic_Settings_ViewerReverseDirectionInfo',
     Frontend_Classic_Settings_ViewerDoublePage = 'Frontend_Classic_Settings_ViewerDoublePage',
     Frontend_Classic_Settings_ViewerDoublePageInfo = 'Frontend_Classic_Settings_ViewerDoublePageInfo',
+    Frontend_Classic_Settings_ViewerFlagCurrentOnClose = 'Frontend_Classic_Settings_ViewerFlagCurrentOnClose',
+    Frontend_Classic_Settings_ViewerFlagCurrentOnCloseInfo = 'Frontend_Classic_Settings_ViewerFlagCurrentOnCloseInfo',
     Frontend_Classic_Settings_ViewerPadding = 'Frontend_Classic_Settings_ViewerPadding',
     Frontend_Classic_Settings_ViewerPaddingInfo = 'Frontend_Classic_Settings_ViewerPaddingInfo',
     Frontend_Classic_Settings_ViewerZoom = 'Frontend_Classic_Settings_ViewerZoom',

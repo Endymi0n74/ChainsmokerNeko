@@ -91,6 +91,8 @@ const translations: VariantResource = {
   Frontend_Classic_Settings_ViewerReverseDirectionInfo: 'Show pages/images in reverse order (like in tradional Manga)',
   Frontend_Classic_Settings_ViewerDoublePage: 'Show Double Pages',
   Frontend_Classic_Settings_ViewerDoublePageInfo: 'Show two pages/images at once (like in tradional Manga)',
+  Frontend_Classic_Settings_ViewerFlagCurrentOnClose: 'Mark as current on close',
+  Frontend_Classic_Settings_ViewerFlagCurrentOnCloseInfo: 'Automatically flag the chapter as current reading position when closing the reader',
   Frontend_Classic_Sidenav_Home: 'Home',
   Frontend_Classic_Sidenav_Settings_General: 'General',
   Frontend_Classic_Sidenav_Settings_Interface: 'Interface',

@@ -2,6 +2,7 @@
     import ChevronLeft from "carbon-icons-svelte/lib/ChevronLeft.svelte";
     import ChevronRight from "carbon-icons-svelte/lib/ChevronRight.svelte";
     import Misuse from "carbon-icons-svelte/lib/Misuse.svelte";
+    import Home from "carbon-icons-svelte/lib/Home.svelte";
     import IntentRequestScaleIn from "carbon-icons-svelte/lib/IntentRequestScaleIn.svelte";
     import IntentRequestScaleOut from "carbon-icons-svelte/lib/IntentRequestScaleOut.svelte";
     import CloudServiceManagement from "carbon-icons-svelte/lib/CloudServiceManagement.svelte";
@@ -32,8 +33,9 @@
         onNextItem: () => void;
         onPreviousItem: () => void;
         onClose: () => void;
+        onCloseReader: () => void;
     }
-    let { item, onNextItem, onPreviousItem, onClose }: Props = $props();
+    let { item, onNextItem, onPreviousItem, onClose, onCloseReader }: Props = $props();
 </script>
 
 <div id="vieweractions">
@@ -193,6 +195,12 @@
         {/if}
     </HeaderAction>
     <HeaderGlobalAction
+        class="closereader"
+        icon={Home}
+        iconDescription="Close reader (back to list)"
+        onclick={onCloseReader}
+    />
+    <HeaderGlobalAction
         class="close"
         icon={Misuse}
         iconDescription="Close"
@@ -215,6 +223,10 @@
     #vieweractions :global(.close) {
         top: 0;
         right: 1.5em;
+    }
+    #vieweractions :global(.closereader) {
+        top: 0;
+        left: 0.5em;
     }
     #vieweractions :global(.opensettings) {
         top: 0;

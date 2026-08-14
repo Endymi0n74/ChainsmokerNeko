@@ -22,6 +22,12 @@ type MangaDramaChapter = {
     title: string;
 };
 
+type MangaDramaPages = {
+    locked: boolean;
+    message: string;
+    urls: string[];
+};
+
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
 
@@ -332,7 +338,10 @@ export default class extends DecoratableMangaScraper {
                         : 'Chapter ' + number;
                 };
 
-                const collect = () => {
+                const markTitle = (title, locked) =>
+                    locked ? '🔒 ' + title : title;
+
+                const collectFromDOM = () => {
                     const result = [];
                     const seen = new Set();
 
@@ -362,9 +371,18 @@ export default class extends DecoratableMangaScraper {
                         }
 
                         seen.add(id);
+
+                        const item = anchor.closest('div');
+                        const locked = !!(
+                            item
+                            && item.querySelector(
+                                '[uk-icon*="lock"], [data-icon="lock"], .uk-icon-lock'
+                            )
+                        );
+
                         result.push({
                             id,
-                            title: formatChapterTitle(id)
+                            title: markTitle(formatChapterTitle(id), locked)
                         });
                     }
 
@@ -375,26 +393,106 @@ export default class extends DecoratableMangaScraper {
                     );
                 };
 
-                const started = Date.now();
+                const mangaId = document.querySelector(
+                    '[data-manga-id]'
+                )?.getAttribute('data-manga-id')
+                    || document.querySelector(
+                        '#manga-title[data-id]'
+                    )?.getAttribute('data-id');
 
-                const poll = () => {
-                    const result = collect();
-
-                    if(
-                        result.length > 0
-                        || Date.now() - started > 20000
-                    ) {
-                        resolve(result);
-                    } else {
-                        setTimeout(poll, 300);
+                const fetchREST = async () => {
+                    if(!mangaId) {
+                        return null;
                     }
+
+                    const collected = [];
+
+                    for(let page = 1; page <= 30; page++) {
+                        const response = await fetch(
+                            location.origin
+                            + '/wp-json/initmanga/v1/chapters'
+                            + '?manga_id=' + encodeURIComponent(mangaId)
+                            + '&paged=' + page
+                            + '&per_page=50',
+                            { headers: { Accept: 'application/json' } }
+                        );
+
+                        if(!response.ok) {
+                            break;
+                        }
+
+                        const json = await response.json();
+                        const items = Array.isArray(json?.items)
+                            ? json.items
+                            : [];
+
+                        if(items.length === 0) {
+                            break;
+                        }
+
+                        collected.push(...items);
+
+                        if(items.length < 50) {
+                            break;
+                        }
+                    }
+
+                    if(collected.length === 0) {
+                        return null;
+                    }
+
+                    return collected.map(item => {
+                        const id = String(item.slug ?? '')
+                            || 'chapter-' + item.number;
+                        const number = item.number;
+                        const raw = String(item.title ?? '')
+                            .replace(/\\s+/g, ' ')
+                            .trim();
+                        const plain = !raw
+                            || raw.toLowerCase()
+                                === 'chapter ' + number;
+                        const title = plain
+                            ? 'Chapter ' + number
+                            : 'Chapter ' + number + ' - ' + raw;
+                        const locked = Boolean(
+                            item.lock_type
+                            && item.lock_type !== 'none'
+                        );
+
+                        return {
+                            id,
+                            title: markTitle(title, locked)
+                        };
+                    });
                 };
 
-                poll();
+                fetchREST().then(rest => {
+                    if(rest) {
+                        resolve(rest);
+                        return;
+                    }
+
+                    const started = Date.now();
+
+                    const poll = () => {
+                        const result = collectFromDOM();
+
+                        if(
+                            result.length > 0
+                            || Date.now() - started > 20000
+                        ) {
+                            resolve(result);
+                        } else {
+                            setTimeout(poll, 300);
+                        }
+                    };
+
+                    poll();
+                });
             })
             `,
             750,
-            35_000
+            60_000
         );
 
         return chapters.map(
@@ -412,7 +510,7 @@ export default class extends DecoratableMangaScraper {
     public override async FetchPages(
         chapter: Chapter
     ): Promise<Page[]> {
-        const urls = await FetchWindowScript<string[]>(
+        const result = await FetchWindowScript<MangaDramaPages>(
             new Request(
                 new URL(
                     `/manga/${chapter.Parent.Identifier}/${chapter.Identifier}/`,
@@ -478,11 +576,36 @@ export default class extends DecoratableMangaScraper {
                     return result;
                 };
 
+                const lockMessage = () => {
+                    const card = document.querySelector('.lock-card');
+
+                    if(!card) {
+                        return undefined;
+                    }
+
+                    const detail = card.querySelector('.text-default, p');
+                    const raw = detail
+                        ? detail.textContent
+                        : card.textContent;
+
+                    return String(raw || '')
+                        .replace(/\\s+/g, ' ')
+                        .trim()
+                        || 'This chapter is locked and requires coins to unlock.';
+                };
+
                 const started = Date.now();
                 let lastCount = 0;
                 let stableCount = 0;
 
                 const poll = () => {
+                    const message = lockMessage();
+
+                    if(message) {
+                        resolve({ locked: true, message, urls: [] });
+                        return;
+                    }
+
                     const images = extractImages();
 
                     if(images.length === lastCount) {
@@ -493,7 +616,7 @@ export default class extends DecoratableMangaScraper {
                     }
 
                     if((images.length > 0 && stableCount >= 2) || Date.now() - started > 20000) {
-                        resolve(images);
+                        resolve({ locked: false, message: '', urls: images });
                     } else {
                         window.scrollTo(0, document.body.scrollHeight);
                         setTimeout(poll, 600);
@@ -506,6 +629,14 @@ export default class extends DecoratableMangaScraper {
             1000,
             30_000
         );
+
+        if(result.locked) {
+            throw new Error(
+                'This MangaDrama chapter is locked: ' + result.message
+            );
+        }
+
+        const urls = result.urls;
 
         if(urls.length === 0) {
             throw new Error('No readable pages were found for this MangaDrama chapter.');

@@ -26,6 +26,7 @@ export const enum Key {
     ViewerReverseDirection = 'viewer-reverse-direction',
     //
     ViewerDoublePage = 'viewer-double-page',
+    ViewerFlagCurrentOnClose = 'viewer-flag-current-on-close',
     //
     StartupGuideEnabled = 'startup-guide-enabled',
 }
@@ -51,6 +52,7 @@ export async function Initialize(): Promise<void> {
         Settings.ViewerMode.Setting,
         Settings.ViewerReverseDirection.Setting,
         Settings.ViewerDoublePage.Setting,
+        Settings.ViewerFlagCurrentOnClose.Setting,
     );
 }
 
@@ -116,6 +118,13 @@ class UIClassicStore {
         Key.ViewerDoublePage,
         R.Frontend_Classic_Settings_ViewerDoublePage,
         R.Frontend_Classic_Settings_ViewerDoublePageInfo,
+        false
+    ));
+
+    ViewerFlagCurrentOnClose = new SettingStore<boolean, Check>(new Check(
+        Key.ViewerFlagCurrentOnClose,
+        R.Frontend_Classic_Settings_ViewerFlagCurrentOnClose,
+        R.Frontend_Classic_Settings_ViewerFlagCurrentOnCloseInfo,
         false
     ));
 

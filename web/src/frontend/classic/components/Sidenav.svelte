@@ -70,6 +70,14 @@
                     UI.selectedItem = undefined;
                 }}
             />
+            <SideNavLink
+                text={'New chapters'}
+                icon={Events}
+                onclick={() => {
+                    UI.selectedItem = undefined;
+                    UI.contentscreen = '/newchapters';
+                }}
+            />
         {/if}
         <SideNavLink
             text={'Paste Media URL'}

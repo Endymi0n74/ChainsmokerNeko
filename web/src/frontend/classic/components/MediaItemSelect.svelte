@@ -5,7 +5,7 @@
         ContextMenuDivider,
         ContextMenuGroup,
         ContextMenuOption,
-        Dropdown,
+        MultiSelect,
         InlineNotification,
         Loading,
         Search,
@@ -81,7 +81,12 @@
                         itemNameFilter.toLowerCase(),
                     ) !== -1,
                 );
-            if (langFilter) conditions.push(item.Tags.Value.includes(langFilter));
+            if (selectedLanguageIDs.length > 0)
+                conditions.push(
+                    selectedLanguageIDs.some((tag) =>
+                        item.Tags.Value.includes(tag),
+                    ),
+                );
             return conditions.every((condition) => condition);
         });
     });
@@ -99,21 +104,24 @@
             return [...detectedLangaugeTags, ...undetectedLangaugeTags];
         }, [])
     );
-    let langComboboxItems =
-        $derived(MediaLanguages.length > 0
-            ? [
-                { id: '*', text: '*' },
-                ...MediaLanguages.map((lang) => {
-                    return { id: lang, text: GlobalSettings.Locale[lang.Title]() };
-                }),
-            ]
-            : [{ id: '*', text: '*' }]);
+    let langComboboxItems = $derived(
+        MediaLanguages.map((lang) => {
+            return { id: lang, text: GlobalSettings.Locale[lang.Title]() };
+        })
+    );
 
-    let langFilterID: '*' | Tag = $state('*');
-    let langFilter = $derived(langFilterID === '*' ? null : langFilterID);
-    //Media Changed and the langFilter is no longer valid.
-    $effect(()=>{
-        if(items.length>0 && !MediaLanguages.includes(langFilter)) langFilterID = '*';
+    let selectedLanguageIDs: Tag[] = $state([]);
+    // Media changed: drop selections for languages that are no longer available.
+    $effect(() => {
+        if(items.length > 0) {
+            const available = selectedLanguageIDs.filter((tag) =>
+                MediaLanguages.includes(tag),
+            );
+            // Only reassign when a selection was actually dropped, to avoid effect feedback.
+            if(available.length !== selectedLanguageIDs.length) {
+                selectedLanguageIDs = available;
+            }
+        }
     });
 
     /*
@@ -324,10 +332,10 @@
             iconDescription="Languages"
         />
 
-        <Dropdown
+        <MultiSelect
             disabled={MediaLanguages.length === 0}
-            placeholder="Select a language"
-            bind:selectedId={langFilterID}
+            placeholder="Select languages"
+            bind:selectedIds={selectedLanguageIDs}
             size="sm"
             items={langComboboxItems}
         />
@@ -345,7 +353,7 @@
             {#each showItems as item (item)}
                 <MediaComponent
                     {item}
-                    multilang={!langFilter && MediaLanguages.length > 1}
+                    multilang={selectedLanguageIDs.length !== 1 && MediaLanguages.length > 1}
                     selected={selectedItems.includes(item)}
                     hover={item === contextItem}
                     onView={(event) => onItemView(item)(event.detail)}
