@@ -18,6 +18,9 @@ import * as Common from './decorators/Common';
 
 // Affiche la fenêtre navigateur quand le WAF présente son challenge custom
 // (titre "Security check", bouton "Verify you're human").
+// NOTE: MangaFire n'opte PAS pour le reload automatique des challenges (voir
+// ChallengeReload.ts) : son challenge est résolu manuellement par l'utilisateur.
+// Le recharger en boucle (comme pour CrunchyScan) bouclait sans fin.
 AddAntiScrapingDetection(async (invoke) => {
     const challenged = await invoke<boolean>(`
         (() => {
