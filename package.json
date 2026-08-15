@@ -3,7 +3,7 @@
     "title": "HakuNeko",
     "description": "Manga, Anime & Novel Downloader",
     "license": "Unlicense",
-    "homepage": "https://git.io/hakuneko",
+    "homepage": "https://github.com/Endymi0n74/ChainsmokerNeko",
     "type": "module",
     "workspaces": [
         "web",
