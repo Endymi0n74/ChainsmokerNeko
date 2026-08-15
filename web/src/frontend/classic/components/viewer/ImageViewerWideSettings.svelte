@@ -3,6 +3,7 @@
     import ChevronRight from "carbon-icons-svelte/lib/ChevronRight.svelte";
     import Misuse from "carbon-icons-svelte/lib/Misuse.svelte";
     import Home from "carbon-icons-svelte/lib/Home.svelte";
+    import Download from "carbon-icons-svelte/lib/Download.svelte";
     import IntentRequestScaleIn from "carbon-icons-svelte/lib/IntentRequestScaleIn.svelte";
     import IntentRequestScaleOut from "carbon-icons-svelte/lib/IntentRequestScaleOut.svelte";
     import CloudServiceManagement from "carbon-icons-svelte/lib/CloudServiceManagement.svelte";
@@ -34,8 +35,10 @@
         onPreviousItem: () => void;
         onClose: () => void;
         onCloseReader: () => void;
+        onSaveAllImages: () => void;
+        savingAll: boolean;
     }
-    let { item, onNextItem, onPreviousItem, onClose, onCloseReader }: Props = $props();
+    let { item, onNextItem, onPreviousItem, onClose, onCloseReader, onSaveAllImages, savingAll }: Props = $props();
 </script>
 
 <div id="vieweractions">
@@ -195,6 +198,12 @@
         {/if}
     </HeaderAction>
     <HeaderGlobalAction
+        class="saveall"
+        icon={Download}
+        iconDescription={savingAll ? 'Saving images…' : 'Save all images'}
+        onclick={onSaveAllImages}
+    />
+    <HeaderGlobalAction
         class="closereader"
         icon={Home}
         iconDescription="Close reader (back to list)"
@@ -227,6 +236,10 @@
     #vieweractions :global(.closereader) {
         top: 0;
         left: 0.5em;
+    }
+    #vieweractions :global(.saveall) {
+        top: 0;
+        left: 4em;
     }
     #vieweractions :global(.opensettings) {
         top: 0;

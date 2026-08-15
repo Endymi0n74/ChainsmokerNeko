@@ -15,12 +15,14 @@
     };
 
     // UI
-    import { InlineNotification } from 'carbon-components-svelte';
+    import { Button, InlineNotification } from 'carbon-components-svelte';
+    import Download from 'carbon-icons-svelte/lib/Download.svelte';
     // engine
     import type {
         MediaContainer,
         MediaItem,
     } from '../../../../engine/providers/MediaPlugin';
+    import { Priority } from '../../../../engine/taskpool/DeferredTask';
     // svelte component
     import ImageViewerWideSettings from './ImageViewerWideSettings.svelte';
     import Image from './Image.svelte';
@@ -43,6 +45,43 @@
     let { item, currentImageIndex, wide = $bindable(), onNextItem, onPreviousItem, onClose, onCloseReader }: Props = $props();
     let entries = $derived(item.Entries.Value);
     let viewer: HTMLElement;
+
+    // Save all images of the current item (chapter pages) to disk.
+    let savingAll = $state(false);
+    let savedCount = $state(0);
+
+    function downloadBlob(data: Blob, filename: string) {
+        const url = URL.createObjectURL(data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function saveAllImages() {
+        if (savingAll) return;
+        savingAll = true;
+        savedCount = 0;
+        const signal = new AbortController().signal;
+        try {
+            let index = 0;
+            for (const page of entries) {
+                const data = await page.Fetch(Priority.High, signal);
+                if (data.type.startsWith('image')) {
+                    const extension = data.type.split('/')[1]?.split('+')[0] || 'image';
+                    downloadBlob(data, `image_${String(index + 1).padStart(3, '0')}.${extension}`);
+                }
+                index++;
+                savedCount = index;
+                await new Promise(resolve => setTimeout(resolve, 350));
+            }
+        } catch (error) {
+            console.warn('saveAllImages', error);
+        } finally {
+            savingAll = false;
+        }
+    }
 
     function viewerclose() {
         wide = false;
@@ -173,6 +212,19 @@
         {onPreviousItem}
         onClose={viewerclose}
         {onCloseReader}
+        onSaveAllImages={saveAllImages}
+        {savingAll}
+    />
+{/if}
+{#if !wide && entries.length > 0}
+    <Button
+        class="saveallimages"
+        kind="ghost"
+        size="small"
+        icon={Download}
+        iconDescription={savingAll ? `Saving images (${savedCount}/${entries.length})…` : 'Save all images'}
+        disabled={savingAll}
+        onclick={saveAllImages}
     />
 {/if}
 <div
@@ -291,5 +343,16 @@
     /* TODO: implement RTL reading */
     #ImageViewer.wide.paginated.reverse {
         flex-flow: row-reverse;
+    }
+
+    :global(.saveallimages) {
+        position: absolute;
+        top: 0.4em;
+        left: 0.4em;
+        z-index: 8100;
+        opacity: 0.65;
+    }
+    :global(.saveallimages):hover {
+        opacity: 1;
     }
 </style>
