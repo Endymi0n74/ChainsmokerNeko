@@ -216,6 +216,9 @@ cd haruneko && ./node_modules/electron/dist/electron.exe app/electron/.tmp/xxx.c
   `.gitignore`) → install CI = `npm ci` (déterministe).
 - Workflow `.github/workflows/push-ci.yml` : typecheck (web/electron/nw) + eslint +
   svelte-check + vue-tsc + build web/electron, avec cache npm/electron.
+- Workflow `.github/workflows/release-bundles.yml` (16 août) : à chaque push, build des
+  3 bundles Windows (ia32/x64/arm64) via `deploy-app.mjs` sur `windows-latest`, puis
+  publication de la release roulante `nightly` (master uniquement, `--latest=false`).
 - `continuous-deployment.yml` upstream a été **supprimé** (manquait les secrets Cloudflare).
 - `README.asciidoc` : badge CI pointe sur le workflow `push-ci.yml` du fork.
 

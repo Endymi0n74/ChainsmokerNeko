@@ -81,6 +81,11 @@ dans le flux applicatif réel.
 typecheck (web/electron/nw) + eslint + svelte-check + vue-tsc + build web/electron,
 avec cache npm et binaire Electron.
 
+[`.github/workflows/release-bundles.yml`](.github/workflows/release-bundles.yml) : à chaque push —
+build des **3 bundles Windows** (ia32/x64/arm64) sur `windows-latest`, publiés sur la
+release roulante **`nightly`** (uniquement pour `master` ; `latest` reste réservé aux
+versions taguées).
+
 ## Structure du projet
 
 ```text
