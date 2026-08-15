@@ -24,10 +24,16 @@ jobs:
         run: npm run npm:clean-install
       - name: Typecheck (Web)
         run: npm run check:ts --workspace=web
-      - name: Typecheck (Electron)
-        run: npm run check:ts --workspace=app/electron
-      - name: Typecheck (NW.js)
-        run: npm run check:ts --workspace=app/nw
+      - name: Lint (Web)
+        run: npm run check:lint --workspace=web
+      - name: Svelte Check (Web)
+        run: npm run check:svelte --workspace=web
+      - name: Vue Type Check (Web)
+        run: npm run check:vue --workspace=web
+      - name: Typecheck & Lint (Electron)
+        run: npm run check --workspace=app/electron
+      - name: Typecheck & Lint (NW.js)
+        run: npm run check --workspace=app/nw
       - name: Build Web Application
         run: npm run build --workspace=web
       - name: Build Electron Application
