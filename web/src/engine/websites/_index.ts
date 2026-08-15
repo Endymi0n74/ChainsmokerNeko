@@ -555,6 +555,7 @@ export { default as Pixiv } from './Pixiv';
 export { default as PixivComics } from './PixivComics';
 export { default as PlotTwistNoFansub } from './PlotTwistNoFansub';
 export { default as PortalYaoi } from './PortalYaoi';
+export { default as PornComix } from './PornComix';
 export { default as PoseidonScans } from './PoseidonScans';
 export { default as ProjectSuki } from './ProjectSuki';
 export { default as PunkRecords } from './PunkRecords';

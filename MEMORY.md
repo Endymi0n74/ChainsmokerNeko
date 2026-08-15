@@ -112,7 +112,15 @@ app/electron/build|bundle/     → build Electron (généré)
     désactivait TOUT reload → les 3 sites restaient figés. Le contrôle actuel ne
     détecte qu'un widget **réellement rendu** (iframe/checkbox) → le reload est
     rétabli pour les challenges « managés » sans widget. **✅ Corrigé et committé**.
-- 17 autres sites ajoutés (commit `96741258`) mais **non câblés** dans `_index.ts`.
+- 17 autres sites ajoutés (commit `96741258`) — **audités le 16 août** : seul **PornComix** a été
+  câblé dans `_index.ts` (e2e complet OK). Les 16 autres restent **non câblés** car invalides
+  (vérifié par tests e2e + sondes) : 8 domaines morts (`ERR_NAME_NOT_RESOLVED`/SSL :
+  RaikiScan, MangaSehri, TuMangaOnlineHentai, SilenceScan, Retsu, Otsugami, FireComics,
+  WebtoonTRNET), ReadAllComics (Cloudflare 521), CoffeeManga→bunnynovel.com et
+  MangaHack→Xfolio (domaines recyclés), KnightNoFansub (site restructuré),
+  HerosWeb (redirigé vers heros-web.com, nouveau format), MangaBTT + ZinchanManga
+  (pages JS-rendered, extraction CSS impossible), ColaManga (FetchPages bloque).
+  → Fichiers conservés (revival possible) mais non exportés.
 
 ## 6. Captcha Cloudflare — cause racine UA (MangaFire) & poller (CrunchyScan)
 
