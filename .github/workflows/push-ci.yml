@@ -35,7 +35,7 @@ jobs:
           restore-keys: |
             electron-${{ runner.os }}-
       - name: Install NPM Packages
-        run: npm run npm:clean-install
+        run: npm ci
       - name: Typecheck (Web)
         run: npm run check:ts --workspace=web
       - name: Lint (Web)
