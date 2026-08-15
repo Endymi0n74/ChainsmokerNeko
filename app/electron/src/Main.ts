@@ -94,8 +94,6 @@ function UpdatePermissions(session: Electron.Session, appURI: URL) {
     session.on('file-system-access-restricted', (event, details, callback) => callback(CheckHostPermission(details.origin, appURI) ? 'allow' : 'deny'));
 }
 
-let localServer: http.Server | null = null;
-
 async function startLocalServer(webRoot: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const mimeTypes: Record<string, string> = {
@@ -148,7 +146,6 @@ async function startLocalServer(webRoot: string): Promise<string> {
             if (addr && typeof addr === 'object') {
                 const url = `http://127.0.0.1:${addr.port}`;
                 console.log(`[LocalServer] ${webRoot} → ${url}`);
-                localServer = server;
                 resolve(url);
             }
         });
