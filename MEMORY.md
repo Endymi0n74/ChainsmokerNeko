@@ -3,6 +3,12 @@
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
 > Dernière mise à jour : 15 août 2026.
 
+> ⚠️ **CONVENTION UTILISATEUR (à partir du 15 août 2026) : AUCUNE RÉGRESSION.**
+> Chaque changement doit vérifier qu'aucune fonctionnalité déjà validée ne casse :
+> refaire les tests e2e pertinents (listing ET flux chapitre → pages → image),
+> pas seulement le chemin modifié. En cas de doute, re-tester l'existant AVANT de
+> déclarer le travail terminé. Ne jamais laisser un fix partiel dans le working tree.
+
 ## 1. Ce qu'est le projet
 
 Fork personnel de **Haruneko** (successeur de HakuNeko) : application desktop de
