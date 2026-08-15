@@ -31,5 +31,8 @@
         "test:websites": "npm run build --workspaces && vitest run --config=test/vitest.websites.js",
         "npm:clean-install": "npm update --package-lock-only && npm clean-install",
         "postinstall": "npm --workspace=app/electron exec electron -- --no-sandbox --version"
+    },
+    "allowScripts": {
+        "github:manga-download/websocket-rpc#14d0bfc08601ee8adfe9f8869d9cc7c9f6238700": true
     }
 }

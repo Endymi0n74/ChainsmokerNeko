@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
+import http from 'http';
 import { app } from 'electron';
 import { Command } from 'commander';
 import { IPC } from './ipc/InterProcessCommunication';
@@ -28,7 +29,7 @@ function ParseCLI(): CLIOptions {
             .allowExcessArguments(true)
             .option('--origin [url]', 'custom location from which the web-app shall be loaded')
             .parse(process.argv, { from: 'electron' });
-        return argv.opts<CLIOptions>();
+        return argv.opts();
     } catch {
         return {};
     }
@@ -48,8 +49,7 @@ async function LoadManifest(): Promise<Manifest> {
 
 async function SetupUserDataDirectory(manifest: Manifest): Promise<void> {
     const userDataDir = manifest['user-data-dir'];
-    // TODO: Do not replace when already set via commandline
-    if(/* !argv['user-data-dir'] && */ userDataDir) {
+    if (userDataDir) {
         app.setPath('userData', path.isAbsolute(userDataDir) ? userDataDir : path.resolve(path.dirname(app.getPath('exe')), userDataDir));
     }
 }
@@ -62,10 +62,9 @@ async function CreateApplicationWindow(): Promise<ApplicationWindow> {
         center: true,
         frame: false,
         transparent: true,
-        //icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
         webPreferences: {
             sandbox: false,
-            webSecurity: false, // Bypass CORS checks
+            webSecurity: false,
             contextIsolation: true,
             nodeIntegration: false,
             nodeIntegrationInWorker: false,
@@ -92,8 +91,69 @@ function CheckHostPermission(url: string, appURI: URL) {
 function UpdatePermissions(session: Electron.Session, appURI: URL) {
     session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => CheckHostPermission(requestingOrigin, appURI));
     session.setPermissionRequestHandler((webContents, permission, callback, details) => callback(CheckHostPermission(details.requestingUrl, appURI)));
-    // TODO: May remove the following workaround when https://github.com/electron/electron/issues/41957 is solved
     session.on('file-system-access-restricted', (event, details, callback) => callback(CheckHostPermission(details.origin, appURI) ? 'allow' : 'deny'));
+}
+
+let localServer: http.Server | null = null;
+
+async function startLocalServer(webRoot: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const mimeTypes: Record<string, string> = {
+            '.html': 'text/html; charset=utf-8',
+            '.js': 'application/javascript; charset=utf-8',
+            '.mjs': 'application/javascript; charset=utf-8',
+            '.css': 'text/css; charset=utf-8',
+            '.json': 'application/json',
+            '.webp': 'image/webp',
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.svg': 'image/svg+xml',
+            '.woff2': 'font/woff2',
+            '.ico': 'image/x-icon',
+        };
+
+        const server = http.createServer(async (req, res) => {
+            try {
+                let reqPath = decodeURIComponent(req.url || '/');
+                if (reqPath.includes('..')) {
+                    res.writeHead(403);
+                    res.end();
+                    return;
+                }
+
+                let filePath = path.join(webRoot, reqPath);
+                const stat = await fs.stat(filePath).catch(() => null);
+                if (stat?.isDirectory()) {
+                    filePath = path.join(filePath, 'index.html');
+                }
+
+                const data = await fs.readFile(filePath);
+                const ext = path.extname(filePath).toLowerCase();
+
+                res.writeHead(200, {
+                    'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+                    'Access-Control-Allow-Origin': '*',
+                    'Service-Worker-Allowed': '/',
+                });
+                res.end(data);
+            } catch {
+                res.writeHead(404);
+                res.end();
+            }
+        });
+
+        server.listen(0, '127.0.0.1', () => {
+            const addr = server.address();
+            if (addr && typeof addr === 'object') {
+                const url = `http://127.0.0.1:${addr.port}`;
+                console.log(`[LocalServer] ${webRoot} → ${url}`);
+                localServer = server;
+                resolve(url);
+            }
+        });
+        server.on('error', reject);
+    });
 }
 
 async function OpenWindow(): Promise<void> {
@@ -105,10 +165,19 @@ async function OpenWindow(): Promise<void> {
         app.userAgentFallback = manifest['user-agent'] ?? app.userAgentFallback.split(/\s+/).filter(segment => !/(hakuneko|electron)/i.test(segment)).join(' ');
         await app.whenReady();
         const win = await CreateApplicationWindow();
+
+        let rawUrl = argv.origin ?? manifest.url ?? 'about:blank';
+
+        // Si c'est un chemin local (./web/...), lancer un serveur HTTP
+        if (!rawUrl.match(/^(https?|file|about):/i)) {
+            const webRoot = path.resolve(app.getAppPath(), rawUrl.replace(/\/index\.html$/, '').replace(/^\.\//, ''));
+            rawUrl = await startLocalServer(webRoot);
+        }
+
+        const uri = new URL(rawUrl);
+        UpdatePermissions(win.webContents.session, uri);
         const ipc = new IPC(win.webContents);
         const rpc = new RPCServer('/hakuneko', new RemoteProcedureCallContract(ipc, win.webContents));
-        const uri = new URL(argv.origin ?? manifest.url ?? 'about:blank');
-        UpdatePermissions(win.webContents.session, uri);
         new RemoteProcedureCallManager(rpc, ipc);
         new FetchProvider(ipc, win.webContents);
         new RemoteBrowserWindowController(ipc);

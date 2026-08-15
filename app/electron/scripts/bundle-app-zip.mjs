@@ -5,22 +5,16 @@ import { run } from '../../tools.mjs';
 const pkgFile = 'package.json';
 const pkgConfig = JSON.parse(await fs.readFile(pkgFile));
 
-/**
- * Bundle Portable Binary for Windows
- * See: https://www.electronjs.org/docs/latest/tutorial/application-distribution#manual-packaging
- */
 export async function bundle(blinkApplicationSourceDirectory, blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
     await bundleApp(blinkApplicationSourceDirectory, blinkDeploymentTemporaryDirectory);
     await makePortable(blinkDeploymentTemporaryDirectory);
     await updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory);
-    // TODO: include ffmpeg
-    // TODO: include imagemagick
-    // TODO: include kindlegen
     await createZipArchive(blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory);
 }
 
 async function bundleApp(blinkApplicationSourceDirectory, blinkDeploymentTemporaryDirectory) {
     const target = path.join(blinkDeploymentTemporaryDirectory, 'resources', 'app');
+    await fs.rm(target, { force: true, recursive: true });
     await fs.cp(blinkApplicationSourceDirectory, target, { recursive: true });
 }
 
@@ -28,7 +22,7 @@ async function makePortable(blinkDeploymentTemporaryDirectory) {
     const userdata = path.join(blinkDeploymentTemporaryDirectory, 'userdata');
     await fs.mkdir(userdata, { recursive: true });
     const pkgfile = path.join(blinkDeploymentTemporaryDirectory, 'resources', 'app', 'package.json');
-    const pkg = await JSON.parse(await fs.readFile(pkgfile));
+    const pkg = JSON.parse(await fs.readFile(pkgfile));
     pkg['user-data-dir'] = 'userdata';
     await fs.writeFile(pkgfile, JSON.stringify(pkg, null, 4));
 }
@@ -37,20 +31,25 @@ async function updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentT
     const binary = path.join(blinkDeploymentTemporaryDirectory, 'electron.exe');
     const icon = path.join(blinkApplicationResourcesDirectory, process.platform, 'app.ico');
     const rcedit = path.join(blinkApplicationResourcesDirectory, process.platform, 'rcedit64.exe');
-    const command = [
-        rcedit,
-        `"${binary}"`,
-        `--set-version-string "ProductName" "${pkgConfig.title}"`,
-        `--set-version-string "CompanyName" ""`,
-        `--set-version-string "LegalCopyright" "${new Date().getFullYear()}"`,
-        `--set-version-string "FileDescription" "${pkgConfig.description}"`,
-        `--set-version-string "InternalName" ""`,
-        `--set-version-string "OriginalFilename" "${pkgConfig.name}.exe"`,
-        //`--set-file-version "0.54.0"`,
-        //`--set-product-version "0.54.0"`,
-        `--set-icon "${icon}"`
-    ].join(' ');
-    await run(command);
+    
+    try {
+        const command = [
+            rcedit,
+            `"${binary}"`,
+            `--set-version-string "ProductName" "${pkgConfig.title}"`,
+            `--set-version-string "CompanyName" ""`,
+            `--set-version-string "LegalCopyright" "${new Date().getFullYear()}"`,
+            `--set-version-string "FileDescription" "${pkgConfig.description}"`,
+            `--set-version-string "InternalName" ""`,
+            `--set-version-string "OriginalFilename" "${pkgConfig.name}.exe"`,
+            `--set-icon "${icon}"`
+        ].join(' ');
+        await run(command);
+        console.log('  [rcedit] OK — icône et métadonnées appliquées');
+    } catch (e) {
+        console.warn('  [rcedit] Ignoré (permission) —', e.message);
+    }
+    
     await fs.rename(binary, binary.replace(/electron\.exe$/i, `${pkgConfig.name}.exe`));
 }
 
@@ -59,6 +58,6 @@ async function createZipArchive(blinkDeploymentTemporaryDirectory, blinkDeployme
     try {
         await fs.unlink(artifact);
     } catch(error) {/**/}
-    const command = `powershell "Compress-Archive '${blinkDeploymentTemporaryDirectory}' '${artifact}'"`;
+    const command = `powershell -Command "Compress-Archive -Path '${blinkDeploymentTemporaryDirectory}\\*' -DestinationPath '${artifact}' -Force"`;
     await run(command);
 }
