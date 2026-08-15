@@ -77,6 +77,13 @@ app/electron/build|bundle/     → build Electron (généré)
   images en `@Common.ImageAjax()` + header `Referer`. Fichiers `Comix.DRM.*` supprimés.
   **✅ Validé par test utilisateur (15 août)** : bookmarks, liste des mangas,
   affichage des chapitres et téléchargement fonctionnels.
+  - **Régression « aucune image » (15 août, corrigée par `0f44b305`)** : le délai de
+    grâce 2,5 s (§6) fait que `CheckAntiScrapingDetection` (code obfusqué upstream)
+    tourne APRÈS hydratation du reader Comix, et une détection fait `removeChild`
+    sur un nœud disparu → `TypeError` à chaque exécution → `FetchPages` n'aboutissait
+    jamais (mangas + chapitres OK, mais 0 page/image). Fix : échec de la détection
+    anti-scraping = « aucun challenge » (`FetchRedirection.None`) → on scrape quand
+    même. **✅ Validé par test e2e** (563 chapitres → 183 pages → image webp 100 kB).
 - **MangaFire** : liste (71k mangas) / chapitres / pages via `FetchWindowScript` +
   **signature API `vrf`** (cipher STAGE_DATA dans `MangaFire.ts`). `GetHID(identifier)`
   = préfixe avant le 1er tiret du slug. Images via `@Common.ImageAjax()`.
@@ -163,6 +170,8 @@ cf_clearance jamais émise → il faut une autre IP/VPN).
 - `015ab8b0` fix(websites): auto-résolution challenges managés + opt-in reload (ChallengeReload.ts, CrunchyScan) + retry FetchImage.
 - `f3ece8b9` test(websites): test de régression de listing `CloudflareList_e2e.ts` (mangafire/comix/mangadrama ; crunchyscan skip).
 - `735971e0` feat(viewer): action « Save all images » dans l'ImageViewer (narrow + wide).
+- `5858654a` docs: page repo propre (README.md, CHANGELOG.md, CONTRIBUTING.md, SECURITY.md).
+- `0f44b305` fix(websites): échec de détection anti-scraping → `None` (fix « aucune image » Comix).
 
 ## 7. Commandes utiles
 
