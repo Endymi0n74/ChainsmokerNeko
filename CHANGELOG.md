@@ -46,6 +46,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   ~1 200 nœuds DOM d'une longue série). Les abonnements aux flags et à la file de
   téléchargement sont **centralisés dans la liste** (un par liste) et l'état est
   passé aux items en props, au lieu de ~2 abonnements par chapitre (milliers au total).
+- **Liste des mangas shardée (`MediaLists`)** : la liste d'un site (ex. ~70 000
+  entrées MangaFire) n'est plus chargée/réécrite en un seul blob mono-clé ; elle est
+  découpée en lots de 1 000 entrées (clés `#0`, `#1`, … + méta `#meta`), avec repli
+  sur l'ancien format mono-clé et purge des lots obsolètes lors d'une mise à jour.
 
 ### Retiré
 
