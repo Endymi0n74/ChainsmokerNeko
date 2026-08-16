@@ -10,8 +10,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Version propre du projet (`0.1.0`) : les bundles sont désormais nommés
   `hakuneko-electron-v0.1.0-<plateforme>-<arch>.zip` au lieu de porter la version
   d'Electron (`v43.3.0`) ; la version est aussi propagée au manifest embarqué et au snap.
-- La version de l'app est affichée dans les paramètres (« HakuNeko v0.1.0 »), lue depuis
-  le manifest via un nouveau channel IPC `ApplicationWindow::GetVersion`.
+- La version de l'app est affichée dans les paramètres (« HakuNeko v0.1.0 ») et dans le
+  menu « À propos » de la barre latérale (« Using version 0.1.0 »), lue depuis le manifest
+  via le channel IPC `ApplicationWindow::GetVersion`.
 
 - Connecteurs **CrunchyScan** et **MangaDrama** (scrapers + WAF), panneau « Nouveaux chapitres » et UX du lecteur améliorée.
 - Connecteur **Comix** entièrement reconstruit **sans DRM** (~91 000 mangas, chapitres et pages via scripts axios du site).
