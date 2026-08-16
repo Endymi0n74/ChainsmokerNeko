@@ -12,6 +12,15 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   réécrits (comparaison `id` + `title`), au lieu de réécrire la totalité des lots à
   chaque mise à jour. Chaque lot est comparé **un par un à la volée** (lecture puis
   éventuelle écriture), sans jamais matérialiser toute l'ancienne liste en mémoire.
+- **Mesure du gain (live, IndexedDB réel — voir `BENCHMARKS.md` §2)** : sur une
+  liste de 70 000 entrées, les écritures par refresh passent de **70** (réécriture
+  complète des shards, v0.1.1) / 1 blob de 70 k (mono-clé, v0.1.0) à **0** sur une
+  liste inchangée et **1–2** avec quelques changements. La durée mur-à-mur reste
+  ~30 ms sur NVMe (le fetch réseau des 70 k titres, ~77 s, domine le refresh) — le
+  gain est structurel : pas de réécriture/clone systématique, écritures en
+  O(modifications) au lieu de O(liste), et l'ancienne liste n'est plus matérialisée
+  en mémoire. Tests de régression couvrant aussi le rétrécissement (purge des shards
+  périmés sans réécrire les shards inchangés).
 
 ## [0.1.1] - 2026-08-16
 
