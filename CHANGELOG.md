@@ -10,7 +10,8 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - **Mise à jour différentielle des listes de mangas (`MediaLists`)** : lors d'un
   refresh, seuls les lots (`#0`, `#1`, …) dont le contenu a réellement changé sont
   réécrits (comparaison `id` + `title`), au lieu de réécrire la totalité des lots à
-  chaque mise à jour.
+  chaque mise à jour. Chaque lot est comparé **un par un à la volée** (lecture puis
+  éventuelle écriture), sans jamais matérialiser toute l'ancienne liste en mémoire.
 
 ## [0.1.1] - 2026-08-16
 
