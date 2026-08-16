@@ -17,8 +17,8 @@ jobs:
     runs-on: windows-latest
     env:
       # Shared cache dir for the Electron distribution archives:
-      # - electron_config_cache  → used by the electron postinstall (npm ci)
-      # - HAKUNEKO_ELECTRON_CACHE → used by scripts/deploy-app.mjs
+      # - electron_config_cache: used by the electron postinstall (npm ci)
+      # - HAKUNEKO_ELECTRON_CACHE: used by scripts/deploy-app.mjs
       electron_config_cache: ${{ runner.temp }}/electron-zips
       HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
     steps:
