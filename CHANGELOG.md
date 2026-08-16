@@ -3,6 +3,16 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.3] - 2026-08-16
+
+### Modifié
+
+- **Débounce adaptatif du filtre mangas** : le délai passe à **120 ms en mode
+  sous-chaîne** (défaut) au lieu de 200 ms — la latence E2E saisie → mise à jour de
+  la liste mesurée en réel passe de **~313 ms à ~192 ms** (voir `BENCHMARKS.md`
+  §1). Le mode **flou** (opt-in) garde 200 ms : la recherche Fuse.js (~205 ms)
+  tourne en Web Worker et un délai plus long évite d'empiler les recherches.
+
 ## [0.1.2] - 2026-08-16
 
 ### Modifié

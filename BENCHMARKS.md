@@ -25,27 +25,32 @@ seule passe (pas de moyenne) — ordres de grandeur fiables, à ±10 ms.
 | `filterMedia` complet (flou) | 191,1 ms | 14 895 |
 | `filterMedia` complet (sous-chaîne) | 7,8 ms | 19 |
 
-## Avant / après le débounce (commit `c712d5f7`)
+## Avant / après le débounce (commits `c712d5f7` + 0.1.3)
 
-| Mode | Avant (sans débounce, par frappe) | Après (débounce 200 ms) |
-|---|---|---|
-| **Sous-chaîne (défaut)** | ~5 ms (requête étroite) à ~45 ms (requête large) de blocage par frappe | frappes non bloquantes, **~313 ms** mesurés E2E après la dernière frappe |
-| **Flou (opt-in)** | ~200 ms de blocage par frappe → taper `"one piece"` (9 touches) ≈ **1,8 s** cumulées | 200 ms + 191 ms ≈ **391 ms** une seule fois |
+| Mode | Avant (sans débounce, par frappe) | Après débounce 200 ms | Après débounce 120 ms (0.1.3) |
+|---|---|---|---|
+| **Sous-chaîne (défaut)** | ~5 ms (étroite) à ~45 ms (large) de blocage par frappe | ~313 ms E2E | **~192 ms E2E** (185–204 ms) |
+| **Flou (opt-in)** | ~200 ms de blocage par frappe → ≈ **1,8 s** pour `"one piece"` | 200 + 191 ≈ **391 ms** | inchangé (200 ms, le worker absorbe le coût) |
+
+Depuis la 0.1.3, le débounce est **adaptatif** : **120 ms en mode sous-chaîne**
+(défaut, filtrage rapide ~5 ms) et **200 ms en mode flou** (le worker Fuse prend
+~200 ms, un délai plus long évite d'empiler les recherches pendant la frappe).
+Mesuré en sous-chaîne (méthode in-page identique au 313 ms, moyenne de 3 passes) :
+`1` → 192 ms (30 634 résultats), `one` → 193 ms (0), `manga 1234` → 202 ms (11),
+`manga1234` → 186 ms (0), `x` → 188 ms (0). Gain E2E ≈ **120 ms**.
 
 ## Interprétation
 
-1. **Le vrai goulot est la recherche floue Fuse.js : 205 ms par recherche** sur le
-   thread UI, et elle renvoie 14 895 résultats (21 % de la liste) car
-   `findAllMatches: true` + `ignoreLocation: true` sont très permissifs. C'est la
-   cible prioritaire pour un déplacement en Web Worker.
+1. **Le vrai goulot est la recherche floue Fuse.js : 205 ms par recherche** — il est
+   désormais déporté dans un **Web Worker** (0.1.2, `1e1aee48`), l'UI ne bloque
+   plus ; et `findAllMatches + ignoreLocation` très permissifs matchent 21 % de la
+   liste (14 895 titres pour « one piece »).
 2. Le tri (`localeCompare`) coûte 8–42 ms et était refait **à chaque frappe** avant ;
    il est désormais fait **une seule fois au chargement**.
-3. Le débounce (200 ms) est la latence dominante en mode sous-chaîne par défaut
-   (~313 ms) : léger coût de réactivité accepté contre la suppression des à-coups,
-   et gain massif en mode flou (1,8 s → 0,39 s).
-4. Piste d'amélioration : abaisser le débounce à ~120–150 ms pour le mode
-   sous-chaîne, et déporter Fuse en Web Worker pour éliminer les 205 ms restants
-   en mode flou.
+3. Le débounce (120 ms sous-chaîne) est la latence dominante restante en mode
+   défaut (~192 ms E2E mesurés) : acceptable et fluide.
+4. Piste restante : Fuse renvoie 14 895 résultats pour « one piece » (21 %) — si le
+   mode flou s'avère trop permissif au quotidien, resserrer `findAllMatches`/`threshold`.
 
 ## 2. Sauvegarde des `MediaLists` au refresh (diff vs réécriture complète)
 
