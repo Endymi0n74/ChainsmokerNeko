@@ -41,6 +41,11 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - **Recherche de mangas fluidifiée** : la saisie est débouncée (200 ms) et la liste
   n'est triée qu'une seule fois au chargement au lieu d'être re-triée à chaque frappe
   (le filtrage préserve l'ordre déjà trié).
+- **Liste des chapitres virtualisée** : la liste des éléments d'un manga utilise
+  désormais `VirtualList` (seules les lignes visibles sont rendues, au lieu des
+  ~1 200 nœuds DOM d'une longue série). Les abonnements aux flags et à la file de
+  téléchargement sont **centralisés dans la liste** (un par liste) et l'état est
+  passé aux items en props, au lieu de ~2 abonnements par chapitre (milliers au total).
 
 ### Retiré
 

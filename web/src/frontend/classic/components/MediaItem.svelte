@@ -1,9 +1,10 @@
 <script lang="ts">
-    import { onMount, onDestroy} from 'svelte';
-    import { fade } from 'svelte/transition';
-
     interface Props {
         item: MediaContainer<MediaItem>;
+        // Provided by the parent MediaItemSelect (single centralized subscriptions):
+        flag?: FlagType;
+        task?: DownloadTask;
+        taskStatus?: Status;
         selected: boolean;
         hover: boolean;
         onView: (MouseEvent) => void;
@@ -11,7 +12,18 @@
         onmousedown: (MouseEvent) => void;
         onmouseenter: (MouseEvent) => void;
     };
-    let { item, selected, hover, onView, onmouseup, onmousedown, onmouseenter }: Props  = $props();
+    let {
+        item,
+        flag,
+        task: downloadTask,
+        taskStatus: downloadTaskStatus,
+        selected,
+        hover,
+        onView,
+        onmouseup,
+        onmousedown,
+        onmouseenter,
+    }: Props  = $props();
 
     import { Button, ClickableTile } from 'carbon-components-svelte';
     import BookmarkFilled from 'carbon-icons-svelte/lib/BookmarkFilled.svelte';
@@ -29,10 +41,7 @@
         MediaContainer,
         StoreableMediaContainer,
     } from '../../../engine/providers/MediaPlugin';
-    import {
-        FlagType,
-        type EntryFlagEventData,
-    } from '../../../engine/ItemflagManager';
+    import { FlagType } from '../../../engine/ItemflagManager';
     import { Store as UI } from '../stores/Stores.svelte';
     import { DownloadTask, Status } from '../../../engine/DownloadTask';
     import { Key as GlobalKey } from '../../../engine/SettingsGlobal';
@@ -54,47 +63,14 @@
         );
     }
 
-    let flag: FlagType = $state();
     const flagiconmap = new Map<FlagType, any>([
         [FlagType.Viewed, ViewFilled],
         [FlagType.Current, BookmarkFilled],
     ]);
 
-    let flagicon = $derived(flagiconmap.get(flag) || View);
-
-    async function OnFlagChangedCallback(flagData: EntryFlagEventData) {
-        if (flagData.Entry === item) {
-            flag = flagData.Kind;
-        } else if (flagData.Kind === FlagType.Current) {
-            flag = await HakuNeko.ItemflagManager.GetItemFlagType(item);
-        }
-    }
-    HakuNeko.ItemflagManager.EntryFlagEventChannel.Subscribe(
-        OnFlagChangedCallback,
+    let flagicon = $derived(
+        (flag !== undefined && flagiconmap.get(flag)) || View,
     );
-    onMount(async () => {
-        flag = await HakuNeko.ItemflagManager.GetItemFlagType(item);
-    });
-    onDestroy(() => {
-        HakuNeko.ItemflagManager.EntryFlagEventChannel.Unsubscribe(
-            OnFlagChangedCallback,
-        );
-        downloadTask?.Status.Unsubscribe(refreshDownloadStatus);
-        HakuNeko.DownloadManager.Queue.Unsubscribe(taskQueueChanged);
-    });
-
-    let downloadTask: DownloadTask = $state();
-    let downloadTaskStatus: Status=$state();
-
-    async function taskQueueChanged(tasks: DownloadTask[]) {
-        downloadTask?.Status.Unsubscribe(refreshDownloadStatus);
-        downloadTask = tasks.find((task) => task.Media.IsSameAs(item));
-        downloadTask?.Status.Subscribe(refreshDownloadStatus);
-    }
-    HakuNeko.DownloadManager.Queue.Subscribe(taskQueueChanged);
-    async function refreshDownloadStatus(newstatus: Status, _task: DownloadTask) {
-        downloadTaskStatus = newstatus;
-    }
 
     async function addDownload(item: StoreableMediaContainer<MediaItem>) {
         try {
@@ -118,7 +94,6 @@
 <div
     class="listitem"
     role="listitem"
-    in:fade
     class:selected
     class:hover
     class:active={UI.selectedItem?.Identifier === item?.Identifier}
@@ -155,7 +130,7 @@
             tooltipPosition="right"
             tooltipAlignment="end"
             iconDescription="Cancel (paused)"
-            onclick={() => removeDownload(downloadTask)}
+            onclick={() => downloadTask && removeDownload(downloadTask)}
         >
             <Pause fill="var(--cds-toggle-off)" />
         </Button>
@@ -166,7 +141,7 @@
             tooltipPosition="right"
             tooltipAlignment="end"
             iconDescription="Cancel (downloading...)"
-            onclick={() => removeDownload(downloadTask)}
+            onclick={() => downloadTask && removeDownload(downloadTask)}
         >
             <Download fill="var(--cds-support-info)" />
         </Button>
@@ -176,7 +151,7 @@
             size="small"
             kind="ghost"
             iconDescription="Cancel (processing...)"
-            onclick={() => removeDownload(downloadTask)}
+            onclick={() => downloadTask && removeDownload(downloadTask)}
         >
             <VolumeFileStorage fill="var(--cds-support-info)" />
         </Button>
@@ -188,7 +163,7 @@
             tooltipAlignment="end"
             icon={EventIncident}
             iconDescription="Error: click to retry (detailed error in download tasks)"
-            onclick={() => downloadTask.Run()}
+            onclick={() => downloadTask?.Run()}
         />
     {:else if downloadTaskStatus === Status.Completed}
         <Button
