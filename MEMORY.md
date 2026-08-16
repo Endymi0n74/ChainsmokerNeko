@@ -214,13 +214,37 @@ cd haruneko && ./node_modules/electron/dist/electron.exe app/electron/.tmp/xxx.c
 - **Electron** 43.3.0 (Chromium 150). Node local **v26** ; CI = **Node 24**.
 - `.npmrc` : `engine-strict=true`. `package-lock.json` est **committé** (retiré du
   `.gitignore`) → install CI = `npm ci` (déterministe).
-- Workflow `.github/workflows/push-ci.yml` : typecheck (web/electron/nw) + eslint +
-  svelte-check + vue-tsc + build web/electron, avec cache npm/electron.
-- Workflow `.github/workflows/release-bundles.yml` (16 août) : à chaque push, build des
-  3 bundles Windows (ia32/x64/arm64) via `deploy-app.mjs` sur `windows-latest`, puis
-  publication de la release roulante `nightly` (master uniquement, `--latest=false`).
+- **Workflow CI fusionné** (16 août, commit `c8859f13`) : `push-ci.yml` remplace
+  l'ancien `release-bundles.yml` (supprimé). À chaque push — 3 jobs en cascade :
+  1. **`ci`** (ubuntu) : typecheck web/electron/nw + eslint + svelte-check + vue-tsc
+     + build web/electron (cache npm + binaire Electron), puis **upload de l'artefact
+     `electron-build`** ;
+  2. **`bundles`** (windows, `needs: ci`) : **réutilise le build via artefact** (plus de
+     `npm ci` ni de rebuild — les deps prod commander/websocket-rpc sont du JS pur,
+     build portable) → 3 bundles Windows (ia32/x64/arm64) via `deploy-app.mjs` ;
+  3. **`release`** (ubuntu, `needs: bundles`, master uniquement) : publie la release
+     roulante `nightly` (`--latest=false`).
+  - `paths-ignore` : les commits purement docs (`*.md`, `docs/**`, `MEMORY.md`)
+    ne déclenchent plus le pipeline (commit `6256153a`).
+  - **Cache electron-zips** : `${{ runner.temp }}/electron-zips`, clé
+    `electron-zips-${{ runner.os }}-${{ hashFiles('app/electron/package.json') }}`,
+    branché sur `electron_config_cache` (npm ci) et `HAKUNEKO_ELECTRON_CACHE`
+    (deploy-app.mjs) — ~420 Mo téléchargés une seule fois (562 Mo de cache).
+    ⚠️ `runner` n'est **pas** autorisé dans un bloc `env:` de job (validation GitHub) —
+    mettre les env vars au niveau des steps. ⚠️ Pas d'unicode (ex. `→`) dans les
+    commentaires YAML des workflows (validation GitHub).
+  - **Validation** : act v0.2.89 en mode self-hosted (`-P windows-latest=-self-hosted`,
+    `--artifact-server-path` pour upload-artifact, `GIT_CONFIG_GLOBAL` isolé, clone
+    jetable dans /tmp) + runs de production réels (ci → artefact → bundles → nightly).
+    L'utilisateur a cru act être un virus — préférer **actionlint + CI GitHub réel**
+    pour valider les changements de workflow.
+- Autres workflows (audités 16 août, commit `e659c929`) : `pull-request-ci.yml` garde
+  ses propres checks (push-ci ne couvre pas les PR de forks externes) ;
+  `create-release.yml` (release multi-OS manuelle) réutilise le même cache
+  electron-zips ; `pull-request-deploy.yml` (préviews Cloudflare, label « Deploy PR »)
+  et `website-metrics.yml` (cron) — pas de chevauchement.
 - `continuous-deployment.yml` upstream a été **supprimé** (manquait les secrets Cloudflare).
-- `README.asciidoc` : badge CI pointe sur le workflow `push-ci.yml` du fork.
+- `README.md` : badge CI pointe sur le workflow `push-ci.yml` du fork.
 
 ## 9. Conventions git
 
