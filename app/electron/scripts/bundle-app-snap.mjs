@@ -48,7 +48,7 @@ async function createSnapcraftYaml(blinkDeploymentTemporaryDirectory, blinkDeplo
     const file = path.join(blinkDeploymentOutputDirectory, 'snapcraft.yaml');
     await fs.writeFile(file, `
 name: ${pkgConfig.name}
-version: ${pkgConfig.devDependencies.electron}
+version: ${pkgConfig.version}
 summary: ${pkgConfig.title}
 description: |
   ${pkgConfig.description}

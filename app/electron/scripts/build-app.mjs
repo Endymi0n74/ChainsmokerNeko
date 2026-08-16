@@ -28,6 +28,7 @@ try {
 
 const manifest = {
     name: pkgConfig.name,
+    version: pkgConfig.version,
     main: pkgConfig.main,
     url: './web/index.html',
     'node-remote': [

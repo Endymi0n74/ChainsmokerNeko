@@ -3,9 +3,13 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
-## [Non publié]
+## [0.1.0] - 2026-08-16
 
 ### Ajouté
+
+- Version propre du projet (`0.1.0`) : les bundles sont désormais nommés
+  `hakuneko-electron-v0.1.0-<plateforme>-<arch>.zip` au lieu de porter la version
+  d'Electron (`v43.3.0`) ; la version est aussi propagée au manifest embarqué et au snap.
 
 - Connecteurs **CrunchyScan** et **MangaDrama** (scrapers + WAF), panneau « Nouveaux chapitres » et UX du lecteur améliorée.
 - Connecteur **Comix** entièrement reconstruit **sans DRM** (~91 000 mangas, chapitres et pages via scripts axios du site).

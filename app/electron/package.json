@@ -1,5 +1,6 @@
 {
     "name": "hakuneko-electron",
+    "version": "0.1.0",
     "title": "HakuNeko",
     "description": "Manga, Anime & Novel Downloader (Electron based desktop client)",
     "type": "module",

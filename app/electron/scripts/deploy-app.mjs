@@ -13,15 +13,17 @@ const dirTmp = path.join('.', '.tmp');
 const electronVersion = pkgConfig.devDependencies.electron;
 
 async function redist(electronVersion, electronPlatform, electronArchitecture) {
-    const base = `electron-v${electronVersion}-${electronPlatform}-${electronArchitecture}`;
-    const archive = `${base}.zip`;
+    // The downloaded archive keeps the official Electron release name (required for the
+    // download URL and the shared cache), while the extracted directory carries the app's
+    // own name and version — the bundle artifacts derive their filenames from that directory.
+    const archive = `electron-v${electronVersion}-${electronPlatform}-${electronArchitecture}.zip`;
     const sourceFile = `https://github.com/electron/electron/releases/download/v${electronVersion}/${archive}`;
     // Allow caching the downloaded archives in a dedicated directory (e.g. CI cache),
     // falling back to the OS temp directory when unset.
     const dirCache = process.env.HAKUNEKO_ELECTRON_CACHE ? path.resolve(process.env.HAKUNEKO_ELECTRON_CACHE) : os.tmpdir();
     await fs.mkdir(dirCache, { recursive: true });
     const tmpFile = path.resolve(dirCache, archive);
-    const electronDir = path.resolve(dirTmp, base.replace(/^electron/i, pkgConfig.name));
+    const electronDir = path.resolve(dirTmp, `${pkgConfig.name}-v${pkgConfig.version}-${electronPlatform}-${electronArchitecture}`);
     
     try {
         await fs.access(tmpFile);
