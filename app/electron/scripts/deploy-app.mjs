@@ -16,7 +16,11 @@ async function redist(electronVersion, electronPlatform, electronArchitecture) {
     const base = `electron-v${electronVersion}-${electronPlatform}-${electronArchitecture}`;
     const archive = `${base}.zip`;
     const sourceFile = `https://github.com/electron/electron/releases/download/v${electronVersion}/${archive}`;
-    const tmpFile = path.resolve(os.tmpdir(), archive);
+    // Allow caching the downloaded archives in a dedicated directory (e.g. CI cache),
+    // falling back to the OS temp directory when unset.
+    const dirCache = process.env.HAKUNEKO_ELECTRON_CACHE ? path.resolve(process.env.HAKUNEKO_ELECTRON_CACHE) : os.tmpdir();
+    await fs.mkdir(dirCache, { recursive: true });
+    const tmpFile = path.resolve(dirCache, archive);
     const electronDir = path.resolve(dirTmp, base.replace(/^electron/i, pkgConfig.name));
     
     try {
