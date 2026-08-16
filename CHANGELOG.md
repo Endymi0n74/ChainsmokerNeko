@@ -3,6 +3,15 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [Unreleased]
+
+### Modifié
+
+- **Mise à jour différentielle des listes de mangas (`MediaLists`)** : lors d'un
+  refresh, seuls les lots (`#0`, `#1`, …) dont le contenu a réellement changé sont
+  réécrits (comparaison `id` + `title`), au lieu de réécrire la totalité des lots à
+  chaque mise à jour.
+
 ## [0.1.1] - 2026-08-16
 
 ### Ajouté
