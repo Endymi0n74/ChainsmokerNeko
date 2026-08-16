@@ -78,7 +78,7 @@ dans le flux applicatif réel.
 ### Intégration continue
 
 [`.github/workflows/push-ci.yml`](.github/workflows/push-ci.yml) : à chaque push — trois
-jobs en cascade :
+jobs en cascade (les commits purement documentaires `*.md` / `docs/**` sont ignorés) :
 1. **Typecheck & Build** (`ubuntu-latest`) : typecheck (web/electron/nw) + eslint +
    svelte-check + vue-tsc + build web/electron (cache npm + binaire Electron) ;
 2. **Windows bundles** (`windows-latest`, après le CI) : réutilise le build via artefact,

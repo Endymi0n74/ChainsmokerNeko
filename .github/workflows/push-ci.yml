@@ -2,6 +2,11 @@ name: Push (CI)
 
 on:
   push:
+    # Doc-only commits don't need the full build + bundles + nightly pipeline.
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'MEMORY.md'
   workflow_dispatch:
 
 permissions:
