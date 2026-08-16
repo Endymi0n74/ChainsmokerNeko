@@ -272,7 +272,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.3** (publiée le 16 août). Prochain bump (0.1.4) dès le prochain correctif
+  0.1.4** (publiée le 17 août). Prochain bump (0.1.5) dès le prochain correctif
   fonctionnel.
 
 ## 10. État récent (16 août, tous committés/poussés)
@@ -360,9 +360,13 @@ complets, méthodo CDP). État :
 - **0.1.2** (`a288bcbf`) : diff des `MediaLists` (réécriture ciblée, comparaison
   à la volée). Benchmark live consigné dans `BENCHMARKS.md` §2 (70 → 0 écritures).
 - **0.1.3** (`7a6bc0e4`) : débounce adaptatif **120 ms sous-chaîne / 200 ms flou**,
-  E2E ~313 → **~192 ms**. Release **`Latest`** publiée avec les 3 zips
-  (`hakuneko-electron-v0.1.3-win32-{x64,ia32,arm64}.zip`, hakuneko.exe + manifest
-  vérifiés). CI vert à chaque push.
+  E2E ~313 → **~192 ms**. Release publiée avec les 3 zips.
+- **0.1.4** (`f0e218e6`) : **login MangaDrama dans l'app** — `Initialize()`
+  vérifie `/wp-json/wp/v2/users/me` ; si non connecté, ouvre une fenêtre visible
+  sur `/my-account/` (poll 5 s, auto-fermeture à la connexion, cookies persistés
+  en session partagée → chapitres achetés déverrouillés) + **prix en coins**
+  affiché sur les chapitres verrouillés. Release **`Latest`** publiée avec les 3
+  zips v0.1.4 (hakuneko.exe + manifest vérifiés). CI vert.
 - Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
   sur les commits docs-only `*.md` — `paths-ignore`).
