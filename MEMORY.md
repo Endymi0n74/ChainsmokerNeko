@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 15 août 2026.
+> Dernière mise à jour : 16 août 2026.
 
 > ⚠️ **CONVENTION UTILISATEUR (à partir du 15 août 2026) : AUCUNE RÉGRESSION.**
 > Chaque changement doit vérifier qu'aucune fonctionnalité déjà validée ne casse :
@@ -203,10 +203,17 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 cd haruneko/web && node ../node_modules/vite/bin/vite.js build
 cd haruneko/app/electron && node ./scripts/build-app.mjs
 cd haruneko/app/electron && ../../node_modules/.bin/vite build   # main.js + preload.js
-# sonde Electron (fenêtre de test)
+# sonde Electron (fenêtre de test) — tourne sous le nom de processus `electron.exe`
 cd haruneko && ./node_modules/electron/dist/electron.exe app/electron/.tmp/xxx.cjs
-# lancer l'app (serveur local + HTTP)
-#   → l'app écoute sur http://127.0.0.1:<port> ; relancer via taskkill //F //IM electron.exe
+# bundles Windows (3 arches) — le cache électron est .tmp/electron-zips (disque du repo, D:)
+cd haruneko/app/electron && node scripts/deploy-app.mjs
+# lancer l'app EN PROD via l'exe du bundle (nom de processus `hakuneko.exe`) :
+#   1. extraire bundle/hakuneko-electron-v0.1.0-win32-<arch>.zip
+#   2. lancer hakuneko.exe depuis le dossier extrait
+#   → le serveur local écoute sur http://127.0.0.1:<port>
+# ⚠️ RÈGLE (16 août) : lancer l'app via `hakuneko.exe`, tuer les SONDES par PID.
+#   `taskkill //F //IM electron.exe` ne tue QUE les sondes (PAS l'app hakuneko.exe).
+#   Pour tuer l'app : `taskkill //F //IM hakuneko.exe` (ou par PID).
 ```
 
 ## 8. Environnement & CI
@@ -233,6 +240,14 @@ cd haruneko && ./node_modules/electron/dist/electron.exe app/electron/.tmp/xxx.c
     ⚠️ `runner` n'est **pas** autorisé dans un bloc `env:` de job (validation GitHub) —
     mettre les env vars au niveau des steps. ⚠️ Pas d'unicode (ex. `→`) dans les
     commentaires YAML des workflows (validation GitHub).
+  - **Cache local hors CI** (16 août) : quand `HAKUNEKO_ELECTRON_CACHE` n'est pas
+    défini, `deploy-app.mjs` retombe sur **`.tmp/electron-zips`** (disque du repo, D:)
+    au lieu du temp système (C:) — l'utilisateur ne veut plus de stockage sur C:.
+  - **Nom des exécutables** (16 août) : les bundles embarquent un binaire **`hakuneko`**
+    (`hakuneko.exe` Windows, binaire `hakuneko` dans le .app macOS et le snap Linux),
+    via le champ `productName` de `app/electron/package.json`. Les noms d'artefacts et
+    de paquets restent `hakuneko-electron-…` (zip/dmg/snap, identifiant de bundle macOS,
+    nom du snap) — cohérence : `hakuneko.exe` / `hakuneko` / `hakuneko`.
   - **Validation** : act v0.2.89 en mode self-hosted (`-P windows-latest=-self-hosted`,
     `--artifact-server-path` pour upload-artifact, `GIT_CONFIG_GLOBAL` isolé, clone
     jetable dans /tmp) + runs de production réels (ci → artefact → bundles → nightly).
@@ -253,3 +268,25 @@ cd haruneko && ./node_modules/electron/dist/electron.exe app/electron/.tmp/xxx.c
   `🤖 Generated with Codebuff` / `Co-Authored-By: Codebuff <noreply@codebuff.com>`.
 - Pas de `git push` sans demande explicite. Ne pas toucher au travail non committé
   des autres agents.
+
+## 10. État récent (16 août, tous committés/poussés)
+
+- **Auto-download des nouveaux chapitres** (`a065741f`) : bouton dans Paramètres →
+  Général — détecte les chapitres publiés **< 48h** dans les **bookmarks**, filtre les
+  **versions anglaises** (`Tags.Language.English`) et les enqueu. Ajout de
+  `Chapter.PublishedAt` (date remontée par le site — MangaFire expose `createdAt` par
+  chapitre ; les sites sans date sont simplement exclus). Validé en réel : 2 chapitres
+  anglais trouvés, 38+37 pages téléchargées.
+- **Drapeaux de langue devant les chapitres** (`6070449e`) : emoji du pays affiché dès
+  qu'un chapitre a un tag de langue (avant : seulement en mode multilingue). Les
+  emojis viennent des ressources i18n (`🇬🇧 English`, …).
+- **Version affichée** (`9fc55e73`, `ee1d1b2a`) : « HakuNeko v0.1.0 » (paramètres) et
+  « Using version 0.1.0 » (menu À propos) via le channel IPC `GetVersion` +
+  `ApplicationWindow_test.ts` (`fc7efa18`).
+- **« Save all images » retiré** (`132cb564`) : bouton superposé du lecteur supprimé.
+- **Exécutables renommés `hakuneko`** (`f8dbb049` Windows, `e06fcf0a` macOS/Linux) :
+  cf. §8 « Nom des exécutables » + règle de lancement/kill §7.
+- **Release 0.1.0 rafraîchie** (16 août) : bundles reconstruits contenant
+  `hakuneko.exe`, corps de release régénéré depuis le CHANGELOG.
+- Version du produit `0.1.0` (`24251c3b`) : les bundles s'appellent
+  `hakuneko-electron-v0.1.0-…` (version de l'app, plus celle d'Electron).
