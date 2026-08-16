@@ -4,6 +4,12 @@ import {
     FetchWindowScript
 } from '../platform/FetchProvider';
 import {
+    CreateRemoteBrowserWindow
+} from '../platform/RemoteBrowserWindow';
+import {
+    Delay
+} from '../BackgroundTimers';
+import {
     DecoratableMangaScraper,
     Manga,
     Chapter,
@@ -46,6 +52,66 @@ export default class extends DecoratableMangaScraper {
 
     public override get Icon() {
         return icon;
+    }
+
+    public override async Initialize(): Promise<void> {
+        // MangaDrama serves purchased (coin-unlocked) chapters only to an
+        // authenticated session. Detect login server-side via the REST API;
+        // when not logged in, open the account page in a visible window so the
+        // user can sign in. The session cookies land in the app's persistent
+        // shared session, so locked chapters become readable (is_purchased /
+        // InitMangaEncryptedChapter) on the next refresh.
+        const loggedIn = await this.#IsLoggedIn();
+        if(loggedIn) {
+            return;
+        }
+
+        const win = CreateRemoteBrowserWindow();
+        // Open directly visible so the user can sign in.
+        await win.Open(new Request(new URL('/my-account/', this.URI)), true, '');
+
+        // Poll the auth endpoint in the background; close the window as soon as
+        // the session is authenticated. Gives up silently if the user closes
+        // the window or after ~5 minutes.
+        this.#WaitForLogin(win);
+    }
+
+    async #IsLoggedIn(): Promise<boolean> {
+        try {
+            return await FetchWindowScript<boolean>(
+                new Request(
+                    new URL('/wp-json/wp/v2/users/me', this.URI)
+                ),
+                `fetch('/wp-json/wp/v2/users/me', { headers: { Accept: 'application/json' } })
+                    .then(response => response.ok)`
+            );
+        } catch {
+            return false;
+        }
+    }
+
+    async #WaitForLogin(win: ReturnType<typeof CreateRemoteBrowserWindow>): Promise<void> {
+        try {
+            for(let i = 0; i < 60; i++) { // ~5 minutes
+                await Delay(5000);
+                const loggedIn = await win.ExecuteScript<boolean>(
+                    `fetch('/wp-json/wp/v2/users/me', { headers: { Accept: 'application/json' } })
+                        .then(response => response.ok)`
+                );
+                if(loggedIn) {
+                    await win.Close();
+                    return;
+                }
+            }
+        } catch {
+            // Window was closed by the user — stop polling.
+            return;
+        }
+        try {
+            await win.Close();
+        } catch {
+            // Window already closed.
+        }
     }
 
     public override ValidateMangaURL(url: string): boolean {
