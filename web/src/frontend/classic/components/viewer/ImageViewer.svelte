@@ -44,6 +44,14 @@
     let entries = $derived(item.Entries.Value);
     let viewer: HTMLElement;
 
+    // Version de l'app affichée en pied de page discret du lecteur (mode plein écran).
+    let appVersion = $state('');
+    $effect(() => {
+        UI.WindowController?.GetVersion()
+            .then(version => appVersion = version)
+            .catch(() => { /* ignore */ });
+    });
+
     function viewerclose() {
         wide = false;
         onClose();
@@ -218,6 +226,9 @@
         </button>
     {/each}
 </div>
+{#if wide && appVersion}
+    <div class="viewer-version" transition:fade>v{appVersion}</div>
+{/if}
 {#if autoNextItem && UI.selectedItemNext !== undefined}
     <div  style="z-index: 20000; position: fixed; bottom: 2em; right: 2em;" transition:fade>
         <InlineNotification
@@ -291,6 +302,18 @@
     /* TODO: implement RTL reading */
     #ImageViewer.wide.paginated.reverse {
         flex-flow: row-reverse;
+    }
+    .viewer-version {
+        position: fixed;
+        bottom: 0.5em;
+        left: 0.75em;
+        z-index: 10000;
+        font-size: 0.72em;
+        font-weight: 400;
+        color: var(--cds-text-secondary, #6f6f6f);
+        opacity: 0.55;
+        pointer-events: none;
+        user-select: none;
     }
 
 </style>
