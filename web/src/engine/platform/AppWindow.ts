@@ -21,6 +21,10 @@ export interface IAppWindow {
     Maximize(): void;
     Restore(): void;
     Close(): void;
+    /**
+     * Get the application version (e.g. `0.1.0`), or an empty string when unavailable.
+     */
+    GetVersion(): Promise<string>;
 }
 
 export function CreateAppWindow(splashURL: string): IAppWindow {

@@ -24,6 +24,8 @@ export namespace ApplicationWindow {
         OpenSplash = 'ApplicationWindow::OpenSplash',
         /** Channel for IPC callback with signature: `() => Promise<void>` */
         CloseSplash = 'ApplicationWindow::CloseSplash',
+        /** Channel for IPC callback with signature: `() => Promise<string>` */
+        GetVersion = 'ApplicationWindow::GetVersion',
     };
 }
 

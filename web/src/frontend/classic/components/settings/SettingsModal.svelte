@@ -9,6 +9,7 @@
     import SettingsViewer from './SettingsViewer.svelte';
     import ViewerSettings from '../viewer/Settings.svelte';
     import { frontendClassicSettings, frontendClassicSettingsViewer } from '../../stores/Settings.svelte';
+    import { Store as UI } from '../../stores/Stores.svelte';
     import { Scope as Global_Scope } from '../../../../engine/SettingsGlobal';
 
     interface Props {
@@ -16,6 +17,13 @@
         selectedTab: number;
     };
     let { isSettingsModalOpen = $bindable(false), selectedTab = 0}: Props  = $props();
+
+    let appVersion = $state('');
+    $effect(() => {
+        if (isSettingsModalOpen) {
+            UI.WindowController?.GetVersion().then(version => appVersion = version).catch(() => appVersion = '');
+        }
+    });
 </script>
 
 <Modal
@@ -79,9 +87,18 @@
             </TabContent>
         </svelte:fragment>
     </Tabs>
+    {#if appVersion}
+        <p class="app-version">HakuNeko v{appVersion}</p>
+    {/if}
 </Modal>
 
 <style>
+    .app-version {
+        margin: 0.5rem 1rem 0;
+        text-align: right;
+        font-size: 0.75rem;
+        color: var(--cds-text-secondary, #525252);
+    }
     :global(#settingModal .settingtab) {
         height: 70vh;
     }

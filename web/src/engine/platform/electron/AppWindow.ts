@@ -55,4 +55,12 @@ export default class implements IAppWindow {
     public Close(): void {
         this.ipc.Send(Channels.App.Close);
     }
+
+    public async GetVersion(): Promise<string> {
+        try {
+            return await this.ipc.Send<string>(Channels.App.GetVersion);
+        } catch {
+            return '';
+        }
+    }
 }

@@ -82,4 +82,10 @@ export default class implements IAppWindow {
     public Close(): void {
         this.nwWindow.close();
     }
+
+    public async GetVersion(): Promise<string> {
+        // NW.js exposes the app manifest (package.json) via nw.App
+        const manifest = nw.App.manifest as { version?: string };
+        return manifest?.version ?? '';
+    }
 }

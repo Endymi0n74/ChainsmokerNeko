@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import type { IPC, Callback } from './InterProcessCommunication';
 import { ApplicationWindow as Channels } from '../../../src/ipc/Channels';
 
@@ -16,6 +16,7 @@ export class ApplicationWindow extends BrowserWindow {
         ipc.Listen(Channels.App.Close, super.close.bind(this) as Callback);
         ipc.Listen(Channels.App.OpenSplash, this.OpenSplash.bind(this) as Callback);
         ipc.Listen(Channels.App.CloseSplash, this.CloseSplash.bind(this) as Callback);
+        ipc.Listen<string>(Channels.App.GetVersion, async () => app.getVersion());
     }
 
     private async Restore() {
