@@ -294,7 +294,7 @@ export default class extends DecoratableMangaScraper {
         const hid = GetHID(manga.Identifier);
 
         const rows = await FetchWindowScript<
-            { id: string; number: number; name: string; language: string; type: string }[]
+            { id: string; number: number; name: string; language: string; type: string; createdAt: number | null }[]
         >(
             new Request(
                 new URL(`./title/${manga.Identifier}`, this.URI)
@@ -321,7 +321,8 @@ export default class extends DecoratableMangaScraper {
                                 number: item.number ?? 0,
                                 name: String(item.name ?? '').replace(/\\s+/g, ' ').trim(),
                                 language: String(item.language ?? 'en'),
-                                type: String(item.type ?? '')
+                                type: String(item.type ?? ''),
+                                createdAt: typeof item.createdAt === 'number' ? item.createdAt : null
                             });
                         }
                         hasNext = (items ?? []).length > 0 && meta?.hasNext !== false;
@@ -353,21 +354,22 @@ export default class extends DecoratableMangaScraper {
             120_000
         );
 
-        return rows.map(
-            ({ id, number, name, language, type }) =>
-                new Chapter(
-                    this,
-                    manga,
-                    id,
-                    [
-                        `Ch. ${number}`,
-                        name,
-                        type && `(${type})`,
-                        `(${language})`
-                    ].joinTitleSegments(),
-                    ...[chapterLanguageMap.get(language)].filter(Boolean)
-                )
-        );
+        return rows.map(({ id, number, name, language, type, createdAt }) => {
+            const tag = chapterLanguageMap.get(language);
+            return new Chapter(
+                this,
+                manga,
+                id,
+                [
+                    `Ch. ${number}`,
+                    name,
+                    type && `(${type})`,
+                    `(${language})`
+                ].joinTitleSegments(),
+                ...tag ? [ tag ] : [],
+                createdAt ? new Date(createdAt * 1000) : undefined
+            );
+        });
     }
 
     public override async FetchPages(

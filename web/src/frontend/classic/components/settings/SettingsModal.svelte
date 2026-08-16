@@ -1,5 +1,6 @@
 <script lang="ts">
     import {
+        Button,
         InlineNotification,
         Modal,
         Tabs,
@@ -11,6 +12,8 @@
     import { frontendClassicSettings, frontendClassicSettingsViewer } from '../../stores/Settings.svelte';
     import { Store as UI } from '../../stores/Stores.svelte';
     import { Scope as Global_Scope } from '../../../../engine/SettingsGlobal';
+    import { Tags } from '../../../../engine/Tags';
+    import { Chapter } from '../../../../engine/providers/MangaPlugin';
 
     interface Props {
         isSettingsModalOpen: boolean;
@@ -24,6 +27,45 @@
             UI.WindowController?.GetVersion().then(version => appVersion = version).catch(() => appVersion = '');
         }
     });
+
+    // Auto-download: new chapters (< 48h) from bookmarks, English only.
+    let isAutoDownloading = $state(false);
+    let autoDownloadStatus = $state('');
+
+    async function downloadNewChapters() {
+        if (isAutoDownloading) return;
+        isAutoDownloading = true;
+        autoDownloadStatus = 'Checking bookmarks…';
+        const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+        const chapters: Chapter[] = [];
+        try {
+            const bookmarks = [...window.HakuNeko.BookmarkPlugin.Entries.Value];
+            await Promise.all(bookmarks.map(async bookmark => {
+                try {
+                    await bookmark.Update();
+                } catch { /* broken/missing website: skip */ return; }
+                for (const entry of bookmark.Entries.Value) {
+                    if (!(entry instanceof Chapter)) continue;
+                    const isEnglish = entry.Tags.Value.some(tag => tag === Tags.Language.English);
+                    const publishedAt = entry.PublishedAt;
+                    if (isEnglish && publishedAt && publishedAt.getTime() >= cutoff) {
+                        chapters.push(entry);
+                    }
+                }
+            }));
+            if (chapters.length > 0) {
+                await window.HakuNeko.DownloadManager.Enqueue(...chapters);
+                autoDownloadStatus = `${chapters.length} new English chapter${chapters.length > 1 ? 's' : ''} added to the download queue.`;
+            } else {
+                autoDownloadStatus = 'No new English chapters in the last 48 hours.';
+            }
+        } catch (error) {
+            console.error('downloadNewChapters', error);
+            autoDownloadStatus = 'An error occurred while checking your bookmarks.';
+        } finally {
+            isAutoDownloading = false;
+        }
+    }
 </script>
 
 <Modal
@@ -48,6 +90,25 @@
             <TabContent
                 class="settingtab {selectedTab === 0 ? 'activetab' : 'hidden'}"
             >
+                <div class="autodl">
+                    <h4>Auto-download new chapters</h4>
+                    <p>
+                        Downloads the new chapters released in the last 48 hours
+                        from your bookmarks (English versions only).
+                    </p>
+                    <div class="autodl-actions">
+                        <Button
+                            kind="primary"
+                            disabled={isAutoDownloading}
+                            onclick={downloadNewChapters}
+                        >
+                            {isAutoDownloading ? 'Checking…' : 'Download new chapters (48h)'}
+                        </Button>
+                        {#if autoDownloadStatus}
+                            <span class="autodl-status">{autoDownloadStatus}</span>
+                        {/if}
+                    </div>
+                </div>
                 <SettingsViewer
                     settings={[
                         ...window.HakuNeko.SettingsManager.OpenScope(Global_Scope),
@@ -104,5 +165,28 @@
     }
     :global(#settingModal .settingtab.hidden) {
         display: none;
+    }
+    .autodl {
+        margin: 1rem 0;
+        padding: 1rem;
+        border: 1px solid var(--cds-border-subtle-00, #e0e0e0);
+        border-radius: 0.5rem;
+    }
+    .autodl h4 {
+        margin: 0 0 0.25rem;
+    }
+    .autodl p {
+        margin: 0 0 0.75rem;
+        font-size: 0.875rem;
+        color: var(--cds-text-secondary, #525252);
+    }
+    .autodl-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .autodl-status {
+        font-size: 0.875rem;
+        color: var(--cds-text-secondary, #525252);
     }
 </style>

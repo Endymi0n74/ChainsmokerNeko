@@ -3,6 +3,24 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [Unreleased]
+
+### Ajouté
+
+- **Téléchargement automatique des nouveaux chapitres** dans les paramètres (onglet
+  Général) : un bouton détecte les chapitres publiés dans les **48 dernières heures**
+  parmi les **bookmarks**, filtre les **versions anglaises** et les ajoute à la file de
+  téléchargement.
+- Champ `PublishedAt` sur le modèle `Chapter` : date de publication remontée depuis le
+  site (MangaFire fournit `createdAt` par chapitre) et utilisée par le filtre « 48h ».
+- Test unitaire du channel IPC `ApplicationWindow::GetVersion`
+  (`ApplicationWindow_test.ts`, avec `app.getVersion` mocké).
+
+### Retiré
+
+- Action **« Save all images »** du lecteur d'images (bouton superposé retiré : jugée
+  superflue par rapport au téléchargement standard des chapitres).
+
 ## [0.1.0] - 2026-08-16
 
 ### Ajouté
@@ -17,7 +35,6 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Connecteurs **CrunchyScan** et **MangaDrama** (scrapers + WAF), panneau « Nouveaux chapitres » et UX du lecteur améliorée.
 - Connecteur **Comix** entièrement reconstruit **sans DRM** (~91 000 mangas, chapitres et pages via scripts axios du site).
 - 17 nouveaux connecteurs.
-- Action **« Save all images »** dans le lecteur d'images : télécharge toutes les pages du chapitre courant.
 - Menu contextuel du lecteur d'images : enregistrer / copier l'image.
 - Bouton de téléchargement des éléments dans l'interface classique + affichage de la source en cas d'échec de la liste.
 - Test e2e de régression de listing pour les sites Cloudflare (`web/src/engine/websites/CloudflareList_e2e.ts`).

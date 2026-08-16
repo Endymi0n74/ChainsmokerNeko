@@ -163,10 +163,26 @@ export class Manga extends MediaContainer<Chapter> {
 export class Chapter extends StoreableMediaContainer<Page> {
 
     private readonly isStored = new Observable<boolean, Chapter>(false);
+    private readonly publishedAt?: Date;
 
-    constructor(private readonly scraper: MangaScraper, parent: Manga, identifier: string, title: string, ...tags: Tag[]) {
+    constructor(private readonly scraper: MangaScraper, parent: Manga, identifier: string, title: string, ...tagsAndDate: (Tag | Date)[]) {
         super(identifier, title, parent);
+        const tags: Tag[] = [];
+        for (const entry of tagsAndDate) {
+            if (entry instanceof Date) {
+                this.publishedAt = entry;
+            } else {
+                tags.push(entry);
+            }
+        }
         this.tags.Value = tags;
+    }
+
+    /**
+     * Publication date of the chapter, when provided by the website (used e.g. to detect newly released chapters).
+     */
+    public get PublishedAt(): Date | undefined {
+        return this.publishedAt;
     }
 
     protected PerformUpdate(): Promise<Page[]> {
