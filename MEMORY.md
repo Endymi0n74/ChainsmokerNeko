@@ -271,8 +271,9 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
-  `Latest` (3 zips + corps généré depuis le CHANGELOG). **Prochain bump : 0.1.3**
-  (version actuelle : 0.1.2).
+  `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
+  0.1.3** (publiée le 16 août). Prochain bump (0.1.4) dès le prochain correctif
+  fonctionnel.
 
 ## 10. État récent (16 août, tous committés/poussés)
 
@@ -330,7 +331,16 @@ complets, méthodo CDP). État :
 - **Fuse dans un Web Worker** (`1e1aee48`) : indexation + recherche Fuse.js
   déportées (`FuseSearchWorker.ts?worker&inline`), l'UI ne bloque plus (~205 ms
   hors thread). Vérifié live (round-trip `clover` → 1 résultat, 0 erreur). ✅
-- **Restant** : abaisser le débounce ~120–150 ms (mode sous-chaîne).
+- **Débounce adaptatif 120 ms sous-chaîne** (`7a6bc0e4`, release 0.1.3) : 120 ms
+  en mode sous-chaîne (défaut), 200 ms en mode flou (le worker absorbe ~205 ms).
+  Mesuré E2E live (méthode in-page identique au 313 ms, 3 passes, 70 k titres) :
+  **~192 ms** (185–204) au lieu de **~313 ms** → **~120 ms gagnés**.
+  ⚠️ Piège de mesure découvert : un `FuzzySearch=true` persistant (laissé par une
+  sonde) fait matcher Fuse ~tout pour « manga 1234 » → compteur figé à 70 000 qui
+  ressemble à un bug ; en sous-chaîne tout filtre correctement (`manga 1234` → 11
+  résultats exacts).
+- **Restant** : resserrer les options Fuse (`findAllMatches`/`threshold`,
+  21 % de la liste matchée en flou), optimiser le fetch réseau MangaFire (~77 s).
 
 ## 12. Fix persistance des réglages (16 août)
 
@@ -341,3 +351,18 @@ complets, méthodo CDP). État :
   (0) en dernier recours si collision. Vérifié en réel : marqueur IndexedDB écrit,
   fermeture propre, relance → relu sur la même origin (64210). Typecheck + 11 tests
   electron verts.
+
+## 13. Releases récentes (16 août)
+
+- **0.1.1** (`a408138e`) : fix persistance (port stable 64210) + perf (singleton
+  IDB, débounce, virtualisation chapitres, sharding MediaLists, Fuse worker) +
+  renommages/icône/drapeaux/version/splash.
+- **0.1.2** (`a288bcbf`) : diff des `MediaLists` (réécriture ciblée, comparaison
+  à la volée). Benchmark live consigné dans `BENCHMARKS.md` §2 (70 → 0 écritures).
+- **0.1.3** (`7a6bc0e4`) : débounce adaptatif **120 ms sous-chaîne / 200 ms flou**,
+  E2E ~313 → **~192 ms**. Release **`Latest`** publiée avec les 3 zips
+  (`hakuneko-electron-v0.1.3-win32-{x64,ia32,arm64}.zip`, hakuneko.exe + manifest
+  vérifiés). CI vert à chaque push.
+- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2.
+- Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
+  sur les commits docs-only `*.md` — `paths-ignore`).
