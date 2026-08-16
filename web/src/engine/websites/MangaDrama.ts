@@ -451,17 +451,25 @@ export default class extends DecoratableMangaScraper {
                         const plain = !raw
                             || raw.toLowerCase()
                                 === 'chapter ' + number;
-                        const title = plain
+                        const base = plain
                             ? 'Chapter ' + number
                             : 'Chapter ' + number + ' - ' + raw;
                         const locked = Boolean(
                             item.lock_type
                             && item.lock_type !== 'none'
                         );
+                        // Coin-locked chapters are server-side paywalled; surface
+                        // the price so the reader knows what a chapter costs.
+                        const price = locked
+                            && item.lock_type === 'coin'
+                            && Number(item.lock_value) > 0
+                            ? ' (' + item.lock_value + ' coin'
+                                + (Number(item.lock_value) > 1 ? 's' : '') + ')'
+                            : '';
 
                         return {
                             id,
-                            title: markTitle(title, locked)
+                            title: markTitle(base + price, locked)
                         };
                     });
                 };
