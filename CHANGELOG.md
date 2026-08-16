@@ -15,6 +15,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   site (MangaFire fournit `createdAt` par chapitre) et utilisée par le filtre « 48h ».
 - Test unitaire du channel IPC `ApplicationWindow::GetVersion`
   (`ApplicationWindow_test.ts`, avec `app.getVersion` mocké).
+- **Drapeaux de langue devant les chapitres** : le drapeau du pays (emoji) est
+  désormais affiché devant le nom de chaque chapitre doté d'un tag de langue,
+  pour distinguer les versions (auparavant réservé au mode multilingue).
 
 ### Modifié
 

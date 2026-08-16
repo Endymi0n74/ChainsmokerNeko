@@ -6,13 +6,12 @@
         item: MediaContainer<MediaItem>;
         selected: boolean;
         hover: boolean;
-        multilang ?: boolean;
         onView: (MouseEvent) => void;
         onmouseup: (MouseEvent) => void;
         onmousedown: (MouseEvent) => void;
         onmouseenter: (MouseEvent) => void;
     };
-    let { item, selected, hover , multilang = false, onView, onmouseup, onmousedown, onmouseenter }: Props  = $props();
+    let { item, selected, hover, onView, onmouseup, onmousedown, onmouseenter }: Props  = $props();
 
     import { Button, ClickableTile } from 'carbon-components-svelte';
     import BookmarkFilled from 'carbon-icons-svelte/lib/BookmarkFilled.svelte';
@@ -51,7 +50,7 @@
         return (
             GlobalSettings.Locale[languageTagTitleResourceKey]
                 ?.call(undefined)
-                ?.slice(0, 4) ?? '🏴'
+                ?.slice(0, 4) ?? ''
         );
     }
 
@@ -225,7 +224,7 @@
         onclick={(event) => onView(event)}
     />
     <ClickableTile class="title" onclick={(event) => onView(event)}>
-        {#if multilang}
+        {#if extractUnicodeFlagFromTags(item.Tags.Value)}
             <span class="multilang">
                 {extractUnicodeFlagFromTags(item.Tags.Value)}
             </span>

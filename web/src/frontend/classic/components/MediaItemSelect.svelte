@@ -418,7 +418,6 @@
             {#each showItems as item (item)}
                 <MediaComponent
                     {item}
-                    multilang={selectedLanguageIDs.length !== 1 && MediaLanguages.length > 1}
                     selected={selectedItems.includes(item)}
                     hover={item === contextItem}
                     onView={(event) => onItemView(item)(event)}
