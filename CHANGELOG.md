@@ -47,6 +47,15 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Action **« Save all images »** du lecteur d'images (bouton superposé retiré : jugée
   superflue par rapport au téléchargement standard des chapitres).
 
+### Corrigé
+
+- **Réglages/bookmarks perdus à la fermeture** : le serveur local choisissait un
+  **port aléatoire** à chaque lancement (`listen(0)`), ce qui changeait l'origin
+  `http://127.0.0.1:<port>` et réinitialisait IndexedDB/localStorage (donc les
+  réglages et les bookmarks) entre deux sessions. Le serveur écoute désormais un
+  **port stable** (64210, avec repli 64211–64225 puis port libre en cas de collision),
+  ce qui conserve l'origin et la persistance d'une session à l'autre.
+
 ## [0.1.0] - 2026-08-16
 
 ### Ajouté

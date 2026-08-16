@@ -210,7 +210,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
 # lancer l'app EN PROD via l'exe du bundle (nom de processus `hakuneko.exe`) :
 #   1. extraire bundle/hakuneko-electron-v0.1.0-win32-<arch>.zip
 #   2. lancer hakuneko.exe depuis le dossier extrait
-#   → le serveur local écoute sur http://127.0.0.1:<port>
+#   → le serveur local écoute sur http://127.0.0.1:64210 (port STABLE → persistance des réglages/bookmarks)
 # ⚠️ RÈGLE (16 août) : lancer l'app via `hakuneko.exe`, tuer les SONDES par PID.
 #   `taskkill //F //IM electron.exe` ne tue QUE les sondes (PAS l'app hakuneko.exe).
 #   Pour tuer l'app : `taskkill //F //IM hakuneko.exe` (ou par PID).
@@ -311,3 +311,13 @@ complets, méthodo CDP). État :
   committé dans le working tree : `MediaItem.svelte` + `MediaItemSelect.svelte`),
   déporter Fuse en Web Worker (élimine les 205 ms), sharder `MediaLists` (blob
   mono-clé 70 k), abaisser le débounce ~120–150 ms.
+
+## 12. Fix persistance des réglages (16 août)
+
+- **Bug** : `startLocalServer` faisait `listen(0)` → **port aléatoire** à chaque
+  lancement → l'origin `http://127.0.0.1:<port>` changeait → IndexedDB/localStorage
+  (réglages, bookmarks, cookies) réinitialisés entre deux sessions.
+- **Fix** (`Main.ts`) : port **stable 64210**, repli 64211–64225 puis port libre
+  (0) en dernier recours si collision. Vérifié en réel : marqueur IndexedDB écrit,
+  fermeture propre, relance → relu sur la même origin (64210). Typecheck + 11 tests
+  electron verts.

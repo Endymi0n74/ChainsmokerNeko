@@ -95,63 +95,89 @@ function UpdatePermissions(session: Electron.Session, appURI: URL) {
     session.on('file-system-access-restricted', (event, details, callback) => callback(CheckHostPermission(details.origin, appURI) ? 'allow' : 'deny'));
 }
 
+// FIX: a random port (listen(0)) changes the web-app origin on every launch, which resets
+// IndexedDB/localStorage/cookies (settings, bookmarks, cf_clearance) between runs.
+// Bind to a stable port so the origin http://127.0.0.1:<port> persists across launches,
+// with a small fallback range in case the preferred port is already taken.
+const LocalServerPort = 64210;
+const LocalServerPortRange = 16;
+
 async function startLocalServer(webRoot: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const mimeTypes: Record<string, string> = {
-            '.html': 'text/html; charset=utf-8',
-            '.js': 'application/javascript; charset=utf-8',
-            '.mjs': 'application/javascript; charset=utf-8',
-            '.css': 'text/css; charset=utf-8',
-            '.json': 'application/json',
-            '.webp': 'image/webp',
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.svg': 'image/svg+xml',
-            '.woff2': 'font/woff2',
-            '.ico': 'image/x-icon',
-        };
+    const mimeTypes: Record<string, string> = {
+        '.html': 'text/html; charset=utf-8',
+        '.js': 'application/javascript; charset=utf-8',
+        '.mjs': 'application/javascript; charset=utf-8',
+        '.css': 'text/css; charset=utf-8',
+        '.json': 'application/json',
+        '.webp': 'image/webp',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.svg': 'image/svg+xml',
+        '.woff2': 'font/woff2',
+        '.ico': 'image/x-icon',
+    };
 
-        const server = http.createServer(async (req, res) => {
-            try {
-                let reqPath = decodeURIComponent(req.url || '/');
-                if (reqPath.includes('..')) {
-                    res.writeHead(403);
-                    res.end();
-                    return;
-                }
-
-                let filePath = path.join(webRoot, reqPath);
-                const stat = await fs.stat(filePath).catch(() => null);
-                if (stat?.isDirectory()) {
-                    filePath = path.join(filePath, 'index.html');
-                }
-
-                const data = await fs.readFile(filePath);
-                const ext = path.extname(filePath).toLowerCase();
-
-                res.writeHead(200, {
-                    'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-                    'Access-Control-Allow-Origin': '*',
-                    'Service-Worker-Allowed': '/',
-                });
-                res.end(data);
-            } catch {
-                res.writeHead(404);
+    const server = http.createServer(async (req, res) => {
+        try {
+            let reqPath = decodeURIComponent(req.url || '/');
+            if (reqPath.includes('..')) {
+                res.writeHead(403);
                 res.end();
+                return;
             }
-        });
 
-        server.listen(0, '127.0.0.1', () => {
-            const addr = server.address();
-            if (addr && typeof addr === 'object') {
-                const url = `http://127.0.0.1:${addr.port}`;
-                console.log(`[LocalServer] ${webRoot} → ${url}`);
-                resolve(url);
+            let filePath = path.join(webRoot, reqPath);
+            const stat = await fs.stat(filePath).catch(() => null);
+            if (stat?.isDirectory()) {
+                filePath = path.join(filePath, 'index.html');
             }
-        });
-        server.on('error', reject);
+
+            const data = await fs.readFile(filePath);
+            const ext = path.extname(filePath).toLowerCase();
+
+            res.writeHead(200, {
+                'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+                'Access-Control-Allow-Origin': '*',
+                'Service-Worker-Allowed': '/',
+            });
+            res.end(data);
+        } catch {
+            res.writeHead(404);
+            res.end();
+        }
     });
+
+    for (let attempt = 0; attempt <= LocalServerPortRange; attempt++) {
+        const port = attempt < LocalServerPortRange ? LocalServerPort + attempt : 0;
+        try {
+            const url = await new Promise<string>((resolve, reject) => {
+                const onError = (error: NodeJS.ErrnoException) => {
+                    server.off('listening', onListening);
+                    reject(error);
+                };
+                const onListening = () => {
+                    server.off('error', onError);
+                    const addr = server.address();
+                    if (addr && typeof addr === 'object') {
+                        resolve(`http://127.0.0.1:${addr.port}`);
+                    } else {
+                        reject(new Error('failed to resolve local server address'));
+                    }
+                };
+                server.once('error', onError);
+                server.once('listening', onListening);
+                server.listen(port, '127.0.0.1');
+            });
+            console.log(`[LocalServer] ${webRoot} → ${url}`);
+            return url;
+        } catch (error) {
+            if (attempt >= LocalServerPortRange || (error as NodeJS.ErrnoException).code !== 'EADDRINUSE') {
+                throw error;
+            }
+        }
+    }
+    throw new Error('unable to start local server');
 }
 
 async function OpenWindow(): Promise<void> {
