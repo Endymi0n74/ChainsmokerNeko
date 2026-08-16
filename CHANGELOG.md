@@ -28,6 +28,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   `ShowWindow` côté main) et affiche la version lue via IPC. La fenêtre est
   recréée proprement à chaque affichage (correction du `Object has been destroyed`
   sur rechargement).
+- **Durée minimale du splash screen** : réglage « Splash screen » dans l'onglet
+  Général des paramètres qui maintient l'écran de démarrage visible au moins la
+  durée indiquée (0 = pas de minimum).
 
 ### Modifié
 

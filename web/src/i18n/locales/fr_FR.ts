@@ -189,6 +189,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_FeatureFlags_Description: "Options avancées/expérimentales spécialement pour les développeurs, les contributeurs et les utilisateurs expérimentés d'HakuNeko",
   Settings_FeatureFlags_ShowSplashScreen_Label: "Montrer l'écran de démarrage",
   Settings_FeatureFlags_ShowSplashScreen_Description: "Activer/désactiver l'écran de démarrage lors du démarrage de l'application",
+  Settings_FeatureFlags_SplashScreenMinimumDuration_Label: "Durée minimale de l'écran de démarrage [ms]",
+  Settings_FeatureFlags_SplashScreenMinimumDuration_Description: "Garder l'écran de démarrage visible au moins cette durée pendant le lancement de l'application (0 = pas de minimum, redémarrage requis)",
   Settings_FeatureFlags_ShowFetchBrowserWindows_Label: "Afficher les fenêtres FetchBrowser",
   Settings_FeatureFlags_ShowFetchBrowserWindows_Description: "Cette option destinée aux développeurs permet d'activer ou de désactiver la visibilité des fenêtres du navigateur pour la recherche de données en arrière-plan",
   Settings_FeatureFlags_CrowdinTranslationMode_Label: "Activer les traductions dans le contexte",

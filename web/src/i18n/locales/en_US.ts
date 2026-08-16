@@ -228,6 +228,8 @@ const translations: VariantResource = {
   Settings_FeatureFlags_Description: 'Advanced/Experimental options especially for HakuNeko developers, contributors and power users',
   Settings_FeatureFlags_ShowSplashScreen_Label: 'Show Splash Screen',
   Settings_FeatureFlags_ShowSplashScreen_Description: 'Toggle the splash screen during application start on/off',
+  Settings_FeatureFlags_SplashScreenMinimumDuration_Label: 'Splash Screen Minimum Duration [ms]',
+  Settings_FeatureFlags_SplashScreenMinimumDuration_Description: 'Keep the splash screen visible for at least this duration during application start (0 = no minimum, restart required)',
   Settings_FeatureFlags_ShowFetchBrowserWindows_Label: 'Show FetchBrowser Windows',
   Settings_FeatureFlags_ShowFetchBrowserWindows_Description: 'This developer focused option toggles the visibility of the browser windows for fetching data in the background on/off',
   Settings_FeatureFlags_CrowdinTranslationMode_Label: 'Enable In-Context Translation',

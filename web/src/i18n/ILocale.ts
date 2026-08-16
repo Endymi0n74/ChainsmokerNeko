@@ -323,6 +323,8 @@ export enum EngineResourceKey {
     Settings_FeatureFlags_Description = 'Settings_FeatureFlags_Description',
     Settings_FeatureFlags_ShowSplashScreen_Label = 'Settings_FeatureFlags_ShowSplashScreen_Label',
     Settings_FeatureFlags_ShowSplashScreen_Description = 'Settings_FeatureFlags_ShowSplashScreen_Description',
+    Settings_FeatureFlags_SplashScreenMinimumDuration_Label = 'Settings_FeatureFlags_SplashScreenMinimumDuration_Label',
+    Settings_FeatureFlags_SplashScreenMinimumDuration_Description = 'Settings_FeatureFlags_SplashScreenMinimumDuration_Description',
     Settings_FeatureFlags_ShowFetchBrowserWindows_Label = 'Settings_FeatureFlags_ShowFetchBrowserWindows_Label',
     Settings_FeatureFlags_ShowFetchBrowserWindows_Description = 'Settings_FeatureFlags_ShowFetchBrowserWindows_Description',
     Settings_FeatureFlags_CrowdinTranslationMode_Label = 'Settings_FeatureFlags_CrowdinTranslationMode_Label',

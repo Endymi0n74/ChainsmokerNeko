@@ -50,6 +50,7 @@ function ShowErrorNotice(root: HTMLElement, error?: Error) {
     let appWindow: ReturnType<typeof CreateAppWindow> | undefined = undefined;
     try {
         appWindow = CreateAppWindow(window.location.origin + splashPath);
+        const splashStarted = Date.now();
         if(FeatureFlags.ShowSplashScreen) {
             appWindow.ShowSplash();
         } else {
@@ -73,6 +74,12 @@ function ShowErrorNotice(root: HTMLElement, error?: Error) {
                 new Promise<void>(resolve => frontend.CurrentFrontendInfo.Subscribe(() => resolve())),
                 new Promise<void>(resolve => setTimeout(resolve, 7500)),
             ]);
+            // Respect a minimum splash screen duration so it is not closed too quickly.
+            const minimumDuration = window.HakuNeko.FeatureFlags.SplashScreenMinimumDuration.Value;
+            const remaining = minimumDuration - (Date.now() - splashStarted);
+            if(remaining > 0) {
+                await new Promise<void>(resolve => setTimeout(resolve, remaining));
+            }
             appWindow.HideSplash();
         }
     } catch(error) {

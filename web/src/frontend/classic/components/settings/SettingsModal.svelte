@@ -109,6 +109,14 @@
                         {/if}
                     </div>
                 </div>
+                <div class="autodl splash">
+                    <h4>Splash screen</h4>
+                    <SettingsViewer
+                        settings={[
+                            window.HakuNeko.FeatureFlags.SplashScreenMinimumDuration,
+                        ]}
+                    />
+                </div>
                 <SettingsViewer
                     settings={[
                         ...window.HakuNeko.SettingsManager.OpenScope(Global_Scope),

@@ -1,11 +1,12 @@
 import { VariantResourceKey as R } from '../i18n/ILocale';
-import { Check, type ISettings, type SettingsManager } from './SettingsManager';
+import { Check, Numeric, type ISettings, type SettingsManager } from './SettingsManager';
 import { ReloadAppWindow } from './platform/AppWindow';
 
 const scope = 'feature-flags';
 
 const enum Key {
     HideSplashScreen = 'HideSplashScreen',
+    SplashScreenMinimumDuration = 'SplashScreenMinimumDuration',
     VerboseFetchWindow = 'VerboseFetchWindow',
     CrowdinTranslationMode = 'CrowdinTranslationMode',
 }
@@ -25,6 +26,7 @@ export class FeatureFlags {
         return window.localStorage.getItem(Key.HideSplashScreen) !== 'true';
     }
     public readonly HideSplashScreen = new Check(Key.HideSplashScreen, R.Settings_FeatureFlags_ShowSplashScreen_Label, R.Settings_FeatureFlags_ShowSplashScreen_Description, false);
+    public readonly SplashScreenMinimumDuration = new Numeric(Key.SplashScreenMinimumDuration, R.Settings_FeatureFlags_SplashScreenMinimumDuration_Label, R.Settings_FeatureFlags_SplashScreenMinimumDuration_Description, 0, 0, 30_000);
     public readonly VerboseFetchWindow = new Check(Key.VerboseFetchWindow, R.Settings_FeatureFlags_ShowFetchBrowserWindows_Label, R.Settings_FeatureFlags_ShowFetchBrowserWindows_Description, false);
     public readonly CrowdinTranslationMode = new Check(Key.CrowdinTranslationMode, R.Settings_FeatureFlags_CrowdinTranslationMode_Label, R.Settings_FeatureFlags_CrowdinTranslationMode_Description, false);
 
@@ -37,7 +39,7 @@ export class FeatureFlags {
             return;
         }
         this.#initialized = true;
-        await this.#settings.Initialize(this.HideSplashScreen, this.VerboseFetchWindow, this.CrowdinTranslationMode);
+        await this.#settings.Initialize(this.HideSplashScreen, this.SplashScreenMinimumDuration, this.VerboseFetchWindow, this.CrowdinTranslationMode);
         this.HideSplashScreen.Subscribe(value => window.localStorage.setItem(Key.HideSplashScreen, `${value}`));
         this.CrowdinTranslationMode.Subscribe(() => ReloadAppWindow());
     }
