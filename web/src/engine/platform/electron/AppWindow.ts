@@ -14,7 +14,7 @@ export default class implements IAppWindow {
 
     public async ShowSplash(): Promise<void> {
         await this.ipc.Send(Channels.App.HideWindow);
-        await this.ipc.Send(Channels.App.ShowWindow, this.splashURL);
+        await this.ipc.Send(Channels.App.OpenSplash, this.splashURL);
     }
 
     public async HideSplash(): Promise<void> {

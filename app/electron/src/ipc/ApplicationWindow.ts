@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { app, BrowserWindow } from 'electron';
 import type { IPC, Callback } from './InterProcessCommunication';
 import { ApplicationWindow as Channels } from '../../../src/ipc/Channels';
@@ -25,7 +26,8 @@ export class ApplicationWindow extends BrowserWindow {
     }
 
     private async OpenSplash(url: string) {
-        if(!this.splash) {
+        if(!this.splash || this.splash.isDestroyed()) {
+            this.splash = undefined;
             this.splash = new BrowserWindow({
                 width: 416,
                 height: 520,
@@ -37,12 +39,17 @@ export class ApplicationWindow extends BrowserWindow {
                     nodeIntegration: false,
                     contextIsolation: true,
                     allowRunningInsecureContent: false,
+                    preload: path.resolve(app.getAppPath(), 'preload.js'),
                 },
             });
+            this.splash.setTitle(`HakuNeko v${app.getVersion()}`);
             this.splash.removeMenu();
             this.splash.setMenu(null);
             this.splash.setMenuBarVisibility(false);
-            this.splash.on('closed', () => super.show());
+            this.splash.on('closed', () => {
+                this.splash = undefined;
+                super.show();
+            });
         }
         return this.splash?.loadURL(url);
     }

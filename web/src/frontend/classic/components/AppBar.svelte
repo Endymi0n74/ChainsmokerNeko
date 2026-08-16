@@ -42,6 +42,19 @@
     let restore = $derived(UI.WindowController?.Restore.bind(UI.WindowController));
     let close = $derived(UI.WindowController?.Close.bind(UI.WindowController));
 
+    // Affiche la version de l'app dans la barre de titre (et dans le titre de la fenêtre OS).
+    let appVersion = $state('');
+    $effect(() => {
+        UI.WindowController?.GetVersion()
+            .then(version => {
+                appVersion = version;
+                if (version) {
+                    document.title = `HakuNeko v${version}`;
+                }
+            })
+            .catch(() => { /* ignore */ });
+    });
+
 </script>
 
 <Header
@@ -77,6 +90,9 @@
         {/if}
         <div id="AppTitle" class:padding-left={Settings.SidenavIconsOnTop.Value}>
             {GlobalSettings.Locale.Frontend_Product_Title()}
+            {#if appVersion}
+                <span class="appversion">v{appVersion}</span>
+            {/if}
             <span class="appdesc">{GlobalSettings.Locale.Frontend_Product_Description()}</span
             >
         </div>
@@ -126,6 +142,12 @@
     #AppTitle .appdesc {
         font-weight: var(--cds-body-short-01-font-weight, 400);
         padding-left: 1em;
+    }
+    #AppTitle .appversion {
+        font-size: 0.85em;
+        font-weight: 400;
+        color: var(--cds-text-secondary, #525252);
+        padding-left: 0.5em;
     }
     div[slot='platform'] {
         display: flex;

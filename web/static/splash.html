@@ -287,7 +287,23 @@
                     <div class="back"></div>
                 </div>
             </div>
-            <div class="text">loading HakuNeko...</div>
+            <div class="text">loading HakuNeko<span id="version"></span>...</div>
         </div>
+        <script>
+            (async function () {
+                let version = '';
+                try {
+                    if (window.ipcRenderer && window.ipcRenderer.invoke) {
+                        version = (await window.ipcRenderer.invoke('ApplicationWindow::GetVersion')) || '';
+                    } else if (window.nw && nw.App && nw.App.manifest) {
+                        version = nw.App.manifest.version || '';
+                    }
+                } catch (error) { /* ignore */ }
+                const node = document.getElementById('version');
+                if (node && version) {
+                    node.textContent = ' v' + version;
+                }
+            })();
+        </script>
     </body>
 </html>

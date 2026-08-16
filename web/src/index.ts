@@ -47,8 +47,9 @@ function ShowErrorNotice(root: HTMLElement, error?: Error) {
 }
 
 (async function() {
+    let appWindow: ReturnType<typeof CreateAppWindow> | undefined = undefined;
     try {
-        const appWindow = CreateAppWindow(window.location.origin + splashPath);
+        appWindow = CreateAppWindow(window.location.origin + splashPath);
         if(FeatureFlags.ShowSplashScreen) {
             appWindow.ShowSplash();
         } else {
@@ -76,6 +77,9 @@ function ShowErrorNotice(root: HTMLElement, error?: Error) {
         }
     } catch(error) {
         console.error(error);
+        // En cas d'échec d'initialisation, ne pas laisser le splash bloqué :
+        // afficher la fenêtre principale avec la notice d'erreur.
+        appWindow?.HideSplash();
         ShowErrorNotice(document.querySelector(noticeHook), error);
     }
 })();
