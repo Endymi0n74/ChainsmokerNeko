@@ -14,8 +14,6 @@
     import type {
         ComboBoxItem,
     } from 'carbon-components-svelte/src/ComboBox/ComboBox.svelte';
-    // Third Party
-    import Fuse from 'fuse.js';
     // Svelte
     import { fade } from 'svelte/transition';
     // UI: Components
@@ -35,6 +33,7 @@
     import { FrontendResourceKey as R } from '../../../i18n/ILocale';
     import { resizeBar } from '../lib/actions';
     import type { MediaContainer2 } from '../Types';
+    import { SetFuseCollection, SearchFuse } from '../../../engine/FuseSearch';
 
     // Plugins selection
     let currentPlugin: MediaContainer<MediaChild> = $state();
@@ -94,12 +93,29 @@
 
     // `medias` is already sorted alphabetically in `loadMedias`, so filtering
     // preserves the order without re-sorting the whole list on each keystroke.
+    // The fuzzy search runs in a web worker to keep the UI thread responsive.
+    let fuzzyRequestSequence = 0;
     $effect(() => {
         medias;
         debouncedMediaFilter;
-        filteredmedias = filterMedia(debouncedMediaFilter);
+        const query = debouncedMediaFilter;
+        const fuzzy = Settings.FuzzySearch.Value;
+        const requestID = ++fuzzyRequestSequence;
+        if (query === '') {
+            filteredmedias = medias;
+            return;
+        }
+        if (fuzzy) {
+            SearchFuse(query).then((indices) => {
+                if (requestID !== fuzzyRequestSequence) return; // superseded by a newer search
+                const fuzzyItems = indices.map((index) => medias[index]);
+                const mediasInPlugin = medias.filter((item) => item.Parent.Title.toLowerCase().includes(query.toLowerCase()));
+                filteredmedias = [...new Set([...fuzzyItems, ...mediasInPlugin])];
+            });
+        } else {
+            filteredmedias = filterMedia(query);
+        }
     });
-    let fuse = new Fuse([]);
 
     loadPlugin = loadMedias(UI.selectedPlugin);
     $effect(() => {
@@ -123,13 +139,7 @@
         const sortedmedias = loadedmedias.toSorted((a, b) =>
             a.Title.localeCompare(b.Title)
         );
-        fuse = new Fuse(sortedmedias, {
-            keys: ['Title'],
-            findAllMatches: true,
-            ignoreLocation: true,
-            minMatchCharLength: 1,
-            fieldNormWeight: 0,
-        });
+        SetFuseCollection(sortedmedias.map((item) => item.Title));
         medias = sortedmedias;
         return plugin;
     }
@@ -142,13 +152,9 @@
     function filterMedia(mediaNameFilter: string): MediaContainer<MediaChild>[] {
         if (mediaNameFilter === '') return medias;
         const mediasInPlugin: MediaContainer<MediaChild>[] = medias.filter((item) => item.Parent.Title.toLowerCase().includes(mediaNameFilter.toLowerCase()));
-        let filteredMedia: MediaContainer<MediaChild>[] = [];
-        if (Settings.FuzzySearch.Value)
-            filteredMedia = fuse.search(mediaNameFilter).map((item) => item.item);
-        else
-            filteredMedia = medias.filter((item) =>
-                item.Title.toLowerCase().includes(mediaNameFilter.toLowerCase())
-            );
+        const filteredMedia: MediaContainer<MediaChild>[] = medias.filter((item) =>
+            item.Title.toLowerCase().includes(mediaNameFilter.toLowerCase())
+        );
         // Remove duplicates
         return [...new Set([...filteredMedia, ...mediasInPlugin])];
     }

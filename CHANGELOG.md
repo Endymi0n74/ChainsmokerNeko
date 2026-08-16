@@ -50,6 +50,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   entrées MangaFire) n'est plus chargée/réécrite en un seul blob mono-clé ; elle est
   découpée en lots de 1 000 entrées (clés `#0`, `#1`, … + méta `#meta`), avec repli
   sur l'ancien format mono-clé et purge des lots obsolètes lors d'une mise à jour.
+- **Recherche floue dans un Web Worker** : l'indexation et la recherche Fuse.js
+  tournent désormais dans un worker (`FuseSearchWorker`) au lieu du thread UI — la
+  recherche (jusqu'à ~200 ms sur 70 000 titres) ne bloque plus l'interface. Le
+  worker indexe les titres et renvoie des indices, remappés ensuite vers les items.
 
 ### Retiré
 
