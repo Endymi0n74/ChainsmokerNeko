@@ -268,6 +268,11 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   `🤖 Generated with Codebuff` / `Co-Authored-By: Codebuff <noreply@codebuff.com>`.
 - Pas de `git push` sans demande explicite. Ne pas toucher au travail non committé
   des autres agents.
+- **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
+  docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
+  reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
+  `Latest` (3 zips + corps généré depuis le CHANGELOG). **Prochain bump : 0.1.3**
+  (version actuelle : 0.1.2).
 
 ## 10. État récent (16 août, tous committés/poussés)
 
