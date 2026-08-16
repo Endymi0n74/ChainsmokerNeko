@@ -19,10 +19,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   désormais affiché devant le nom de chaque chapitre doté d'un tag de langue,
   pour distinguer les versions (auparavant réservé au mode multilingue).
 - **Version dans la barre de titre et le titre de fenêtre** : la version de l'app
-  (ex. `v0.1.0`) est affichée à côté du nom dans l'AppBar et dans le titre de la
+  (ex. `v0.1.1`) est affichée à côté du nom dans l'AppBar et dans le titre de la
   fenêtre (`document.title`).
 - **Version en pied de page du lecteur** : en mode plein écran (lecture d'images),
-  un pied de page discret affiche `v0.1.0` en bas à gauche.
+  un pied de page discret affiche `v0.1.1` en bas à gauche.
 - **Splash screen fonctionnel avec version** : la fenêtre de chargement Electron
   (`OpenSplash`) s'affiche réellement au démarrage (elle était ignorée par
   `ShowWindow` côté main) et affiche la version lue via IPC. La fenêtre est
