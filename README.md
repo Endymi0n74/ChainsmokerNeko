@@ -30,7 +30,6 @@ une application desktop de scraping et de téléchargement de mangas, animes et 
 |------|-------|
 | **MangaFire** | ~71 000 mangas ; signature API `vrf` ; challenge Cloudflare auto-résolu |
 | **Comix (comix.to)** | ~91 000 mangas ; connecteur réécrit **sans DRM** |
-| **MangaDrama** | Paywall débloqué + chapitres en anglais |
 | **CrunchyScan** | Challenge Cloudflare « managé » + reload opt-in + retry de téléchargement |
 
 … et 17 autres connecteurs ajoutés.
