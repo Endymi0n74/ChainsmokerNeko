@@ -3,6 +3,24 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.4] - 2026-08-17
+
+### Ajouté
+
+- **Connexion MangaDrama dans l'app** : le connecteur vérifie la session via
+  l'API REST (`/wp-json/wp/v2/users/me`). Si l'utilisateur n'est pas connecté,
+  une **fenêtre visible s'ouvre sur `/my-account/`** pour se connecter depuis
+  l'app — les cookies de session persistent dans la session partagée et les
+  **chapitres achetés (coins) se déverrouillent** (`is_purchased`,
+  `InitMangaEncryptedChapter`). La fenêtre se ferme automatiquement dès que la
+  session est authentifiée (poll 5 s, max ~5 min).
+
+### Modifié
+
+- **MangaDrama — prix en coins visible** : les chapitres verrouillés par coins
+  affichent désormais leur coût dans la liste (ex. « Chapter 76 - Title
+  (3 coins) »), information fournie par l'API (`lock_type`/`lock_value`).
+
 ## [0.1.3] - 2026-08-16
 
 ### Modifié
