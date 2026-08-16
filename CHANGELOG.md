@@ -16,6 +16,12 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Test unitaire du channel IPC `ApplicationWindow::GetVersion`
   (`ApplicationWindow_test.ts`, avec `app.getVersion` mocké).
 
+### Modifié
+
+- Exécutable des bundles Windows renommé **`hakuneko.exe`** (au lieu de
+  `hakuneko-electron.exe`) : l'appli tourne sous un nom de processus distinct
+  d'`electron.exe`, ce qui évite de la fermer en tuant les sondes de test.
+
 ### Retiré
 
 - Action **« Save all images »** du lecteur d'images (bouton superposé retiré : jugée
