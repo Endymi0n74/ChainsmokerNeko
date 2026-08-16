@@ -38,6 +38,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   (`hakuneko.exe` sous Windows, binaire `hakuneko` dans le .app macOS et le snap
   Linux) au lieu de `hakuneko-electron` : l'appli tourne sous un nom de processus
   distinct d'`electron.exe`, ce qui évite de la fermer en tuant les sondes de test.
+- **Recherche de mangas fluidifiée** : la saisie est débouncée (200 ms) et la liste
+  n'est triée qu'une seule fois au chargement au lieu d'être re-triée à chaque frappe
+  (le filtrage préserve l'ordre déjà trié).
 
 ### Retiré
 
