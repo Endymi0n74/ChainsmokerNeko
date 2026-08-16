@@ -77,14 +77,14 @@ dans le flux applicatif réel.
 
 ### Intégration continue
 
-[`.github/workflows/push-ci.yml`](.github/workflows/push-ci.yml) : à chaque push —
-typecheck (web/electron/nw) + eslint + svelte-check + vue-tsc + build web/electron,
-avec cache npm et binaire Electron.
-
-[`.github/workflows/release-bundles.yml`](.github/workflows/release-bundles.yml) : à chaque push —
-build des **3 bundles Windows** (ia32/x64/arm64) sur `windows-latest`, publiés sur la
-release roulante **`nightly`** (uniquement pour `master` ; `latest` reste réservé aux
-versions taguées).
+[`.github/workflows/push-ci.yml`](.github/workflows/push-ci.yml) : à chaque push — trois
+jobs en cascade :
+1. **Typecheck & Build** (`ubuntu-latest`) : typecheck (web/electron/nw) + eslint +
+   svelte-check + vue-tsc + build web/electron (cache npm + binaire Electron) ;
+2. **Windows bundles** (`windows-latest`, après le CI) : réutilise le build via artefact,
+   génère les **3 bundles Windows** (ia32/x64/arm64) ;
+3. **Release** (uniquement pour `master`) : publie les bundles sur la release roulante
+   **`nightly`** (`latest` reste réservé aux versions taguées).
 
 ## Structure du projet
 
