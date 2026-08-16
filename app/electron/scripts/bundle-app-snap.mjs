@@ -25,7 +25,7 @@ async function bundleApp(blinkApplicationSourceDirectory, blinkDeploymentTempora
 
 async function updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory) {
     const binary = path.join(blinkDeploymentTemporaryDirectory, 'electron');
-    await fs.rename(binary, binary.replace(/electron$/i, `${pkgConfig.name}`));
+    await fs.rename(binary, binary.replace(/electron$/i, `${pkgConfig.productName ?? pkgConfig.name}`));
 }
 
 async function createSnapImage(blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
@@ -58,7 +58,7 @@ confinement: strict
 
 apps:
   ${pkgConfig.name}:
-    command: ${pkgConfig.name} --no-sandbox
+    command: ${pkgConfig.productName ?? pkgConfig.name} --no-sandbox
     # TODO: Create desktop entry
     #desktop: snap/gui/${pkgConfig.name}.desktop
     extensions: [gnome]

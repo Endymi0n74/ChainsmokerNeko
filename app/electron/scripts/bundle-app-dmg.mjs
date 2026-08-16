@@ -38,14 +38,14 @@ async function replacePlist(blinkDeploymentTemporaryDirectory) {
     const file = path.join(blinkDeploymentTemporaryDirectory, 'Electron.app', 'Contents', 'Info.plist');
     const xml = await fs.readFile(file, 'utf8');
     const meta = plist.parse(xml);
-    meta.CFBundleExecutable = pkgConfig.name;
+    meta.CFBundleExecutable = pkgConfig.productName ?? pkgConfig.name;
     meta.CFBundleName = pkgConfig.title;
     meta.CFBundleDisplayName = pkgConfig.title;
     meta.CFBundleIdentifier = pkgConfig.name;
     //meta.CFBundleVersion = ''; // 4472.77 => ???
     //meta.CFBundleShortVersionString = ''; // 91.0.4472.77 => ???
     await fs.writeFile(file, plist.build(meta), 'utf8');
-    await fs.rename(binary, binary.replace(/Electron$/i, pkgConfig.name));
+    await fs.rename(binary, binary.replace(/Electron$/i, pkgConfig.productName ?? pkgConfig.name));
 }
 
 async function cleanup(blinkDeploymentTemporaryDirectory) {

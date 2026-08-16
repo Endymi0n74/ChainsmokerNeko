@@ -21,9 +21,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ### Modifié
 
-- Exécutable des bundles Windows renommé **`hakuneko.exe`** (au lieu de
-  `hakuneko-electron.exe`) : l'appli tourne sous un nom de processus distinct
-  d'`electron.exe`, ce qui évite de la fermer en tuant les sondes de test.
+- Exécutables des bundles renommés **`hakuneko`** sur toutes les plateformes
+  (`hakuneko.exe` sous Windows, binaire `hakuneko` dans le .app macOS et le snap
+  Linux) au lieu de `hakuneko-electron` : l'appli tourne sous un nom de processus
+  distinct d'`electron.exe`, ce qui évite de la fermer en tuant les sondes de test.
 
 ### Retiré
 
