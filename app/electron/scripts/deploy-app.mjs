@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { download, run } from '../../tools.mjs';
@@ -19,8 +18,9 @@ async function redist(electronVersion, electronPlatform, electronArchitecture) {
     const archive = `electron-v${electronVersion}-${electronPlatform}-${electronArchitecture}.zip`;
     const sourceFile = `https://github.com/electron/electron/releases/download/v${electronVersion}/${archive}`;
     // Allow caching the downloaded archives in a dedicated directory (e.g. CI cache),
-    // falling back to the OS temp directory when unset.
-    const dirCache = process.env.HAKUNEKO_ELECTRON_CACHE ? path.resolve(process.env.HAKUNEKO_ELECTRON_CACHE) : os.tmpdir();
+    // falling back to the project-local `.tmp/electron-zips` (kept on the repo drive,
+    // not the OS temp on C:) when unset.
+    const dirCache = process.env.HAKUNEKO_ELECTRON_CACHE ? path.resolve(process.env.HAKUNEKO_ELECTRON_CACHE) : path.resolve(dirTmp, 'electron-zips');
     await fs.mkdir(dirCache, { recursive: true });
     const tmpFile = path.resolve(dirCache, archive);
     const electronDir = path.resolve(dirTmp, `${pkgConfig.name}-v${pkgConfig.version}-${electronPlatform}-${electronArchitecture}`);

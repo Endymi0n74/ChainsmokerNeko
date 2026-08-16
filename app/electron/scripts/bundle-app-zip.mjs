@@ -41,7 +41,7 @@ async function updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentT
             `--set-version-string "LegalCopyright" "${new Date().getFullYear()}"`,
             `--set-version-string "FileDescription" "${pkgConfig.description}"`,
             `--set-version-string "InternalName" ""`,
-            `--set-version-string "OriginalFilename" "${pkgConfig.name}.exe"`,
+            `--set-version-string "OriginalFilename" "${pkgConfig.productName ?? pkgConfig.name}.exe"`,
             `--set-icon "${icon}"`
         ].join(' ');
         await run(command);
@@ -50,7 +50,7 @@ async function updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentT
         console.warn('  [rcedit] Ignoré (permission) —', e.message);
     }
     
-    await fs.rename(binary, binary.replace(/electron\.exe$/i, `${pkgConfig.name}.exe`));
+    await fs.rename(binary, binary.replace(/electron\.exe$/i, `${pkgConfig.productName ?? pkgConfig.name}.exe`));
 }
 
 async function createZipArchive(blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
