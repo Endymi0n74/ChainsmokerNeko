@@ -307,10 +307,25 @@ complets, méthodo CDP). État :
   coûte 8–42 ms. Débounce : ~313 ms E2E après la dernière frappe (mode sous-chaîne
   défaut), 1,8 s → 0,39 s en mode flou pour « one piece ». `FuzzySearch` est **off
   par défaut**.
-- **Restant / prochaines étapes** : virtualiser la liste des chapitres (WIP non
-  committé dans le working tree : `MediaItem.svelte` + `MediaItemSelect.svelte`),
-  déporter Fuse en Web Worker (élimine les 205 ms), sharder `MediaLists` (blob
-  mono-clé 70 k), abaisser le débounce ~120–150 ms.
+- **Virtualisation de la liste des chapitres** (`72f27b35`) : `VirtualList` sur
+  `MediaItemSelect` (30 lignes rendues pour 132 chapitres) + abonnements
+  download/flags **centralisés dans la liste** (props aux items). Vérifié live
+  (scroll + flag, icône View→ViewFilled). ✅
+- **Sharding des `MediaLists`** (`043666c6`) : lots de 1 000 (clés `#0..#n` +
+  `#meta`), repli legacy mono-clé, purge des lots obsolètes, migration
+  transparente. ✅
+- **Diff des `MediaLists`** (`e97aa5a3` + `02ec8c24`) : refresh qui ne réécrit que
+  les lots réellement modifiés, comparés **un par un à la volée** (lecture puis
+  éventuelle écriture) sans matérialiser toute l'ancienne liste en mémoire.
+  Mesuré live (IndexedDB réel, 70 k entrées, `BENCHMARKS.md` §2) : écritures par
+  refresh **70 → 0** (liste inchangée) ou **1–2** (quelques changements) ; durée
+  mur-à-mur ~30 ms dans les deux cas (le fetch réseau de 77,5 s domine le
+  refresh). Gain réel : pas de clone/réécriture systématique + O(modifications)
+  au lieu de O(liste) + pas de matérialisation de l'ancienne liste. ✅
+- **Fuse dans un Web Worker** (`1e1aee48`) : indexation + recherche Fuse.js
+  déportées (`FuseSearchWorker.ts?worker&inline`), l'UI ne bloque plus (~205 ms
+  hors thread). Vérifié live (round-trip `clover` → 1 résultat, 0 erreur). ✅
+- **Restant** : abaisser le débounce ~120–150 ms (mode sous-chaîne).
 
 ## 12. Fix persistance des réglages (16 août)
 
