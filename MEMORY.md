@@ -290,3 +290,24 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   `hakuneko.exe`, corps de release régénéré depuis le CHANGELOG.
 - Version du produit `0.1.0` (`24251c3b`) : les bundles s'appellent
   `hakuneko-electron-v0.1.0-…` (version de l'app, plus celle d'Electron).
+
+## 11. Optimisation perf (DB + UI, 16 août)
+
+Plan d'optimisation validé par mesures réelles — voir **`BENCHMARKS.md`** (chiffres
+complets, méthodo CDP). État :
+
+- **Singleton IndexedDB** (`c9f52a51`) : connexion unique réutilisée au lieu d'un
+  `indexedDB.open()` par opération. Mesuré : **1656 → 1** ouverture au boot. ✅
+- **Débounce + tri unique du filtre mangas** (`c712d5f7`) : debounce 200 ms sur
+  `mediaNameFilter`, la liste est triée une seule fois au chargement (plus de
+  `sort(localeCompare)` à chaque frappe). ✅
+- **Mesure du filtre (16 août)** : sur la vraie liste MangaFire **70 234 titres**
+  (pas 91 k), la recherche floue Fuse.js coûte **205 ms** par frappe (et matche
+  14 895 titres, 21 % — `findAllMatches`+`ignoreLocation` très permissifs) ; le tri
+  coûte 8–42 ms. Débounce : ~313 ms E2E après la dernière frappe (mode sous-chaîne
+  défaut), 1,8 s → 0,39 s en mode flou pour « one piece ». `FuzzySearch` est **off
+  par défaut**.
+- **Restant / prochaines étapes** : virtualiser la liste des chapitres (WIP non
+  committé dans le working tree : `MediaItem.svelte` + `MediaItemSelect.svelte`),
+  déporter Fuse en Web Worker (élimine les 205 ms), sharder `MediaLists` (blob
+  mono-clé 70 k), abaisser le débounce ~120–150 ms.
