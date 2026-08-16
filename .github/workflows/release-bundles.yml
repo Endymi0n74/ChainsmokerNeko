@@ -66,8 +66,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
-          gh release create nightly \
+          gh release delete --repo ${{ github.repository }} nightly --yes --cleanup-tag 2>/dev/null || true
+          gh release create --repo ${{ github.repository }} nightly \
             --title "Nightly build ${{ github.sha }}" \
             --latest=false \
             --notes "Automated build from commit ${{ github.sha }}. Windows x64 / ia32 / arm64. 'latest' stays reserved for tagged releases." \
