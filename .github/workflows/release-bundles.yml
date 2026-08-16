@@ -15,12 +15,6 @@ jobs:
   build:
     name: Build Windows bundles (ia32 / x64 / arm64)
     runs-on: windows-latest
-    env:
-      # Shared cache dir for the Electron distribution archives:
-      # - electron_config_cache: used by the electron postinstall (npm ci)
-      # - HAKUNEKO_ELECTRON_CACHE: used by scripts/deploy-app.mjs
-      electron_config_cache: ${{ runner.temp }}/electron-zips
-      HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
     steps:
       - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
         uses: actions/checkout@v4
@@ -45,6 +39,8 @@ jobs:
       - name: Configure Git (HTTPS)
         run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - name: Install NPM Packages
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-zips
         run: npm ci
       - name: Build Web Application
         run: npm run build --workspace=web
@@ -52,6 +48,8 @@ jobs:
         run: npm run build --workspace=app/electron
       - name: Create Windows Bundles
         working-directory: app/electron
+        env:
+          HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
         run: node ./scripts/deploy-app.mjs
       - name: Upload Bundle Artifacts
         uses: actions/upload-artifact@v4
