@@ -85,6 +85,14 @@ jobs en cascade (les commits purement documentaires `*.md` / `docs/**` sont igno
 3. **Release** (uniquement pour `master`) : publie les bundles sur la release roulante
    **`nightly`** (`latest` reste réservé aux versions taguées).
 
+Autres workflows : [`pull-request-ci.yml`](.github/workflows/pull-request-ci.yml) (checks
++ tests e2e/websites sur les PR — conserve ses propres checks car push-ci ne couvre pas
+les PR de forks externes), [`create-release.yml`](.github/workflows/create-release.yml)
+(release multi-OS manuelle, réutilise le même cache electron-zips),
+[`pull-request-deploy.yml`](.github/workflows/pull-request-deploy.yml) (préviews
+Cloudflare, label « Deploy PR ») et [`website-metrics.yml`](.github/workflows/website-metrics.yml)
+(métriques périodiques des sites).
+
 ## Structure du projet
 
 ```text

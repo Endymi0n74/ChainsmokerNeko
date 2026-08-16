@@ -29,9 +29,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.0.0
+      - name: Cache Electron Distributions
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/electron-zips
+          key: electron-zips-${{ runner.os }}-${{ hashFiles('app/electron/package.json') }}
       - name: Install NPM Packages
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-zips
         run: npm run npm:clean-install
       - name: Build Application
+        env:
+          HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
         run: npm run bundle --workspace app/nw --workspace app/electron
       - name: Upload NW Builds
         uses: actions/upload-artifact@v4
