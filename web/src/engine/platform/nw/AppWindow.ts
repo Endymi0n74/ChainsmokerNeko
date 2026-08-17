@@ -101,6 +101,10 @@ export default class implements IAppWindow {
         return 'Cloudflare bypass testing is only available in the Electron build.';
     }
 
+    public async ClearCloudFlareCache(): Promise<string> {
+        return 'Clearing the Cloudflare cache is only available in the Electron build.';
+    }
+
     public async CheckForUpdates(): Promise<IUpdateInfo | null> {
         return null;
     }

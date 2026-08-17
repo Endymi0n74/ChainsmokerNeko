@@ -155,5 +155,7 @@ export namespace CloudFlareImport {
         SetClearance = 'CloudFlareImport::SetClearance',
         /** Channel for IPC callback with signature: `(host: string) => Promise<string>` */
         TestClearance = 'CloudFlareImport::TestClearance',
+        /** Channel for IPC callback with signature: `() => Promise<string>` */
+        ClearCache = 'CloudFlareImport::ClearCache',
     }
 }

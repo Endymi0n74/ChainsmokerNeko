@@ -48,6 +48,11 @@ export interface IAppWindow {
      */
     TestCloudFlareClearance(host: string): Promise<string>;
     /**
+     * Remove every `cf_clearance` cookie from the session and delete the persisted
+     * snapshot. Returns a human-readable status message.
+     */
+    ClearCloudFlareCache(): Promise<string>;
+    /**
      * Check the latest GitHub release and return it when it is newer than the running
      * app version, otherwise resolve to `null`.
      */

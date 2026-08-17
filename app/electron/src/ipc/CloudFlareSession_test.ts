@@ -14,6 +14,7 @@ vi.mock('electron', () => ({
             cookies: {
                 get: vi.fn(async () => []),
                 set: vi.fn(async () => { /* mock */ }),
+                remove: vi.fn(async () => { /* mock */ }),
                 on: vi.fn(),
             },
         },
@@ -28,6 +29,7 @@ beforeEach(async () => {
     vi.mocked(app.getPath).mockReturnValue(userDataDir);
     vi.mocked(cookies.get).mockReset().mockResolvedValue([]);
     vi.mocked(cookies.set).mockReset().mockResolvedValue();
+    vi.mocked(cookies.remove).mockReset().mockResolvedValue();
     vi.mocked(cookies.on).mockReset();
 });
 
@@ -109,6 +111,36 @@ describe('CloudFlareSession', () => {
             await CloudFlareSession.Restore();
 
             expect(vi.mocked(cookies.set)).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('Clear', () => {
+
+        it('Should remove every cf_clearance cookie and delete the snapshot', async () => {
+            vi.mocked(cookies.get).mockResolvedValue([
+                { name: 'cf_clearance', value: 'abc', domain: '.crunchyscan.org', path: '/', secure: true, httpOnly: true, sameSite: 'no_restriction' },
+                { name: 'cf_clearance', value: 'def', domain: '.mangafire.to', path: '/', secure: true, httpOnly: true, sameSite: 'no_restriction' },
+            ]);
+            await fs.writeFile(path.join(userDataDir, 'cloudflare-clearance.json'), JSON.stringify({ version: 1, savedAt: 1, cookies: [] }), 'utf-8');
+
+            const status = await CloudFlareSession.Clear();
+
+            const remove = vi.mocked(cookies.remove);
+            expect(remove).toHaveBeenCalledTimes(2);
+            expect(remove).toHaveBeenCalledWith('https://crunchyscan.org/', 'cf_clearance');
+            expect(remove).toHaveBeenCalledWith('https://mangafire.to/', 'cf_clearance');
+            await expect(fs.access(path.join(userDataDir, 'cloudflare-clearance.json'))).rejects.toThrow();
+            expect(status).toContain('2 cf_clearance cookies');
+            expect(status).toContain('persisted snapshot');
+        });
+
+        it('Should report when there is nothing to clear', async () => {
+            vi.mocked(cookies.get).mockResolvedValue([]);
+
+            const status = await CloudFlareSession.Clear();
+
+            expect(vi.mocked(cookies.remove)).not.toHaveBeenCalled();
+            expect(status).toBe('No Cloudflare clearance cache to clear.');
         });
     });
 

@@ -115,4 +115,38 @@ export class CloudFlareSession {
             }, 1000);
         });
     }
+
+    /**
+     * Removes every `cf_clearance` cookie from the shared session and deletes the persisted
+     * snapshot, so a stale clearance can be dropped and re-warmed from scratch.
+     * Returns a human-readable summary of what was removed.
+     */
+    public static async Clear(): Promise<string> {
+        const cookies = await session.defaultSession.cookies.get({ name: ClearanceCookie });
+        let removed = 0;
+        for (const cookie of cookies) {
+            const domain = (cookie.domain ?? '').replace(/^\./, '');
+            if (!domain) continue;
+            try {
+                await session.defaultSession.cookies.remove(`https://${domain}/`, ClearanceCookie);
+                removed++;
+            } catch (error) {
+                console.warn(`[CloudFlareSession] Failed to remove ${ClearanceCookie} for ${domain}:`, error);
+            }
+        }
+        let clearedSnapshot = false;
+        try {
+            await fs.unlink(this.SnapshotFile());
+            clearedSnapshot = true;
+        } catch {
+            // No snapshot on disk — nothing to delete.
+        }
+        const parts: string[] = [];
+        if (removed > 0) parts.push(`${removed} ${ClearanceCookie} cookie${removed === 1 ? '' : 's'}`);
+        if (clearedSnapshot) parts.push('persisted snapshot');
+        if (parts.length === 0) {
+            return 'No Cloudflare clearance cache to clear.';
+        }
+        return `Cleared ${parts.join(' and ')}. Re-open the site or import a fresh ${ClearanceCookie} to warm it up again.`;
+    }
 }

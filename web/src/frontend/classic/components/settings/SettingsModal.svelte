@@ -110,6 +110,12 @@
             cfTesting = false;
         }
     }
+
+    let cfClearStatus = $state('');
+
+    async function clearCloudFlareCache() {
+        cfClearStatus = await UI.WindowController.ClearCloudFlareCache() ?? 'No result.';
+    }
 </script>
 
 <Modal
@@ -198,6 +204,14 @@
                         <Button kind="secondary" onclick={injectCloudFlareClearance}>
                             Inject
                         </Button>
+                    </div>
+                    <div class="autodl-actions cf-clear">
+                        <Button kind="danger" onclick={clearCloudFlareCache}>
+                            Clear Cloudflare cache
+                        </Button>
+                        {#if cfClearStatus}
+                            <span class="autodl-status">{cfClearStatus}</span>
+                        {/if}
                     </div>
                     {#if cfStatus}
                         <span class="autodl-status">{cfStatus}</span>
