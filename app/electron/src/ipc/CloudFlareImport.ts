@@ -211,7 +211,10 @@ export class CloudFlareImport {
         try {
             const decipher = crypto.createDecipheriv('aes-256-gcm', aesKey, nonce);
             decipher.setAuthTag(tag);
-            return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+            const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+            // Chromium 130+ prepends a 32-byte integrity block to cookie values before
+            // AES-GCM encryption; strip it to recover the actual cookie value.
+            return (plain.length > 32 ? plain.subarray(32) : plain).toString('utf8');
         } catch {
             return '';
         }
