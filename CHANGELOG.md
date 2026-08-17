@@ -3,6 +3,27 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.10] - 2026-08-17
+
+### Ajouté
+
+- **Import `cf_clearance` multiplateforme** : l'import automatique fonctionne
+  désormais sur **Windows, macOS et Linux** (récupération de la clé AES propre à
+  la plateforme : DPAPI / Keychain + PBKDF2 / passphrase `peanuts` + keyring),
+  sans dépendance externe. Les profils Edge/Chrome (et Chromium sur Linux) sont
+  détectés selon l'OS ; les cookies se déchiffrent en v10 AES-256-GCM (Windows)
+  ou v10/v11 AES-128-CBC (macOS/Linux). Algorithmes vérifiés contre la source
+  Chromium. Le chemin Windows est validé en réel (Edge v20 → Chrome v10, valeur
+  injectée exacte, aucune régression).
+- **Bouton « Test now »** dans Paramètres → Général → Cloudflare bypass :
+  vérifie en un clic si le `cf_clearance` injecté débloque réellement le site
+  (fetch via la session partagée + détection du challenge Cloudflare).
+
+### Modifié
+
+- Documentation Cloudflare (`CLOUDFLARE.md` + section README) traduite en
+  anglais pour les utilisateurs non francophones.
+
 ## [0.1.9] - 2026-08-17
 
 ### Corrigé
