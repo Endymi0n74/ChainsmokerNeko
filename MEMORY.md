@@ -312,8 +312,8 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release  GitHub
-  `Latest` (3 zips + corps bilingue FR/EN). **Version actuelle : 0.1.14**
-  (publiée le 17 août). Prochain bump (0.1.15) dès le prochain correctif
+  `Latest` (3 zips + corps bilingue FR/EN). **Version actuelle : 0.1.15**
+  (publiée le 18 août). Prochain bump (0.1.16) dès le prochain correctif
   fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).
 
@@ -504,6 +504,17 @@ complets, méthodo CDP). État :
   de job, extract-zip lazy) + docs (pas-à-pas CrunchyScan `0eadc738`, badges
   release `757ad7cb`). 3 zips vérifiés (manifest 0.1.14, message présent dans
   le bundle web). Release **`Latest`** bilingue FR/EN.
+- **0.1.15** (`d94bec92`, le 18 août) : **scan du nouveau contenu repensé** —
+  (1) **paresseux** (`d4a49222`) : `RefreshAllFlags` retiré du boot
+  (`HakuNeko.Initialze`), déplacé dans `BookmarkPlugin.RefreshFlagsIfDue()`
+  appelé par la vue Suggestions (une fois par période, timestamp localStorage) ;
+  (2) **silencieux** (`b7893dcf`) : réglage `check-new-content-silent` (défaut
+  ON, 14 locales) + drapeau `MangaScraper.RequiresVisibleBrowserWindow`
+  (true sur CrunchyScan, getter `MangaPlugin.Scraper`) → les sites à fenêtre
+  visible sont ignorés pendant le scan. ⚠️ Piège TS : un champ `readonly = false`
+  infère le littéral `false` et casse les décorateurs → typer `boolean`
+  explicitement. **Plus de fenêtre Cloudflare au lancement.** 3 zips vérifiés
+  (manifest 0.1.15 + clé silent dans le bundle). Release **`Latest`** bilingue.
 - Release précédentes conservées : 0.1.0 → 0.1.10.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
   (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
