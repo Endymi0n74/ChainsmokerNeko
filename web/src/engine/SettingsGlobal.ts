@@ -107,6 +107,15 @@ export async function Initialize(settingsManager: SettingsManager, frontends: IF
             R.Settings_NewContent_CheckInfo,
             false
         ),
+        new Numeric(
+            Key.CheckNewContentPeriod,
+            R.Settings_NewContent_CheckPeriod,
+            R.Settings_NewContent_CheckPeriodInfo,
+            // Défaut : 1 vérification par jour (1440 min) ; min 5 min ; max 1 semaine.
+            1440,
+            5,
+            10080
+        ),
         new Check(
             Key.RPCEnabled,
             R.Settings_Global_RPCEnabled,
