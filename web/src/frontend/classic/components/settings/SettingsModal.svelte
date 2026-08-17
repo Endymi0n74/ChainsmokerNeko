@@ -6,6 +6,7 @@
         Tabs,
         Tab,
         TabContent,
+        TextInput,
     } from 'carbon-components-svelte';
     import SettingsViewer from './SettingsViewer.svelte';
     import ViewerSettings from '../viewer/Settings.svelte';
@@ -66,6 +67,33 @@
             isAutoDownloading = false;
         }
     }
+
+    // Cloudflare clearance import: reuse the cf_clearance cookie from the real browser.
+    let cfHost = $state('crunchyscan.org');
+    let cfManualValue = $state('');
+    let cfImporting = $state(false);
+    let cfStatus = $state('');
+
+    async function importCloudFlareClearance() {
+        if (cfImporting) return;
+        cfImporting = true;
+        cfStatus = 'Reading browser cookies…';
+        try {
+            cfStatus = await UI.WindowController.ImportCloudFlareClearance(cfHost) ?? 'No result.';
+        } catch (error) {
+            cfStatus = 'Import failed: ' + String(error);
+        } finally {
+            cfImporting = false;
+        }
+    }
+
+    async function injectCloudFlareClearance() {
+        if (!cfManualValue.trim()) {
+            cfStatus = 'Paste the cf_clearance value first.';
+            return;
+        }
+        cfStatus = await UI.WindowController.SetCloudFlareClearance(cfHost, cfManualValue.trim()) ?? 'No result.';
+    }
 </script>
 
 <Modal
@@ -116,6 +144,37 @@
                             window.HakuNeko.FeatureFlags.SplashScreenMinimumDuration,
                         ]}
                     />
+                </div>
+                <div class="autodl">
+                    <h4>Cloudflare bypass</h4>
+                    <p>
+                        If a site loops on “Un instant…”, reuse the cf_clearance cookie
+                        from your real browser (Edge/Chrome). Close the browser first, or
+                        paste the value from DevTools (Application → Cookies →
+                        {cfHost} → cf_clearance).
+                    </p>
+                    <div class="autodl-actions">
+                        <Button
+                            kind="primary"
+                            disabled={cfImporting}
+                            onclick={importCloudFlareClearance}
+                        >
+                            {cfImporting ? 'Importing…' : 'Import cf_clearance from browser'}
+                        </Button>
+                    </div>
+                    <div class="autodl-actions cf-manual">
+                        <TextInput
+                            labelText="Manual value"
+                            placeholder="paste cf_clearance value"
+                            bind:value={cfManualValue}
+                        />
+                        <Button kind="secondary" onclick={injectCloudFlareClearance}>
+                            Inject
+                        </Button>
+                    </div>
+                    {#if cfStatus}
+                        <span class="autodl-status">{cfStatus}</span>
+                    {/if}
                 </div>
                 <SettingsViewer
                     settings={[
@@ -193,7 +252,16 @@
         align-items: center;
         gap: 1rem;
     }
+    .autodl-actions.cf-manual {
+        margin-top: 0.75rem;
+    }
+    .autodl-actions.cf-manual :global(.cds--text-input__field-wrapper) {
+        flex: 1;
+        max-width: 32rem;
+    }
     .autodl-status {
+        display: block;
+        margin-top: 0.75rem;
         font-size: 0.875rem;
         color: var(--cds-text-secondary, #525252);
     }

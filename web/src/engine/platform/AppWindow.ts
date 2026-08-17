@@ -25,6 +25,16 @@ export interface IAppWindow {
      * Get the application version (e.g. `0.1.0`), or an empty string when unavailable.
      */
     GetVersion(): Promise<string>;
+    /**
+     * Import the `cf_clearance` cookie for the given host from the user's real browser
+     * (Edge/Chrome) into the app session. Returns a human-readable status message.
+     */
+    ImportCloudFlareClearance(host: string): Promise<string>;
+    /**
+     * Inject a manually provided `cf_clearance` value for the given host into the app session.
+     * Returns a human-readable status message.
+     */
+    SetCloudFlareClearance(host: string, value: string): Promise<string>;
 }
 
 export function CreateAppWindow(splashURL: string): IAppWindow {

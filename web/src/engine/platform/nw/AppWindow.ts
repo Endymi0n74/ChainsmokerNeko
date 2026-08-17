@@ -88,4 +88,12 @@ export default class implements IAppWindow {
         const manifest = nw.App.manifest as { version?: string };
         return manifest?.version ?? '';
     }
+
+    public async ImportCloudFlareClearance(_host: string): Promise<string> {
+        return 'Cloudflare cookie import is only available in the Electron build.';
+    }
+
+    public async SetCloudFlareClearance(_host: string, _value: string): Promise<string> {
+        return 'Cloudflare cookie injection is only available in the Electron build.';
+    }
 }

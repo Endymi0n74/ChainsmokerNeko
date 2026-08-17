@@ -1,11 +1,11 @@
 import type { IPC } from '../InterProcessCommunication';
 import { Observable, type IObservable } from '../../Observable';
 import type { IAppWindow } from '../AppWindow';
-import { ApplicationWindow as Channels } from '../../../../../app/src/ipc/Channels';
+import { ApplicationWindow as Channels, CloudFlareImport as CloudFlareChannels } from '../../../../../app/src/ipc/Channels';
 
 export default class implements IAppWindow {
 
-    constructor(private readonly ipc: IPC<Channels.App, Channels.Web>, private readonly splashURL: string) {
+    constructor(private readonly ipc: IPC<string, string>, private readonly splashURL: string) {
         // TODO: Confirm really want to close => window.on('beforunload', ...)
 
         // TODO: Provisional fullscreen detection needs to be improved (e.g., via IPC BrowserWindow.on('move')) ...
@@ -61,6 +61,22 @@ export default class implements IAppWindow {
             return await this.ipc.Send<string>(Channels.App.GetVersion);
         } catch {
             return '';
+        }
+    }
+
+    public async ImportCloudFlareClearance(host: string): Promise<string> {
+        try {
+            return await this.ipc.Send<string>(CloudFlareChannels.App.ImportFromBrowser, host);
+        } catch (error) {
+            return 'Import failed: ' + String(error);
+        }
+    }
+
+    public async SetCloudFlareClearance(host: string, value: string): Promise<string> {
+        try {
+            return await this.ipc.Send<string>(CloudFlareChannels.App.SetClearance, host, value);
+        } catch (error) {
+            return 'Injection failed: ' + String(error);
         }
     }
 }

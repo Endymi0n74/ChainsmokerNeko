@@ -127,3 +127,18 @@ export namespace BloatGuard {
         Initialize = 'BloatGuard::Initialize',
     }
 }
+
+/** Supported IPC Channels for importing a Cloudflare clearance cookie into the app session. */
+export namespace CloudFlareImport {
+
+    /** Send from the Main process and received in the Render process. */
+    export type Web = never;
+
+    /** Send from the Render process and received in the Main process. */
+    export enum App {
+        /** Channel for IPC callback with signature: `(host: string) => Promise<string>` */
+        ImportFromBrowser = 'CloudFlareImport::ImportFromBrowser',
+        /** Channel for IPC callback with signature: `(host: string, value: string) => Promise<string>` */
+        SetClearance = 'CloudFlareImport::SetClearance',
+    }
+}
