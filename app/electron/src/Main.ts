@@ -10,6 +10,7 @@ import { InitializeMenu } from './Menu';
 import { BloatGuard } from './ipc/BloatGuard';
 import { RemoteBrowserWindowController } from './ipc/RemoteBrowserWindow';
 import { CloudFlareImport } from './ipc/CloudFlareImport';
+import { CloudFlareSession } from './ipc/CloudFlareSession';
 import { RPCServer } from '../../src/rpc/Server';
 import { RemoteProcedureCallManager } from './ipc/RemoteProcedureCallManager';
 import { RemoteProcedureCallContract } from './ipc/RemoteProcedureCallContract';
@@ -195,6 +196,9 @@ async function OpenWindow(): Promise<void> {
         app.userAgentFallback = manifest['user-agent']
             ?? app.userAgentFallback.replace(new RegExp(`(^|\\s)${productToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s?`), '$1');
         await app.whenReady();
+        // Restore cf_clearance cookies persisted by the previous session so Cloudflare-
+        // protected sites are already warm on the first listing after a restart.
+        await CloudFlareSession.Install();
         const win = await CreateApplicationWindow();
 
         let rawUrl = argv.origin ?? manifest.url ?? 'about:blank';
