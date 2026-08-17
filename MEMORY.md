@@ -1,7 +1,12 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 17 août 2026.
+> Dernière mise à jour : 17 août 2026, soir.
+
+> ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
+> les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
+> et leçons. En début de session, vérifier l'horodatage : si > 2 h, re-lire l'état
+> réel (git log, git status, releases GitHub) avant d'agir.
 
 > ⚠️ **CONVENTION UTILISATEUR (à partir du 15 août 2026) : AUCUNE RÉGRESSION.**
 > Chaque changement doit vérifier qu'aucune fonctionnalité déjà validée ne casse :
@@ -242,9 +247,11 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   1. **`ci`** (ubuntu) : typecheck web/electron/nw + eslint + svelte-check + vue-tsc
      + build web/electron (cache npm + binaire Electron), puis **upload de l'artefact
      `electron-build`** ;
-  2. **`bundles`** (windows, `needs: ci`) : **réutilise le build via artefact** (plus de
+  2. **`bundles`** (`needs: ci`) : **réutilise le build via artefact** (plus de
      `npm ci` ni de rebuild — les deps prod commander/websocket-rpc sont du JS pur,
-     build portable) → 3 bundles Windows (ia32/x64/arm64) via `deploy-app.mjs` ;
+     build portable) → bundles **3 OS** via `deploy-app.mjs` : Windows
+     (ia32/x64/arm64), macOS (dmg) et Linux (AppImage) — rewrite du 17 août
+     (commit `d56fa332`) ;
   3. **`release`** (ubuntu, `needs: bundles`, master uniquement) : publie la release
      roulante `nightly` (`--latest=false`).
   - `paths-ignore` : les commits purement docs (`*.md`, `docs/**`, `MEMORY.md`)
@@ -286,9 +293,9 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   des autres agents.
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
-  reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
+  reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release  GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.10** (publiée le 17 août). Prochain bump (0.1.11) dès le prochain correctif
+  0.1.12** (publiée le 17 août). Prochain bump (0.1.13) dès le prochain correctif
   fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).
 
@@ -455,7 +462,18 @@ complets, méthodo CDP). État :
   liste des chapitres (238/238) et « Download all unviewed » → 21 chapitres
   téléchargés sur disque (`d:\Documents\bd\Box Sync\Shadows House\`).
   Aucune régression.
-- Release précédentes conservées : 0.1.0 → 0.1.9.
+- **0.1.11** (`2284e6a9`) : **persistance `cf_clearance` entre redémarrages**
+  (`30006d41`, `CloudFlareSession` + test + câblage Main.ts) — snapshot
+  `cloudflare-clearance.json` réécrit à chaque changement de cookie, restauré au
+  boot avec expiration d'un mois. Validé en live (bundle séparé, userData vierge,
+  CDP) : set cookie → snapshot écrit → quit → relance → cookie restauré
+  (`session:false`). Release **`Latest`** avec les 3 zips v0.1.11.
+- **0.1.12** (`a7630862`) : **notification AppUpdate** (`1a0ebe47`) — poll du
+  manifest sur GitHub + `UpdateNotification.svelte` (bouton de téléchargement).
+  Bundle 3 OS committé (`d56fa332`). ⚠️ Les **assets 0.1.12 ont été rafraîchis**
+  le 17 août pour inclure le bouton **Clear Cloudflare cache** (build web
+  recopié : avant, seul main.js avait le handler, le renderer était périmé).
+- Release précédentes conservées : 0.1.0 → 0.1.10.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
   (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
 - **Titres de releases uniformisés** (17 août) : les releases 0.1.6/0.1.5 (casse
@@ -510,5 +528,27 @@ complets, méthodo CDP). État :
 - **Renommage fait (17 août)** : `ChainsmokerNeko` → `ChainsmokerNeko-legacy`
   puis `haruneko` → `ChainsmokerNeko`. Le dépôt produit est désormais **un vrai
   fork** → toutes les futures PR partent de lui. Conséquence assumée : les
-  releases restent sur legacy ; les prochaines (0.1.12+) seront publiées sur le
+  releases restent sur legacy ; les prochaines (0.1.12+) sont publiées sur le
   nouveau repo.
+- **Legacy archivé (17 août soir)** : `ChainsmokerNeko-legacy` = **archivé**
+  (read-only, `archived:true`) comme **archive de releases** — README pointeur
+  (commit GitHub `da40d1e`) + description ; les 14 releases et leurs zips restent
+  téléchargeables. Décision : il a un intérêt (liens historiques), pas de
+  développement.
+- **Liens de téléchargement → nouveau repo (17 août soir, `50004731`)** : README
+  (section « Téléchargement » → `Endymi0n74/ChainsmokerNeko/releases`, legacy
+  seulement comme archive) + CLOUDFLARE.md (pointeur en tête + historique
+  versions 0.1.11/0.1.12).
+- **WIP non committé (17 août soir)** : (1) bouton **Clear Cloudflare cache**
+  (`CloudFlareSession.Clear` + channel `CloudFlareImport::ClearCache` +
+  `IAppWindow.ClearCloudFlareCache` + bouton SettingsModal — inclus dans les
+  assets 0.1.12 rafraîchis mais PAS committé) ; (2) avertissement
+  **environnement sans Electron** (`RemoteBrowserWindow.ts` lève une Exception
+  localisée + i18n 14 locales + `RemoteBrowserWindow_test.ts` — vitest 2144
+  vert). Typechecks + tests verts ; aucun des deux committé.
+- **Script de test live réutilisable** (17 août soir) :
+  `app/electron/.tmp/live_clearance_test.py` — cycle complet
+  (wipe userdata → launch → set cookie → snapshot → quit → relance → vérif),
+  ne tue que son propre PID (jamais les hakuneko de l'utilisateur). Validé :
+  PASS (snapshot `domain/secure/httpOnly/sameSite` + restauration `session:false`).
+  ⚠️ `.tmp/` = bac à sable gitignoré, PAS committé.
