@@ -312,8 +312,8 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release  GitHub
-  `Latest` (3 zips + corps bilingue FR/EN). **Version actuelle : 0.1.13**
-  (publiée le 17 août). Prochain bump (0.1.14) dès le prochain correctif
+  `Latest` (3 zips + corps bilingue FR/EN). **Version actuelle : 0.1.14**
+  (publiée le 17 août). Prochain bump (0.1.15) dès le prochain correctif
   fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).
 
@@ -498,6 +498,12 @@ complets, méthodo CDP). État :
   + sélecteur de langue). Corps de release **bilingue FR/EN** (1ère). 3 zips
   vérifiés (manifest 0.1.13, ClearCache présents). Release **`Latest`** sur le
   fork.
+- **0.1.14** (`e41bd607`, le 17 août, fin de soirée) : **avertissement
+  environnement sans Electron** (`005f4fd4`, localisé 14 locales + 6 tests) +
+  **fix CI** (`eb62cf46`/`01e96d94`/`2d541f12` : non-ASCII YAML, runner en env
+  de job, extract-zip lazy) + docs (pas-à-pas CrunchyScan `0eadc738`, badges
+  release `757ad7cb`). 3 zips vérifiés (manifest 0.1.14, message présent dans
+  le bundle web). Release **`Latest`** bilingue FR/EN.
 - Release précédentes conservées : 0.1.0 → 0.1.10.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
   (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
