@@ -26,6 +26,13 @@ composants Vue) qui tourne dans un shell **Electron** (et historiquement NW.js).
     fichiers doivent être préfixés `haruneko/`, et les commandes terminal doivent
     commencer par `cd haruneko`.
 - Remotes git : `origin` = upstream manga-download, `fork` = Endymi0n74/ChainsmokerNeko.
+  - **`Endymi0n74/ChainsmokerNeko`** = **vrai fork GitHub** de
+    `manga-download/haruneko` (renommé depuis `Endymi0n74/haruneko` le 17 août).
+    C'est LE dépôt produit : son master = le produit du fork, et les branches PR
+    (`upstream/cloudflare-fixes`, `upstream/perf-optimizations`) en partent.
+  - **`Endymi0n74/ChainsmokerNeko-legacy`** = ancien dépôt produit (pas un fork
+    enregistré, `fork:false`), renommé le 17 août : il conserve **toutes les
+    releases** et leurs liens de téléchargement (les anciennes URL redirigent).
 - `app/electron/.tmp/` est gitignoré → c'est le bac à sable pour les sondes/probes
   (`*.cjs`, `*.mjs`) sans polluer `git status`.
 
@@ -481,7 +488,20 @@ complets, méthodo CDP). État :
   test v10) supprimé — à re-télécharger depuis
   https://googlechromelabs.github.io/chrome-for-testing/ si un re-test v10 est
   nécessaire (l'installateur officiel ChromeSetup.exe reste bloqué par l'UAC).
-- **État GitHub** : 12 releases (`160826` pré-version + `0.1.0`..`0.1.10` +
-  `nightly` roulante ; dernière stable = `Latest` « ChainsmokerNeko 0.1.10 »).
-  Titres uniformisés « ChainsmokerNeko <version> » (voir §13). Pas de branche
-  parasite sur le fork (`fork/master` seule).
+- **État GitHub** : les **14 releases** (`160826` pré-version + `0.1.0`..`0.1.11`
+  + `nightly` roulante ; dernière stable = `Latest` « ChainsmokerNeko 0.1.11 »)
+  sont désormais sur **`ChainsmokerNeko-legacy`** (renommé le 17 août, les
+  anciens liens redirigent). Le nouveau `ChainsmokerNeko` (vrai fork) n'a pas
+  encore de release. Titres uniformisés « ChainsmokerNeko <version> » (voir §13).
+- **PR upstream ouvertes (17 août)** depuis `Endymi0n74/ChainsmokerNeko` (le vrai
+  fork, renommé depuis `haruneko`) : **#1797** `fix(cloudflare)` (UA Electron,
+  session partagée, reload opt-in, CrunchyScan) et **#1798** `perf(ui)` (liste
+  virtualisée, sharding MediaLists, Fuse en worker, singleton IndexedDB). Toutes
+  deux `MERGEABLE` et **toujours valides après le renommage** (le head
+  `Endymi0n74:upstream/*` est inchangé). Voir les corps dans
+  `app/electron/.tmp/pr-body.md` / `pr-body-perf.md` (gitignorés).
+- **Renommage fait (17 août)** : `ChainsmokerNeko` → `ChainsmokerNeko-legacy`
+  puis `haruneko` → `ChainsmokerNeko`. Le dépôt produit est désormais **un vrai
+  fork** → toutes les futures PR partent de lui. Conséquence assumée : les
+  releases restent sur legacy ; les prochaines (0.1.12+) seront publiées sur le
+  nouveau repo.
