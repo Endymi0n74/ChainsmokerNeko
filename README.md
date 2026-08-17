@@ -5,6 +5,8 @@
 [![Push (CI)](https://github.com/Endymi0n74/ChainsmokerNeko/actions/workflows/push-ci.yml/badge.svg)](https://github.com/Endymi0n74/ChainsmokerNeko/actions/workflows/push-ci.yml)
 ![Licence](https://img.shields.io/badge/licence-Unlicense-blue)
 
+**🌐 Langue / Language :** [**Français**](README.md) · [English](README.en.md)
+
 ---
 
 ## À propos
