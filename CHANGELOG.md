@@ -3,6 +3,18 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.6] - 2026-08-17
+
+### Ajouté
+
+- **Import du `cf_clearance` depuis le navigateur réel** : nouvelle section
+  « Cloudflare bypass » dans Paramètres → Général. Un bouton lit le cookie
+  `cf_clearance` d'Edge/Chrome (décryptage DPAPI + AES-256-GCM du store
+  SQLite) et l'injecte dans la session partagée de l'app ; un champ de
+  **collage manuel** reste disponible quand le navigateur est ouvert (store
+  verrouillé) ou protégé par l'App-Bound Encryption (v20, détecté avec un
+  message explicite).
+
 ## [0.1.5] - 2026-08-17
 
 ### Corrigé
