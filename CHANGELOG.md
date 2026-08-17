@@ -3,6 +3,21 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.15] - 2026-08-18
+
+### Modifié
+
+- **Scan du nouveau contenu paresseux** : la vérification des bookmarks ne
+  s'exécute plus au démarrage de l'app — elle ne tourne que quand la vue
+  Suggestions est affichée, et au plus une fois par période
+  (`check-new-content-period`, défaut 1440 min). Plus de fenêtre Cloudflare
+  CrunchyScan qui s'ouvre au lancement.
+- **Réglage « Vérifier les nouveaux chapitres sans ouvrir de fenêtre »**
+  (activé par défaut) : pendant la vérification, les sites dont le
+  fonctionnement nécessite une fenêtre navigateur visible (CrunchyScan) sont
+  ignorés — aucune fenêtre ne s'ouvre pendant le scan. Désactivable dans
+  Paramètres → Général.
+
 ## [0.1.14] - 2026-08-17
 
 ### Ajouté
