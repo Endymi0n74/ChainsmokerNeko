@@ -3,6 +3,22 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.5] - 2026-08-17
+
+### Corrigé
+
+- **CrunchyScan — boucle Cloudflare résolue** : trois problèmes chaînés
+  bloquaient le listing sur le challenge « Un instant… » :
+  - le cookie `cf_clearance` n'est émis que lorsque la fenêtre distante est
+    **visible** → la fenêtre s'affiche désormais pour les sites opt-in du
+    reload (CrunchyScan), sans flash pour les autres sites (MangaFire,
+    MangaDrama, Comix restent cachés) ;
+  - `cf_clearance` est **httpOnly** → le poller le lit via le debugger CDP
+    (`Network.getCookies`) au lieu de `document.cookie` (toujours vide) ;
+  - budget de reload **borné globalement à 3** (au lieu d'une boucle
+    non-bornée : ~35 navigations en 40 s) et arrêt de tous les pollers au
+    `destroy()`.
+
 ## [0.1.4] - 2026-08-17
 
 ### Ajouté
