@@ -25,8 +25,6 @@ jobs:
           - os: ubuntu-latest
             target: linux
     runs-on: ${{ matrix.os }}
-    env:
-      HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
     steps:
       - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
         uses: actions/checkout@v4
@@ -50,6 +48,8 @@ jobs:
       - name: Build Web Application
         run: npm run build --workspace=web
       - name: Bundle Electron Application
+        env:
+          HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
         run: npm run bundle --workspace=app/electron
       - name: Upload Bundles
         uses: actions/upload-artifact@v4
