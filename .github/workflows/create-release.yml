@@ -1,16 +1,32 @@
 name: Create GitHub Release
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 2.0.0). Leave empty to use the version from app/electron/package.json.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build Electron (${{ matrix.target }})
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-    name: Build (${{ matrix.os }})
+        include:
+          - os: windows-latest
+            target: windows
+          - os: macos-latest
+            target: macos
+          - os: ubuntu-latest
+            target: linux
     runs-on: ${{ matrix.os }}
     env:
-      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+      HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
     steps:
       - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
         uses: actions/checkout@v4
@@ -18,13 +34,6 @@ jobs:
           repository: ${{ github.repository }}
           ref: ${{ github.ref }}
           fetch-depth: 1
-      - name: Setup Snapcraft
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          sudo apt update
-          sudo apt install -y snapd
-          sudo systemctl start snapd
-          sudo snap install snapcraft --classic
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
@@ -37,27 +46,24 @@ jobs:
       - name: Install NPM Packages
         env:
           electron_config_cache: ${{ runner.temp }}/electron-zips
-        run: npm run npm:clean-install
-      - name: Build Application
-        env:
-          HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
-        run: npm run bundle --workspace app/nw --workspace app/electron
-      - name: Upload NW Builds
+        run: npm ci
+      - name: Build Web Application
+        run: npm run build --workspace=web
+      - name: Bundle Electron Application
+        run: npm run bundle --workspace=app/electron
+      - name: Upload Bundles
         uses: actions/upload-artifact@v4
         with:
-          name: bundle-nw-${{ matrix.os }}
-          retention-days: 3
-          path: app/nw/bundle/
-      - name: Upload Electron Builds
-        uses: actions/upload-artifact@v4
-        with:
-          name: bundle-electron-${{ matrix.os }}
-          retention-days: 3
-          path: app/electron/bundle/
-  release-notes:
+          name: bundles-${{ matrix.target }}
+          path: app/electron/bundle/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish Release
     needs: build
-    name: Prepare Release Notes
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
         uses: actions/checkout@v4
@@ -65,64 +71,55 @@ jobs:
           repository: ${{ github.repository }}
           ref: ${{ github.ref }}
           fetch-depth: 1
-      - name: Upload Release Templates
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-templates
-          retention-days: 3
-          path: .github/RELEASE_TEMPLATE/*.md
-  publish:
-    needs:
-      - build
-      - release-notes
-    name: Publish Release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Environment
+      - name: Determine version
+        id: version
         run: |
-          echo "RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_ENV
-          echo "RELEASE_TAG=$(date -u +"%y%m%dT%H%M")" >> $GITHUB_ENV
-      - name: Download Artifacts
+          PKG_VERSION=$(node -p "require('./app/electron/package.json').version")
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="$PKG_VERSION"
+          fi
+          # Normalize a leading 'v' so tags stay consistent with previous releases (e.g. '2.0.0').
+          VERSION=$(echo "$VERSION" | sed 's/^v//')
+          # The bundles are stamped with the package version, so refuse to publish a tag
+          # that does not match it — bump the package.json versions before releasing.
+          if [ "$VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Version '$VERSION' does not match app/electron/package.json version '$PKG_VERSION'. Bump the package versions first."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Generate release notes from CHANGELOG
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node - "$VERSION" > notes.md <<'EOF'
+          const fs = require('node:fs');
+          const version = process.argv[2];
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+          const header = '## [' + version + ']';
+          const start = changelog.indexOf(header);
+          let notes;
+          if (start < 0) {
+            notes = changelog;
+          } else {
+            const end = changelog.indexOf('\n## [', start + header.length);
+            notes = changelog.slice(start, end < 0 ? undefined : end);
+          }
+          process.stdout.write(notes.trim() + '\n');
+          EOF
+      - name: Download Bundles
         uses: actions/download-artifact@v4
-      - name: Create Release Description
+        with:
+          path: artifacts
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          DESCRIPTION=$(cat ./release-templates/pre-release.md | jq -sR | sed s/{TAG}/$RELEASE_TAG/g)
-          DESCRIPTION=$(echo $DESCRIPTION | sed s/{WIN_X64_ZIP}/$(ls ./bundle-electron-* | grep 'x64.zip')/g)
-          DESCRIPTION=$(echo $DESCRIPTION | sed s/{WIN_X32_ZIP}/$(ls ./bundle-electron-* | grep 'ia32.zip')/g)
-          DESCRIPTION=$(echo $DESCRIPTION | sed s/{MACOS_X64_DMG}/$(ls ./bundle-electron-* | grep 'x64.dmg')/g)
-          DESCRIPTION=$(echo $DESCRIPTION | sed s/{MACOS_ARM64_DMG}/$(ls ./bundle-electron-* | grep 'arm64.dmg')/g)
-          DESCRIPTION=$(echo $DESCRIPTION | sed s/{LINUX_X64_SNAP}/$(ls ./bundle-electron-* | grep 'x64.snap')/g)
-          echo -n $DESCRIPTION > ./release-templates/description.md
-      - name: Create Release Tag
-        run: |
-          echo { > ./body.json
-          echo \"prerelease\":true, >> ./body.json
-          echo \"tag_name\":\"$RELEASE_TAG\", >> ./body.json
-          echo \"name\":\"canary • $RELEASE_DATE\", >> ./body.json
-          echo \"body\":$(cat ./release-templates/description.md) >> ./body.json
-          echo } >> ./body.json
-          echo +++ REQUEST +++
-          cat ./body.json
-          echo -n "RELEASE_ID=" >> $GITHUB_ENV
-          curl \
-            -X POST \
-            -H 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
-            'https://api.github.com/repos/${{ github.repository }}/releases' \
-            --data @./body.json \
-            --silent > ./response.json
-          echo +++ RESPONSE +++
-          cat ./response.json
-          cat ./response.json | grep '"upload_url"' | cut -d'/' -f8 >> $GITHUB_ENV
-          rm body.json response.json
-      - name: Upload Release Assets
-        run: |
-          for FILE in ./bundle-*/*.*; do \
-            curl \
-              -X POST \
-              -H 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
-              -H 'Content-Type: application/octet-stream' \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ env.RELEASE_ID }}/assets?name=$(basename $FILE)" \
-              --data-binary @"$FILE" \
-              --silent \
-            && echo \
-          ; done
+          gh release create "$VERSION" \
+            --title "ChainsmokerNeko $VERSION" \
+            --notes-file notes.md \
+            --latest \
+            artifacts/bundles-windows/* \
+            artifacts/bundles-macos/* \
+            artifacts/bundles-linux/*

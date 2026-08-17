@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import extract from 'extract-zip';
 import { download, run } from '../../tools.mjs';
 
 const pkgFile = 'package.json';
@@ -35,8 +36,13 @@ async function redist(electronVersion, electronPlatform, electronArchitecture) {
     await fs.rm(electronDir, { force: true, recursive: true });
     await fs.mkdir(electronDir, { recursive: true });
     
-    // PowerShell natif au lieu de extract-zip (bug EACCES Windows)
-    await run(`powershell -Command "Expand-Archive -Path '${tmpFile}' -DestinationPath '${electronDir}' -Force"`);
+    if (process.platform === 'win32') {
+        // PowerShell natif au lieu de extract-zip (bug EACCES Windows)
+        await run(`powershell -Command "Expand-Archive -Path '${tmpFile}' -DestinationPath '${electronDir}' -Force"`);
+    } else {
+        // macOS/Linux : extract-zip (pas de PowerShell sur les runners CI)
+        await extract(tmpFile, { dir: electronDir });
+    }
     
     return electronDir;
 }
@@ -62,7 +68,7 @@ if (process.platform === 'darwin') {
 }
 
 if (process.platform === 'linux') {
-    const snap = await import('./bundle-app-snap.mjs');
+    const appimage = await import('./bundle-app-appimage.mjs');
     let dirTemp = await redist(electronVersion, process.platform, 'x64');
-    await snap.bundle(dirApp, dirRes, dirTemp, dirOut);
+    await appimage.bundle(dirApp, dirRes, dirTemp, dirOut);
 }
