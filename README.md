@@ -21,6 +21,17 @@ petit nombre de sites **retravaillés en profondeur** (connecteurs sans DRM,
 contournement Cloudflare, paywalls), fiabilisés et couverts par des tests de
 régression.
 
+## Téléchargement
+
+Toutes les versions (Windows ia32/x64/arm64, macOS dmg, Linux AppImage) sont
+publiées sur la page **Releases du fork** :
+
+👉 **https://github.com/Endymi0n74/ChainsmokerNeko/releases**
+
+La dernière version stable est marquée `Latest` ; la release `nightly` contient
+le build du dernier push sur `master`. Les anciennes versions (0.1.0 → 0.1.11)
+restent téléchargeables sur le dépôt archivé [ChainsmokerNeko-legacy](https://github.com/Endymi0n74/ChainsmokerNeko-legacy).
+
 ## Fonctionnalités
 
 - 📚 Liste, recherche et bookmarks sur des dizaines de milliers de mangas

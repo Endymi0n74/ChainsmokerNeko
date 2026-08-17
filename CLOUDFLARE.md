@@ -1,10 +1,14 @@
 # Cloudflare bypass — status & how-to
 
-> Status documented on 17 August 2026 — versions **0.1.5 → 0.1.9**.
+> Status documented on 17 August 2026 — versions **0.1.5 → 0.1.12**.
 
 This document explains how **ChainsmokerNeko** handles Cloudflare challenges
 (the "Just a moment…" page that blocks some sites), and in particular how to
 reuse the `cf_clearance` cookie your real browser has already obtained.
+
+**Download the app**: all releases (Windows/macOS/Linux) are on the fork's
+[Releases page](https://github.com/Endymi0n74/ChainsmokerNeko/releases) — the
+`nightly` build is the latest `master`, `Latest` is the newest stable version.
 
 ---
 
@@ -142,6 +146,8 @@ source ("Imported … from Chrome"); failures are aggregated into a summary.
 | **0.1.7** | Fixed the `expires_utc` crash (`RangeError` as soon as Edge/Chrome was closed). |
 | **0.1.8** | Multi-browser fallthrough (Chrome tried when Edge fails) + v10/ABE documentation. |
 | **0.1.9** | Fixed the 32-byte integrity prefix (Chromium 130+): the injected value is clean. |
+| **0.1.11** | `cf_clearance` **persisted on disk**: once warmed up, the cookie survives restarts (re-injected with a 1-month expiry). |
+| **0.1.12** | **Clear Cloudflare cache** button in Settings → General → Cloudflare bypass (wipes the snapshot + session cookies). |
 
 ---
 
