@@ -3,6 +3,8 @@
 > Personal fork of **HaruNeko** — manga, anime & novel downloader (desktop app).
 
 [![Push (CI)](https://github.com/Endymi0n74/ChainsmokerNeko/actions/workflows/push-ci.yml/badge.svg)](https://github.com/Endymi0n74/ChainsmokerNeko/actions/workflows/push-ci.yml)
+![Release](https://img.shields.io/github/v/release/Endymi0n74/ChainsmokerNeko?display_name=tag)
+![Downloads (latest release)](https://img.shields.io/github/downloads/Endymi0n74/ChainsmokerNeko/latest/total?label=downloads)
 ![License](https://img.shields.io/badge/license-Unlicense-blue)
 
 **🌐 Language / Langue :** [**English**](README.en.md) · [Français](README.md)
