@@ -1,161 +1,160 @@
-# Contournement Cloudflare — état et mode d'emploi
+# Cloudflare bypass — status & how-to
 
-> Statut documenté au 17 août 2026 — versions **0.1.5 → 0.1.9**.
+> Status documented on 17 August 2026 — versions **0.1.5 → 0.1.9**.
 
-Ce document récapitule comment **ChainsmokerNeko** gère les challenges Cloudflare
-(la page « Un instant… » qui bloque certains sites), et en particulier comment
-réutiliser le cookie `cf_clearance` déjà obtenu par ton navigateur réel.
-
----
-
-## 1. Le problème
-
-Certains sites (CrunchyScan, parfois MangaFire/Comix) servent un challenge
-Cloudflare **« managé »** : une page « Un instant… » sans widget interactif.
-Ce challenge se résout automatiquement **uniquement** pour les sessions à forte
-confiance (un vrai navigateur qui a déjà passé le challenge et accumulé
-l'historique). Une session Electron neuve repart de zéro et peut boucler
-indéfiniment.
-
-Le cookie `cf_clearance` est la clé : dès que Cloudflare l'émet, le site se
-charge. L'application dispose donc de **deux étages** :
-
-1. les mécanismes automatiques embarqués (user-agent, session partagée,
-   reload opt-in) ;
-2. un helper de **réutilisation du cookie depuis ton navigateur réel**.
+This document explains how **ChainsmokerNeko** handles Cloudflare challenges
+(the "Just a moment…" page that blocks some sites), and in particular how to
+reuse the `cf_clearance` cookie your real browser has already obtained.
 
 ---
 
-## 2. Mécanismes automatiques embarqués
+## 1. The problem
 
-| Mécanisme | Rôle |
+Some sites (CrunchyScan, occasionally MangaFire/Comix) serve a **"managed"**
+Cloudflare challenge: a "Just a moment…" page with no interactive widget.
+This challenge resolves itself **only** for high-trust sessions (a real browser
+that has already passed the challenge and accumulated history). A fresh
+Electron session starts from scratch and can loop forever.
+
+The `cf_clearance` cookie is the key: as soon as Cloudflare issues it, the site
+loads. The app therefore has **two layers**:
+
+1. built-in automatic mechanisms (user-agent, shared session, opt-in reload);
+2. a helper to **reuse the cookie from your real browser**.
+
+---
+
+## 2. Built-in automatic mechanisms
+
+| Mechanism | Role |
 |-----------|------|
-| **User-agent standard conservée** | L'app garde le segment `Electron/x.y.z` au lieu de le retirer (le stripping déclenchait le challenge sur MangaFire). |
-| **Session partagée** | Les fenêtres distantes partagent la session de l'app ; les cookies (`cf_clearance` y compris) sont injectés dans les requêtes fetch, le flag `partitioned` est retiré des `Set-Cookie`. |
-| **Auto-résolution des challenges managés** | Le challenge s'auto-résout en arrière-plan sans flash de fenêtre (fenêtre masquée seulement pour les sites sans widget). |
-| **Reload opt-in par site** | Seuls les sites qui le demandent (CrunchyScan) rechargent la page tant que le challenge est bloqué — budget borné à **3 navigations**, cookie lu via le debugger CDP (`Network.getCookies`) car `cf_clearance` est **httpOnly**. |
+| **Standard user-agent preserved** | The app keeps the `Electron/x.y.z` segment instead of stripping it (stripping triggered the challenge on MangaFire). |
+| **Shared session** | Remote windows share the app session; cookies (including `cf_clearance`) are injected into fetch requests, and the `partitioned` flag is removed from `Set-Cookie`. |
+| **Auto-resolution of managed challenges** | The challenge resolves itself in the background without a window flash (the window is hidden only for widget-less sites). |
+| **Opt-in per-site reload** | Only sites that opt in (CrunchyScan) reload the page while the challenge is stuck — budget capped at **3 navigations**, cookie read via the CDP debugger (`Network.getCookies`) because `cf_clearance` is **httpOnly**. |
 
-Ces mécanismes suffisent pour MangaFire et Comix (validés en réel). Pour
-CrunchyScan, le challenge « managé » sans widget peut ne pas se résoudre depuis
-une IP/session sans confiance — c'est là que le helper ci-dessous intervient.
-
----
-
-## 3. Helper « Importer le `cf_clearance` depuis le navigateur »
-
-Emplacement : **Paramètres → Général → Cloudflare bypass**.
-
-Il réutilise le cookie `cf_clearance` que ton navigateur réel (Edge/Chrome) a
-déjà obtenu pour `crunchyscan.org`, et l'injecte dans la session de l'app.
-
-### 3.1 Deux chemins d'import
-
-| Chemin | Fonctionnement | Fiabilité |
-|--------|----------------|-----------|
-| **Import automatique** (bouton) | Lit le cookie dans le store SQLite chiffré du navigateur, récupère la clé AES propre à la plateforme (DPAPI sous Windows, Keychain + PBKDF2 sous macOS, passphrase/keyring sous Linux) et déchiffre. | **Windows / macOS / Linux**, navigateurs Edge, Chrome et Chromium. Navigateur **fermé** obligatoire. Sur Windows, un Edge en **App-Bound Encryption (v20)** reste illisible automatiquement. |
-| **Collage manuel** (champ + bouton Inject) | Copie la valeur de `cf_clearance` depuis les DevTools (`F12` → Application → Cookies → crunchyscan.org → cf_clearance) et colle-la. | **Universel** — fonctionne dans tous les cas, navigateur ouvert ou non. |
-
-### 3.2 Pipeline d'import automatique (v10)
-
-1. Localise les profils navigateur selon la plateforme :
-   - Windows : `%LOCALAPPDATA%\Microsoft\Edge\User Data`, `%LOCALAPPDATA%\Google\Chrome\User Data` ;
-   - macOS : `~/Library/Application Support/Microsoft Edge`, `~/Library/Application Support/Google/Chrome` ;
-   - Linux : `~/.config/microsoft-edge`, `~/.config/google-chrome`, `~/.config/chromium`.
-2. Récupère la clé AES propre à la plateforme :
-   - Windows : clé **DPAPI** (blob `os_crypt.encrypted_key` de `Local State`, déchiffrée
-     via `CryptUnprotectData` — PowerShell, intégré à Windows ; Electron `safeStorage` est
-     inutilisable ici, il produit son propre format v10 incompatible) ;
-   - macOS : mot de passe **Keychain** (« Chrome Safe Storage ») lu via `security`, puis
-     dérivation **PBKDF2-HMAC-SHA1** (1003 itérations, sel `saltysalt`) ;
-   - Linux : dérivation **PBKDF2** (1 itération, sel `saltysalt`) depuis la passphrase
-     `peanuts` (v10) ou le trousseau Secret Service (v11, via `secret-tool`).
-3. Copie la base `Default/Network/Cookies` (verrouillée pendant que le
-   navigateur tourne) dans un fichier temporaire, puis lit `cf_clearance` en
-   SQLite (`node:sqlite`, lecture seule).
-4. Déchiffre le cookie : **v10 AES-256-GCM** sous Windows (`v10` + nonce 12
-   octets + ciphertext + tag 16 octets), **v10/v11 AES-128-CBC** sous macOS/Linux
-   (IV = 16 espaces fixes), puis **retire le préfixe d'intégrité de 32 octets**
-   que Chromium (DB ≥ 24) ajoute aux valeurs avant chiffrement.
-5. Injecte le cookie dans la session partagée : `httpOnly`, `secure`,
-   `sameSite=no_restriction`, durée de vie ~30 jours.
-
-### 3.3 Le cas « v20 » (App-Bound Encryption)
-
-Les Edge/Chrome récents peuvent chiffrer les cookies en **v20**
-(*App-Bound Encryption*) : la clé est dérivée par le service d'élévation du
-navigateur, liée à l'identité de l'app, et **non décryptable depuis
-l'extérieur**. Le helper détecte ce format (préfixe `v20`) et renvoie un
-message clair au lieu d'échouer silencieusement :
-
-> *« App-Bound Encryption (v20) is enabled — paste the cf_clearance value manually instead. »*
-
-Dans ce cas, **le collage manuel reste le chemin fiable**.
-
-### 3.4 Fallthrough multi-navigateur
-
-L'import **essaie tous les navigateurs** avant d'abandonner : si Edge échoue
-(verrouillé ou v20), Chrome est essayé ensuite, et inversement. Le message de
-succès précise la source (« Imported … from Chrome ») ; les échecs sont
-agrégés dans un résumé.
+These mechanisms are enough for MangaFire and Comix (validated live). For
+CrunchyScan, the widget-less "managed" challenge may not resolve from an
+untrusted IP/session — that is where the helper below comes in.
 
 ---
 
-## 4. Matrice des scénarios
+## 3. Helper "Import cf_clearance from the browser"
 
-| Navigateur | Chiffrement | Navigateur ouvert ? | Résultat de l'import auto |
-|-----------|-------------|---------------------|---------------------------|
-| Chrome / Chromium (Windows) | v10 | Fermé | ✅ décryptage + injection |
-| Chrome / Chromium (Windows) | v10 | Ouvert | ⚠️ « store verrouillé » → ferme Chrome ou colle manuellement |
-| Edge (ancien / ABE désactivé) | v10 | Fermé | ✅ décryptage + injection |
-| Edge (récent, ABE activé) | v20 | Fermé | ⚠️ message v20 → colle manuellement |
-| Edge (récent, ABE activé) | v20 | Ouvert | ⚠️ message v20 → colle manuellement |
-| Chrome / Edge (macOS) | v10 (Keychain + PBKDF2) | Fermé | ✅ décryptage + injection (autoriser la lecture Keychain à la 1re exécution) |
-| Chrome / Edge / Chromium (Linux) | v10 `peanuts` | Fermé | ✅ décryptage + injection |
-| Chrome / Edge (Linux, trousseau) | v11 | Fermé | ✅ si `secret-tool` installé |
-| Aucun navigateur détecté | — | — | ⚠️ « No Chromium browser profile found » → colle manuellement |
+Location: **Settings → General → Cloudflare bypass**.
+
+It reuses the `cf_clearance` cookie that your real browser (Edge/Chrome) has
+already obtained for `crunchyscan.org`, and injects it into the app session.
+
+### 3.1 Two import paths
+
+| Path | How it works | Reliability |
+|------|--------------|-------------|
+| **Automatic import** (button) | Reads the cookie from the browser's encrypted SQLite store, recovers the platform-specific AES key (DPAPI on Windows, Keychain + PBKDF2 on macOS, passphrase/keyring on Linux) and decrypts it. | **Windows / macOS / Linux**, browsers Edge, Chrome and Chromium. Browser must be **closed**. On Windows, an Edge using **App-Bound Encryption (v20)** cannot be read automatically. |
+| **Manual paste** (field + Inject button) | Copy the `cf_clearance` value from DevTools (`F12` → Application → Cookies → crunchyscan.org → cf_clearance) and paste it. | **Universal** — works in all cases, browser open or not. |
+| **Test now** (button) | Fetches the site's home page through the shared session and reports whether the real page loaded or the site is still challenged. | Verifies in one click that the injected cookie actually works. |
+
+### 3.2 Automatic import pipeline (v10)
+
+1. Locates the browser profiles per platform:
+   - Windows: `%LOCALAPPDATA%\Microsoft\Edge\User Data`, `%LOCALAPPDATA%\Google\Chrome\User Data`;
+   - macOS: `~/Library/Application Support/Microsoft Edge`, `~/Library/Application Support/Google/Chrome`;
+   - Linux: `~/.config/microsoft-edge`, `~/.config/google-chrome`, `~/.config/chromium`.
+2. Recovers the platform-specific AES key:
+   - Windows: **DPAPI** key (`os_crypt.encrypted_key` blob from `Local State`,
+     unwrapped via `CryptUnprotectData` — PowerShell, built into Windows; Electron
+     `safeStorage` is unusable here as it produces its own incompatible v10 format);
+   - macOS: **Keychain** password ("Chrome Safe Storage") read via `security`, then
+     **PBKDF2-HMAC-SHA1** derivation (1003 rounds, salt `saltysalt`);
+   - Linux: **PBKDF2** derivation (1 round, salt `saltysalt`) from the `peanuts`
+     passphrase (v10) or the Secret Service keyring (v11, via `secret-tool`).
+3. Copies the `Default/Network/Cookies` database (locked while the browser runs)
+   to a temporary file, then reads `cf_clearance` via SQLite (`node:sqlite`,
+   read-only).
+4. Decrypts the cookie: **v10 AES-256-GCM** on Windows (`v10` + 12-byte nonce +
+   ciphertext + 16-byte tag), **v10/v11 AES-128-CBC** on macOS/Linux (IV = 16
+   fixed spaces), then **strips the 32-byte integrity prefix** that Chromium
+   (DB ≥ 24) adds to values before encryption.
+5. Injects the cookie into the shared session: `httpOnly`, `secure`,
+   `sameSite=no_restriction`, ~30-day lifetime.
+
+### 3.3 The "v20" case (App-Bound Encryption)
+
+Recent Edge/Chrome versions can encrypt cookies with **v20**
+(*App-Bound Encryption*): the key is derived by the browser's elevation service,
+bound to the app identity, and **not decryptable from the outside**. The helper
+detects this format (`v20` prefix) and returns a clear message instead of
+failing silently:
+
+> *"App-Bound Encryption (v20) is enabled — paste the cf_clearance value manually instead."*
+
+In that case, **manual paste remains the reliable path**.
+
+### 3.4 Multi-browser fallthrough
+
+The import **tries every browser** before giving up: if Edge fails (locked or
+v20), Chrome is tried next, and vice versa. The success message states the
+source ("Imported … from Chrome"); failures are aggregated into a summary.
 
 ---
 
-## 5. Limites connues
+## 4. Scenario matrix
 
-- **Il faut un vrai `cf_clearance`** : le helper déplace un cookie déjà obtenu,
-  il ne le fabrique pas. Si ton navigateur n'a pas encore passé le challenge
-  (ex. IP marquée par Cloudflare), il n'y a rien à importer.
-- **`cf_clearance` peut être émis sans challenge résolu** (faux positif) : sa
-  présence ne garantit pas le déblocage — seul un test réel de listing le
-  confirme.
-- **Auto-lecture macOS** : une première exécution peut déclencher la demande
-  d'autorisation Keychain (« security » veut lire « Chrome Safe Storage ») —
-  à accepter une fois.
-- **Auto-lecture Linux** : le chemin v10 (`peanuts`) fonctionne sans rien ; le
-  trousseau (v11) nécessite `secret-tool` (paquet `libsecret-tools`).
-- **Windows + Edge v20** : App-Bound Encryption — voir §3.3, collage manuel obligatoire.
-- **Auto-lecture = navigateur fermé** : le store de cookies est verrouillé
-  (`EBUSY`) tant que le navigateur tourne.
+| Browser | Encryption | Browser open? | Auto-import result |
+|---------|------------|---------------|--------------------|
+| Chrome / Chromium (Windows) | v10 | Closed | ✅ decrypt + inject |
+| Chrome / Chromium (Windows) | v10 | Open | ⚠️ "store locked" → close Chrome or paste manually |
+| Edge (old / ABE disabled) | v10 | Closed | ✅ decrypt + inject |
+| Edge (recent, ABE enabled) | v20 | Closed | ⚠️ v20 message → paste manually |
+| Edge (recent, ABE enabled) | v20 | Open | ⚠️ v20 message → paste manually |
+| Chrome / Edge (macOS) | v10 (Keychain + PBKDF2) | Closed | ✅ decrypt + inject (allow Keychain access on first run) |
+| Chrome / Edge / Chromium (Linux) | v10 `peanuts` | Closed | ✅ decrypt + inject |
+| Chrome / Edge (Linux, keyring) | v11 | Closed | ✅ if `secret-tool` is installed |
+| No browser detected | — | — | ⚠️ "No Chromium browser profile found" → paste manually |
 
 ---
 
-## 6. Historique des versions
+## 5. Known limitations
 
-| Version | Apport |
+- **A real `cf_clearance` is required**: the helper moves a cookie you already
+  obtained; it does not fabricate one. If your browser hasn't passed the
+  challenge yet (e.g. the IP is flagged by Cloudflare), there is nothing to
+  import.
+- **`cf_clearance` can be issued without the challenge being solved** (false
+  positive): its presence does not guarantee unblocking — only a real listing
+  test confirms it (use the **Test now** button).
+- **macOS auto-read**: the first run may trigger the Keychain authorization
+  prompt ("security" wants to read "Chrome Safe Storage") — allow it once.
+- **Linux auto-read**: the v10 path (`peanuts`) needs nothing; the keyring (v11)
+  requires `secret-tool` (package `libsecret-tools`).
+- **Windows + Edge v20**: App-Bound Encryption — see §3.3, manual paste required.
+- **Auto-read = browser closed**: the cookie store is locked (`EBUSY`) while the
+  browser runs.
+
+---
+
+## 6. Version history
+
+| Version | Change |
 |---------|--------|
-| **0.1.5** | Fix de la boucle Cloudflare CrunchyScan (fenêtre visible, lecture httpOnly via CDP, budget de reload borné). |
-| **0.1.6** | Ajout du helper d'import (`ImportFromBrowser` + collage manuel) et de la section « Cloudflare bypass ». |
-| **0.1.7** | Fix du crash `expires_utc` (`RangeError` dès qu'Edge/Chrome était fermé). |
-| **0.1.8** | Fallthrough multi-navigateur (Chrome essayé quand Edge échoue) + documentation v10/ABE. |
-| **0.1.9** | Fix du préfixe d'intégrité 32 octets (Chromium 130+) : la valeur injectée est propre. |
+| **0.1.5** | Fixed the CrunchyScan Cloudflare loop (visible window, httpOnly read via CDP, bounded reload budget). |
+| **0.1.6** | Added the import helper (`ImportFromBrowser` + manual paste) and the "Cloudflare bypass" section. |
+| **0.1.7** | Fixed the `expires_utc` crash (`RangeError` as soon as Edge/Chrome was closed). |
+| **0.1.8** | Multi-browser fallthrough (Chrome tried when Edge fails) + v10/ABE documentation. |
+| **0.1.9** | Fixed the 32-byte integrity prefix (Chromium 130+): the injected value is clean. |
 
 ---
 
-## 7. Procédure recommandée pour débloquer CrunchyScan
+## 7. Recommended procedure to unblock CrunchyScan
 
-1. Dans ton navigateur réel, ouvre `crunchyscan.org` et passe le challenge
-   (page qui se charge normalement).
-2. Ouvre les DevTools (`F12`) → **Application** → **Cookies** →
-   `crunchyscan.org` → copie la valeur de **`cf_clearance`**.
-3. Dans l'app : **Paramètres → Général → Cloudflare bypass** → colle la valeur
-   → **Inject**.
-4. Retourne sur CrunchyScan → **Update** : le listing se charge.
+1. In your real browser, open `crunchyscan.org` and pass the challenge (the page
+   loads normally).
+2. Open DevTools (`F12`) → **Application** → **Cookies** → `crunchyscan.org` →
+   copy the **`cf_clearance`** value.
+3. In the app: **Settings → General → Cloudflare bypass** → paste the value →
+   **Inject**.
+4. Click **Test now** and confirm it reports "Unblocked".
+5. Go back to CrunchyScan → **Update**: the listing loads.
 
-> Si ton navigateur est **Chrome** (ou Edge avec ABE désactivé) **fermé**, le
-> bouton **Import cf_clearance from browser** fait la même chose sans copier.
+> If your browser is **Chrome** (or Edge with ABE disabled) **closed**, the
+> **Import cf_clearance from browser** button does the same without copying.

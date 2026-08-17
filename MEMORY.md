@@ -435,12 +435,13 @@ complets, méthodo CDP). État :
 
 ## 14. Documentation Cloudflare + nettoyage (17 août)
 
-- **`CLOUDFLARE.md`** (`dcaedbb3`) : doc de statut utilisateur récapitulant tout le
-  contournement Cloudflare — mécanismes embarqués (UA, session partagée, reload
-  opt-in borné), helper d'import `cf_clearance` (auto v10 DPAPI+AES-GCM+retrait
-  préfixe 32 octets, détection v20 ABE, fallthrough multi-navigateur Edge→Chrome,
-  collage manuel), matrice des scénarios, limites connues, historique 0.1.5→0.1.9
-  et procédure pas-à-pas CrunchyScan. Liée depuis le README.
+- **`CLOUDFLARE.md`** (`dcaedbb3`, réécrit en **anglais** le 17 août) : doc de statut
+  utilisateur récapitulant tout le contournement Cloudflare — mécanismes embarqués
+  (UA, session partagée, reload opt-in borné), helper d'import `cf_clearance` (auto
+  v10 DPAPI+AES-GCM+retrait préfixe 32 octets, détection v20 ABE, fallthrough
+  multi-navigateur Edge→Chrome, collage manuel, bouton « Test now »), matrice des
+  scénarios, limites connues, historique 0.1.5→0.1.9 et procédure pas-à-pas
+  CrunchyScan. Liée depuis le README (section Cloudflare aussi en anglais).
 - **Nettoyage du dossier de travail** : `.tmp/` vidé (250 sondes/logs/probes +
   `ChromeSetup.exe` 12 Mo + `chrome-win64.zip` 202 Mo + `robo/`) — **conservé :
   `.tmp/electron-zips`** (cache 400 Mo des 3 binaires Electron, réutilisé par

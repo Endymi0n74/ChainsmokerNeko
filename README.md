@@ -34,23 +34,25 @@ une application desktop de scraping et de téléchargement de mangas, animes et 
 
 … et 17 autres connecteurs ajoutés.
 
-## Contournement Cloudflare (cf_clearance)
+## Cloudflare bypass (cf_clearance)
 
-Quand un site boucle sur un challenge Cloudflare « managé » (« Un instant… »),
-tu peux réutiliser le cookie `cf_clearance` déjà obtenu par ton navigateur réel :
-**Paramètres → Général → Cloudflare bypass**.
+When a site loops on a "managed" Cloudflare challenge ("Just a moment…"), you can
+reuse the `cf_clearance` cookie your real browser already obtained:
+**Settings → General → Cloudflare bypass**.
 
-- **Import cf_clearance from browser** lit le cookie depuis Edge, Chrome ou
-  Chromium et l'injecte dans la session de l'app, sur **Windows, macOS et
-  Linux** (DPAPI / Keychain / passphrase — aucune dépendance externe). Ferme
-  le navigateur d'abord : son store de cookies est verrouillé tant qu'il
-  tourne. ⚠️ Sous Windows, les Edge récents chiffrent en « v20 »
-  (App-Bound Encryption), non lisible automatiquement → collage manuel.
-- **Collage manuel** : le chemin fiable dans tous les cas. Ouvre les DevTools
-  (`F12`) sur le site → Application → Cookies → copie la valeur de
-  `cf_clearance` → colle-la dans le champ et clique **Inject**.
+- **Import cf_clearance from browser** reads the cookie from Edge, Chrome or
+  Chromium and injects it into the app session, on **Windows, macOS and Linux**
+  (DPAPI / Keychain / passphrase — no external dependency). Close the browser
+  first: its cookie store is locked while it runs. ⚠️ On Windows, recent Edge
+  versions encrypt cookies with "v20" (App-Bound Encryption), which cannot be
+  read automatically → paste manually.
+- **Paste manually**: the reliable path in all cases. Open DevTools (`F12`) on
+  the site → Application → Cookies → copy the `cf_clearance` value → paste it
+  into the field and click **Inject**.
+- **Test now**: verifies in one click whether the injected `cf_clearance`
+  actually unblocks the site.
 
-État complet, matrice des scénarios et historique des versions : voir
+Full status, scenario matrix and version history: see
 [`CLOUDFLARE.md`](CLOUDFLARE.md).
 
 ## Démarrage rapide
