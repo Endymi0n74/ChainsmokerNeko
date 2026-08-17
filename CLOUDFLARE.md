@@ -52,21 +52,30 @@ déjà obtenu pour `crunchyscan.org`, et l'injecte dans la session de l'app.
 
 | Chemin | Fonctionnement | Fiabilité |
 |--------|----------------|-----------|
-| **Import automatique** (bouton) | Lit le cookie dans le store SQLite chiffré du navigateur (DPAPI + AES-256-GCM), le décrypte et l'injecte. | Fonctionne avec **Chrome**, ou **Edge sans App-Bound Encryption**. Navigateur **fermé** obligatoire. |
+| **Import automatique** (bouton) | Lit le cookie dans le store SQLite chiffré du navigateur, récupère la clé AES propre à la plateforme (DPAPI sous Windows, Keychain + PBKDF2 sous macOS, passphrase/keyring sous Linux) et déchiffre. | **Windows / macOS / Linux**, navigateurs Edge, Chrome et Chromium. Navigateur **fermé** obligatoire. Sur Windows, un Edge en **App-Bound Encryption (v20)** reste illisible automatiquement. |
 | **Collage manuel** (champ + bouton Inject) | Copie la valeur de `cf_clearance` depuis les DevTools (`F12` → Application → Cookies → crunchyscan.org → cf_clearance) et colle-la. | **Universel** — fonctionne dans tous les cas, navigateur ouvert ou non. |
 
 ### 3.2 Pipeline d'import automatique (v10)
 
-1. Localise les profils : `%LOCALAPPDATA%\Microsoft\Edge\User Data` et
-   `%LOCALAPPDATA%\Google\Chrome\User Data`.
-2. Lit la clé AES dans `Local State` (`os_crypt.encrypted_key`) et la déchiffre
-   via **DPAPI** (scope utilisateur courant).
+1. Localise les profils navigateur selon la plateforme :
+   - Windows : `%LOCALAPPDATA%\Microsoft\Edge\User Data`, `%LOCALAPPDATA%\Google\Chrome\User Data` ;
+   - macOS : `~/Library/Application Support/Microsoft Edge`, `~/Library/Application Support/Google/Chrome` ;
+   - Linux : `~/.config/microsoft-edge`, `~/.config/google-chrome`, `~/.config/chromium`.
+2. Récupère la clé AES propre à la plateforme :
+   - Windows : clé **DPAPI** (blob `os_crypt.encrypted_key` de `Local State`, déchiffrée
+     via `CryptUnprotectData` — PowerShell, intégré à Windows ; Electron `safeStorage` est
+     inutilisable ici, il produit son propre format v10 incompatible) ;
+   - macOS : mot de passe **Keychain** (« Chrome Safe Storage ») lu via `security`, puis
+     dérivation **PBKDF2-HMAC-SHA1** (1003 itérations, sel `saltysalt`) ;
+   - Linux : dérivation **PBKDF2** (1 itération, sel `saltysalt`) depuis la passphrase
+     `peanuts` (v10) ou le trousseau Secret Service (v11, via `secret-tool`).
 3. Copie la base `Default/Network/Cookies` (verrouillée pendant que le
    navigateur tourne) dans un fichier temporaire, puis lit `cf_clearance` en
    SQLite (`node:sqlite`, lecture seule).
-4. Déchiffre le cookie au format **v10** : `v10` + nonce 12 octets + ciphertext
-   + tag 16 octets (AES-256-GCM), puis **retire le préfixe d'intégrité de
-   32 octets** que Chromium 130+ ajoute aux valeurs avant chiffrement.
+4. Déchiffre le cookie : **v10 AES-256-GCM** sous Windows (`v10` + nonce 12
+   octets + ciphertext + tag 16 octets), **v10/v11 AES-128-CBC** sous macOS/Linux
+   (IV = 16 espaces fixes), puis **retire le préfixe d'intégrité de 32 octets**
+   que Chromium (DB ≥ 24) ajoute aux valeurs avant chiffrement.
 5. Injecte le cookie dans la session partagée : `httpOnly`, `secure`,
    `sameSite=no_restriction`, durée de vie ~30 jours.
 
@@ -95,11 +104,14 @@ agrégés dans un résumé.
 
 | Navigateur | Chiffrement | Navigateur ouvert ? | Résultat de l'import auto |
 |-----------|-------------|---------------------|---------------------------|
-| Chrome | v10 | Fermé | ✅ décryptage + injection |
-| Chrome | v10 | Ouvert | ⚠️ « store verrouillé » → ferme Chrome ou colle manuellement |
+| Chrome / Chromium (Windows) | v10 | Fermé | ✅ décryptage + injection |
+| Chrome / Chromium (Windows) | v10 | Ouvert | ⚠️ « store verrouillé » → ferme Chrome ou colle manuellement |
 | Edge (ancien / ABE désactivé) | v10 | Fermé | ✅ décryptage + injection |
 | Edge (récent, ABE activé) | v20 | Fermé | ⚠️ message v20 → colle manuellement |
 | Edge (récent, ABE activé) | v20 | Ouvert | ⚠️ message v20 → colle manuellement |
+| Chrome / Edge (macOS) | v10 (Keychain + PBKDF2) | Fermé | ✅ décryptage + injection (autoriser la lecture Keychain à la 1re exécution) |
+| Chrome / Edge / Chromium (Linux) | v10 `peanuts` | Fermé | ✅ décryptage + injection |
+| Chrome / Edge (Linux, trousseau) | v11 | Fermé | ✅ si `secret-tool` installé |
 | Aucun navigateur détecté | — | — | ⚠️ « No Chromium browser profile found » → colle manuellement |
 
 ---
@@ -112,8 +124,12 @@ agrégés dans un résumé.
 - **`cf_clearance` peut être émis sans challenge résolu** (faux positif) : sa
   présence ne garantit pas le déblocage — seul un test réel de listing le
   confirme.
-- **Auto-lecture Windows uniquement** : DPAPI + PowerShell sont spécifiques à
-  Windows ; sur macOS/Linux, seul le collage manuel est disponible.
+- **Auto-lecture macOS** : une première exécution peut déclencher la demande
+  d'autorisation Keychain (« security » veut lire « Chrome Safe Storage ») —
+  à accepter une fois.
+- **Auto-lecture Linux** : le chemin v10 (`peanuts`) fonctionne sans rien ; le
+  trousseau (v11) nécessite `secret-tool` (paquet `libsecret-tools`).
+- **Windows + Edge v20** : App-Bound Encryption — voir §3.3, collage manuel obligatoire.
 - **Auto-lecture = navigateur fermé** : le store de cookies est verrouillé
   (`EBUSY`) tant que le navigateur tourne.
 

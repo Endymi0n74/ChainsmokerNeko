@@ -40,12 +40,12 @@ Quand un site boucle sur un challenge Cloudflare « managé » (« Un instant…
 tu peux réutiliser le cookie `cf_clearance` déjà obtenu par ton navigateur réel :
 **Paramètres → Général → Cloudflare bypass**.
 
-- **Import cf_clearance from browser** lit le cookie depuis Edge ou Chrome et
-  l'injecte dans la session de l'app. ⚠️ L'import automatique ne fonctionne
-  qu'avec **Chrome**, ou **Edge sans App-Bound Encryption** — la lecture v10
-  ne peut pas décrypter les cookies chiffrés en « v20 » (App-Bound Encryption,
-  activée par défaut sur les Edge récents). Ferme le navigateur d'abord : son
-  store de cookies est verrouillé tant qu'il tourne.
+- **Import cf_clearance from browser** lit le cookie depuis Edge, Chrome ou
+  Chromium et l'injecte dans la session de l'app, sur **Windows, macOS et
+  Linux** (DPAPI / Keychain / passphrase — aucune dépendance externe). Ferme
+  le navigateur d'abord : son store de cookies est verrouillé tant qu'il
+  tourne. ⚠️ Sous Windows, les Edge récents chiffrent en « v20 »
+  (App-Bound Encryption), non lisible automatiquement → collage manuel.
 - **Collage manuel** : le chemin fiable dans tous les cas. Ouvre les DevTools
   (`F12`) sur le site → Application → Cookies → copie la valeur de
   `cf_clearance` → colle-la dans le champ et clique **Inject**.

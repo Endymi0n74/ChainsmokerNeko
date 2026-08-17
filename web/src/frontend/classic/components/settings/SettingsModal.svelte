@@ -149,10 +149,12 @@
                     <h4>Cloudflare bypass</h4>
                     <p>
                         If a site loops on “Un instant…”, reuse the cf_clearance cookie
-                        from your real browser. Automatic import only works with
-                        <strong>Chrome</strong>, or <strong>Edge without App-Bound
-                        Encryption</strong> — close the browser first so its cookie store
-                        is unlocked. Otherwise paste the value from DevTools
+                        from your real browser. Automatic import works on
+                        <strong>Windows</strong>, <strong>macOS</strong> and
+                        <strong>Linux</strong> (Chrome / Edge / Chromium) — close the
+                        browser first so its cookie store is unlocked. On Windows,
+                        Edge with <strong>App-Bound Encryption</strong> cannot be read
+                        automatically. Otherwise paste the value from DevTools
                         (Application → Cookies → {cfHost} → cf_clearance).
                     </p>
                     <div class="autodl-actions">
