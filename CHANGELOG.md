@@ -3,6 +3,16 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.8] - 2026-08-17
+
+### Amélioré
+
+- **Import `cf_clearance` multi-navigateur** : si Edge échoue (verrouillé ou
+  App-Bound Encryption v20), l'import essaie désormais **Chrome** avant
+  d'abandonner. Documentation ajoutée (README + texte d'aide des paramètres) :
+  l'auto-lecture v10 ne fonctionne qu'avec **Chrome** ou **Edge sans ABE** ;
+  le collage manuel reste le fallback universel.
+
 ## [0.1.7] - 2026-08-17
 
 ### Corrigé
