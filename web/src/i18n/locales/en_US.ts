@@ -214,6 +214,8 @@ const translations: VariantResource = {
   Settings_NewContent_Check: 'Enable new content checker',
   Settings_NewContent_CheckInfo: 'Will check if there are new content to available to read',
   Settings_NewContent_CheckPeriod: 'Check new content period (minutes)',
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_CheckPeriodInfo: 'How many minutes before checking again for new content',
   Settings_NewContent_Notify: 'Enable new content desktop notification',
   Settings_NewContent_NotifyInfo: 'Will send a notification using the OS notification system',

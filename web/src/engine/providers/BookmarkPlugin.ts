@@ -1,5 +1,6 @@
 import type { PluginController } from '../PluginController';
 import { MediaContainer, type MediaChild } from './MediaPlugin';
+import { MangaPlugin } from './MangaPlugin';
 import { type StorageController, Store } from '../StorageController';
 import type { InteractiveFileContentProvider } from '../InteractiveFileContentProvider';
 import { ConvertToSerializedBookmark } from '../transformers/BookmarkConverter';
@@ -76,11 +77,19 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
         this.entries.Value = bookmarks.map(bookmark => this.Deserialize(bookmark));
     }
 
-    public async RefreshAllFlags() {
+    public async RefreshAllFlags(skipWindowSites = false) {
         for (const media of super.Entries.Value) {
+            // En mode silencieux, on ignore les sites dont le fonctionnement
+            // normal nécessite une fenêtre navigateur visible (ex. CrunchyScan),
+            // pour ne pas ouvrir de fenêtre Cloudflare pendant la vérification.
+            if (skipWindowSites && this.RequiresVisibleWindow(media)) continue;
             await media.Update();
             HakuNeko.ItemflagManager.LoadContainerFlags(media);
         }
+    }
+
+    private RequiresVisibleWindow(bookmark: Bookmark): boolean {
+        return bookmark.Parent instanceof MangaPlugin && bookmark.Parent.Scraper.RequiresVisibleBrowserWindow;
     }
 
     /**
@@ -96,7 +105,8 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
         const periodMinutes = settings.Get<Numeric>(GlobalKey.CheckNewContentPeriod).Value;
         const lastRun = Number(window.localStorage.getItem(CheckNewContentTimestampKey) ?? 0);
         if (ShouldRefreshContentFlags(lastRun, Date.now(), periodMinutes)) {
-            await this.RefreshAllFlags();
+            const silent = settings.Get<Check>(GlobalKey.CheckNewContentSilent).Value;
+            await this.RefreshAllFlags(silent);
             window.localStorage.setItem(CheckNewContentTimestampKey, `${Date.now()}`);
         }
     }

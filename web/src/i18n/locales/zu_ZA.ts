@@ -176,6 +176,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "crwdns1433:0crwdne1433:0",
   Settings_NewContent_CheckPeriod: "crwdns1435:0crwdne1435:0",
   Settings_NewContent_CheckPeriodInfo: "crwdns1437:0crwdne1437:0",
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "crwdns1439:0crwdne1439:0",
   Settings_NewContent_NotifyInfo: "crwdns1441:0crwdne1441:0",
   Settings_Global_RPCEnabled: "crwdns1582:0crwdne1582:0",

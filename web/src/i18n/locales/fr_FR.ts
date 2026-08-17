@@ -175,6 +175,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_Check: "Activer le nouveau gestionnaire de contenu",
   Settings_NewContent_CheckInfo: "Vérifiera s'il y a de nouveaux contenus disponibles à lire",
   Settings_NewContent_CheckPeriod: "Récurrence du gestionnaire de contenu (min)",
+  Settings_NewContent_CheckSilent: "Vérifier les nouveaux chapitres sans ouvrir de fenêtre",
+  Settings_NewContent_CheckSilentInfo: "Ignore les sites qui nécessitent une fenêtre navigateur (ex. CrunchyScan) lors de la vérification du nouveau contenu.",
   Settings_NewContent_CheckPeriodInfo: "Combien de minutes avant de revérifier s'il y a de nouveaux contenus",
   Settings_NewContent_Notify: "Notifications lors de nouveaux contenus",
   Settings_NewContent_NotifyInfo: "Envoie une notification en utilisant le système de notification de l'OS",

@@ -19,6 +19,7 @@ export const enum Key {
     PostCommand = 'post-command',
     CheckNewContent = 'check-new-content',
     CheckNewContentPeriod = 'check-new-content-period',
+    CheckNewContentSilent = 'check-new-content-silent',
     NotifyNewContent = 'notify-new-content',
     RPCEnabled = 'RPCEnabled',
     RPCPort = 'RPCPort',
@@ -106,6 +107,14 @@ export async function Initialize(settingsManager: SettingsManager, frontends: IF
             R.Settings_NewContent_Check,
             R.Settings_NewContent_CheckInfo,
             false
+        ),
+        new Check(
+            Key.CheckNewContentSilent,
+            R.Settings_NewContent_CheckSilent,
+            R.Settings_NewContent_CheckSilentInfo,
+            // Défaut : silencieux — la vérification ignore les sites qui
+            // nécessitent une fenêtre navigateur (ex. CrunchyScan).
+            true
         ),
         new Numeric(
             Key.CheckNewContentPeriod,

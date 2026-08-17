@@ -6,6 +6,8 @@ import type { PluginController } from '../PluginController';
 import type { InteractiveFileContentProvider } from '../InteractiveFileContentProvider';
 import { BookmarkPlugin, ShouldRefreshContentFlags, CheckNewContentTimestampKey } from './BookmarkPlugin';
 import { MissingWebsite, type Bookmark, type BookmarkSerialized } from './Bookmark';
+import CrunchyScan from '../websites/CrunchyScan';
+import MangaFire from '../websites/MangaFire';
 
 class BlobProxy extends Blob {
 
@@ -388,6 +390,17 @@ describe('BookmarkPlugin', () => {
 
         it('Should expose the timestamp storage key', () => {
             expect(CheckNewContentTimestampKey).toBe('check-new-content-last-run');
+        });
+    });
+
+    describe('RequiresVisibleBrowserWindow', () => {
+
+        it('Should be true for CrunchyScan (visible window needed)', () => {
+            expect(new CrunchyScan().RequiresVisibleBrowserWindow).toBe(true);
+        });
+
+        it('Should be false by default for windowless-capable sites', () => {
+            expect(new MangaFire().RequiresVisibleBrowserWindow).toBe(false);
         });
     });
 });

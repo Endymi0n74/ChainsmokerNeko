@@ -310,6 +310,8 @@ export enum EngineResourceKey {
     Settings_NewContent_CheckInfo = 'Settings_NewContent_CheckInfo',
     Settings_NewContent_CheckPeriod = 'Settings_NewContent_CheckPeriod',
     Settings_NewContent_CheckPeriodInfo = 'Settings_NewContent_CheckPeriodInfo',
+    Settings_NewContent_CheckSilent = 'Settings_NewContent_CheckSilent',
+    Settings_NewContent_CheckSilentInfo = 'Settings_NewContent_CheckSilentInfo',
     Settings_NewContent_Notify = 'Settings_NewContent_Notify',
     Settings_NewContent_NotifyInfo = 'Settings_NewContent_NotifyInfo',
     Settings_Global_RPCEnabled = 'Settings_Global_RPCEnabled',

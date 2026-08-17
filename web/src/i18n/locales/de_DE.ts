@@ -176,6 +176,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "Prüft automatisch, ob neue Inhalte für die Titel aus den Lesezeichen verfügbar sind",
   Settings_NewContent_CheckPeriod: "Zeitspanne (Minuten)",
   Settings_NewContent_CheckPeriodInfo: "Das Intervall in dem nach neuen Inhalten gesucht wird (Minuten)",
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "Benachrichtigung",
   Settings_NewContent_NotifyInfo: "Aktiviert die Desktop-Benachrichtigung für neue Inhalte",
   Settings_Global_RPCEnabled: "RPC aktivieren",

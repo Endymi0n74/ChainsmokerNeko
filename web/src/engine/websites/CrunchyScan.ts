@@ -48,6 +48,11 @@ export default class extends DecoratableMangaScraper {
 
     readonly #drm = new DRMProvider();
 
+    // Le fonctionnement normal de CrunchyScan passe par une vraie fenêtre
+    // navigateur (challenge Cloudflare interactif) — la vérification silencieuse
+    // du nouveau contenu saute donc ce site (réglage check-new-content-silent).
+    public override readonly RequiresVisibleBrowserWindow = true;
+
     public constructor() {
         super('crunchyscan', 'Crunchyscan', 'https://crunchyscan.org', Tags.Media.Manhwa, Tags.Media.Manhua, Tags.Language.French, Tags.Source.Aggregator);
         this.imageTaskPool.RateLimit = new RateLimit(2, 1);

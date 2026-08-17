@@ -176,6 +176,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "Okunabilecek yeni içerik olup olmadığını kontrol eder",
   Settings_NewContent_CheckPeriod: "Yeni içeriği kontrol süresi (dakika)",
   Settings_NewContent_CheckPeriodInfo: "Yeni içerikleri tekrar kontrol etmeden önce kaç dakika",
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "Yeni içerik masaüstü bildirimini etkinleştir",
   Settings_NewContent_NotifyInfo: "İşletim sisteminin bildirim özelliğini kullanarak bir bildirim gönderir",
   Settings_Global_RPCEnabled: "RPC'yi Etkinleştir",

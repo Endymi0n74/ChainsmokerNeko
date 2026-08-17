@@ -176,6 +176,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "Akan memeriksa apakah ada konten baru yang tersedia untuk dibaca",
   Settings_NewContent_CheckPeriod: "Periksa konten baru berkala (menit)",
   Settings_NewContent_CheckPeriodInfo: "Berapa menit sebelum memeriksa lagi untuk konten baru",
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "Aktifkan notifkasi desktop konten baru",
   Settings_NewContent_NotifyInfo: "Akan mengirimkan notifikasi menggunakan sistem notifikasi OS",
   Settings_Global_RPCEnabled: 'Enable RPC',

@@ -176,6 +176,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "Comprobará si hay nuevo contenido disponible para leer",
   Settings_NewContent_CheckPeriod: "Período de revisión de nuevo contenido (minutos)",
   Settings_NewContent_CheckPeriodInfo: "Cuántos minutos antes de revisar de nuevo el contenido",
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "Activar nueva notificación de escritorio de contenido",
   Settings_NewContent_NotifyInfo: "Enviará una notificación usando el sistema de notificaciones de OS",
   Settings_Global_RPCEnabled: "Activar RPC",

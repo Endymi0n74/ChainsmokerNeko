@@ -21,6 +21,13 @@ export abstract class MangaScraper extends MediaScraper<MangaPlugin> {
 
     protected readonly imageTaskPool = new TaskPool();
 
+    /**
+     * Whether normal operation of this website requires a real, visible browser
+     * window (e.g. resolving a Cloudflare challenge interactively). The silent
+     * new-content check uses this to skip such websites.
+     */
+    public readonly RequiresVisibleBrowserWindow: boolean = false;
+
     public CreatePlugin(storageController: StorageController, settingsManager: SettingsManager): MangaPlugin {
         return new MangaPlugin(storageController, settingsManager, this);
     }
@@ -94,6 +101,10 @@ export class MangaPlugin extends MediaContainer<Manga> {
         this._settings = this.settingsManager.OpenScope(settingsKeyPrefix + this.Identifier);
         this.tags.Value = this.scraper.Tags;
         this.Prepare();
+    }
+
+    public get Scraper(): MangaScraper {
+        return this.scraper;
     }
 
     private async Prepare() {

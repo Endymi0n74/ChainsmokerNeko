@@ -176,6 +176,8 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "新しい読み込み可能なコンテンツがあるかを確認します",
   Settings_NewContent_CheckPeriod: "新着コンテンツ確認の頻度（分）",
   Settings_NewContent_CheckPeriodInfo: "次の確認までの分数を設定します",
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "新コンテンツの通知を有効化",
   Settings_NewContent_NotifyInfo: "OSの通知システムを使用して通知を送信します",
   Settings_Global_RPCEnabled: "RPCを有効化",
