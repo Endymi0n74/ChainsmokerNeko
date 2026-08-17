@@ -155,17 +155,36 @@ source ("Imported … from Chrome"); failures are aggregated into a summary.
 
 ### Method A — warm up the session from the app (simplest, validated)
 
-1. In the website selector, choose **CrunchyScan**, then click its **URL** (or
-   the "Open" button next to the site name). A browser window opens on
-   `crunchyscan.org`.
-2. Let Cloudflare pass in that window (wait for the site to load — solve the
-   check if one is shown). The `cf_clearance` cookie is then stored in the
-   **shared session** of the app.
-3. Close the window and go back to CrunchyScan → **Update**: the manga list
-   loads, and chapters/pages/downloads work.
+This is the **native flow**: the site's `Initialize()` opens a real visible
+browser window, Cloudflare resolves there, and the `cf_clearance` cookie lands
+in the app's shared session. Enough when your IP already has trust with
+Cloudflare (validated live on 17 August 2026).
 
-> This is the native flow (the site's `Initialize()` opens the same visible
-> window), and it is enough when your IP already has trust with Cloudflare.
+**Step by step:**
+
+1. **Open the website selector** — click **Plugins** in the sidebar, then the
+   **CrunchyScan** plugin.
+2. **Click the site's URL** — next to the CrunchyScan name, click the
+   **URL** link (or the **Open** button). A real browser window opens on
+   `crunchyscan.org`.
+3. **Let Cloudflare resolve** — wait in that window until the site actually
+   loads (a few seconds; solve the checkbox/check manually if one is shown).
+   The page title changing to the real CrunchyScan is the sign it worked.
+4. **Close the window** — the `cf_clearance` cookie is now in the app's
+   **shared session**. It is also **saved to disk** automatically
+   (`cloudflare-clearance.json` in the app's user data folder), so you only
+   need to do this once per network/IP, not per launch.
+5. **Refresh the listing** — go back to CrunchyScan → **Update**: the manga
+   list loads, and chapters/pages/downloads work.
+6. *(Optional, to confirm)* — **Settings → General → Cloudflare bypass →**
+   **Test now**: it should report **Unblocked**.
+7. *(If it ever stops working)* — a stale cookie can make the site re-challenge.
+   Click **Clear Cloudflare cache** in the same settings section, then redo
+   steps 1–5.
+
+> The warm-up survives restarts: the persisted cookie is re-injected at boot
+> with a fresh 1-month expiry. If Cloudflare has revoked it server-side, the
+> challenge flow simply restarts — redo the warm-up (or use Method B).
 
 ### Method B — reuse a `cf_clearance` from your real browser (fallback)
 

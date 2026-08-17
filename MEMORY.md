@@ -568,9 +568,16 @@ complets, méthodo CDP). État :
   localisée + i18n 14 locales + `RemoteBrowserWindow_test.ts` — vitest 2144
   vert). Typechecks + tests verts ; seul le warning environnement reste non
   committé.
-- **Script de test live réutilisable** (17 août soir) :
+- **Script de test live réutilisable** (17 août soir, enrichi le soir même) :
   `app/electron/.tmp/live_clearance_test.py` — cycle complet
   (wipe userdata → launch → set cookie → snapshot → quit → relance → vérif),
-  ne tue que son propre PID (jamais les hakuneko de l'utilisateur). Validé :
-  PASS (snapshot `domain/secure/httpOnly/sameSite` + restauration `session:false`).
+  ne tue que son propre PID (jamais les hakuneko de l'utilisateur). **Vérifie
+  aussi le contenu du snapshot** : valeur + domaine du cookie injecté au moment
+  de l'écriture, restauration issue du snapshot (valeur identique + `session:false`)
+  et persistance du fichier après relance (5 checks). Validé : PASS complet.
   ⚠️ `.tmp/` = bac à sable gitignoré, PAS committé.
+- **Doc du réchauffage CrunchyScan pas-à-pas** (17 août soir) : `CLOUDFLARE.md`
+  §7 Méthode A détaillée — sélecteur de site → clic sur l'**URL** → fenêtre réelle
+  où Cloudflare se résout → fermer → **Update** → vérif via **Test now**, rappel
+  de la persistance (une fois par réseau/IP, pas par lancement) et du
+  **Clear Cloudflare cache** si le cookie est périmé.
