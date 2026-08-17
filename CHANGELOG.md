@@ -3,6 +3,18 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.12] - 2026-08-17
+
+### Ajouté
+
+- **Notification de mise à jour** : au lancement, l'app vérifie la dernière
+  release GitHub du fork (`Endymi0n74/ChainsmokerNeko` via le champ `repository`
+  du manifest) et affiche un toast non bloquant « Update available — vX.Y.Z »
+  avec un lien de téléchargement vers la release. Vérification silencieuse en
+  cas d'échec (hors-ligne, rate-limit, panne réseau) — jamais d'erreur bloquante.
+  Comparaison semver (préfixe `v` toléré), timeout 15 s, un seul appel à l'API
+  GitHub par lancement.
+
 ## [0.1.11] - 2026-08-17
 
 ### Ajouté
