@@ -30,6 +30,10 @@
         if (isRefreshing) return;
         isRefreshing = true;
         await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Lazy content check: fetch bookmark chapters only here (once per
+        // configured period), never at app startup — this avoids opening the
+        // Cloudflare challenge window on launch.
+        await HakuNeko.BookmarkPlugin.RefreshFlagsIfDue();
         suggestions = await HakuNeko.BookmarkPlugin.GetEntriesWithUnflaggedContent();
         isRefreshing = false;
     }

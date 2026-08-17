@@ -6,6 +6,22 @@ import { ConvertToSerializedBookmark } from '../transformers/BookmarkConverter';
 import { Bookmark, MissingWebsite, type BookmarkSerialized } from './Bookmark';
 import { MissingInfoTracker } from '../trackers/IMediaInfoTracker';
 import { NotImplementedError } from '../Error';
+import { Key as GlobalKey } from '../SettingsGlobal';
+import { type Check, type Numeric } from '../SettingsManager';
+
+/**
+ * localStorage key holding the timestamp (ms) of the last bookmark new-content
+ * check, so the lazy scan (Suggestions view) runs only once per period.
+ */
+export const CheckNewContentTimestampKey = 'check-new-content-last-run';
+
+/**
+ * True when the bookmark new-content check should run again: either it never
+ * ran, or the configured period (in minutes) has elapsed since the last run.
+ */
+export function ShouldRefreshContentFlags(lastRun: number, now: number, periodMinutes: number): boolean {
+    return !lastRun || now - lastRun >= periodMinutes * 60_000;
+}
 
 export type BookmarkImportResult = {
     cancelled: boolean;
@@ -64,6 +80,24 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
         for (const media of super.Entries.Value) {
             await media.Update();
             HakuNeko.ItemflagManager.LoadContainerFlags(media);
+        }
+    }
+
+    /**
+     * Lazy replacement for the old boot-time flag preload: refreshes the flags of
+     * all bookmarks only when the Suggestions view is opened AND the configured
+     * period (check-new-content-period, default 1440 min) has elapsed. Fetching a
+     * bookmark's chapters opens a real browser window for Cloudflare-protected
+     * sites (e.g. CrunchyScan), so this must not run on every app launch.
+     */
+    public async RefreshFlagsIfDue(): Promise<void> {
+        const settings = HakuNeko.SettingsManager.OpenScope();
+        if (!settings.Get<Check>(GlobalKey.CheckNewContent).Value) return;
+        const periodMinutes = settings.Get<Numeric>(GlobalKey.CheckNewContentPeriod).Value;
+        const lastRun = Number(window.localStorage.getItem(CheckNewContentTimestampKey) ?? 0);
+        if (ShouldRefreshContentFlags(lastRun, Date.now(), periodMinutes)) {
+            await this.RefreshAllFlags();
+            window.localStorage.setItem(CheckNewContentTimestampKey, `${Date.now()}`);
         }
     }
 

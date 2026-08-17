@@ -4,7 +4,7 @@ import { MissingInfoTracker, type MediaInfoTracker } from '../trackers/IMediaInf
 import { Store, type StorageController } from '../StorageController';
 import type { PluginController } from '../PluginController';
 import type { InteractiveFileContentProvider } from '../InteractiveFileContentProvider';
-import { BookmarkPlugin } from './BookmarkPlugin';
+import { BookmarkPlugin, ShouldRefreshContentFlags, CheckNewContentTimestampKey } from './BookmarkPlugin';
 import { MissingWebsite, type Bookmark, type BookmarkSerialized } from './Bookmark';
 
 class BlobProxy extends Blob {
@@ -357,6 +357,37 @@ describe('BookmarkPlugin', () => {
             const testee = await fixture.CreateTestee();
 
             await expect(testee.Export()).rejects.toBe(expected);
+        });
+    });
+
+    describe('ShouldRefreshContentFlags', () => {
+
+        const now = 1_000_000_000_000;
+
+        it('Should run when the check never ran before', () => {
+            expect(ShouldRefreshContentFlags(0, now, 1440)).toBe(true);
+        });
+
+        it('Should not run again within the configured period', () => {
+            expect(ShouldRefreshContentFlags(now - 60_000, now, 1440)).toBe(false);
+            expect(ShouldRefreshContentFlags(now - 1439 * 60_000, now, 1440)).toBe(false);
+        });
+
+        it('Should run again exactly when the period has elapsed', () => {
+            expect(ShouldRefreshContentFlags(now - 1440 * 60_000, now, 1440)).toBe(true);
+        });
+
+        it('Should run again once the period is exceeded', () => {
+            expect(ShouldRefreshContentFlags(now - 1441 * 60_000, now, 1440)).toBe(true);
+        });
+
+        it('Should honor a custom short period', () => {
+            expect(ShouldRefreshContentFlags(now - 10 * 60_000, now, 5)).toBe(true);
+            expect(ShouldRefreshContentFlags(now - 1 * 60_000, now, 5)).toBe(false);
+        });
+
+        it('Should expose the timestamp storage key', () => {
+            expect(CheckNewContentTimestampKey).toBe('check-new-content-last-run');
         });
     });
 });
