@@ -164,6 +164,15 @@ En isolant chaque variable (`app/electron/.tmp/ua-test.cjs`, `isolate.cjs`,
      `ChallengeReload.ts` : reload uniquement si challenge détecté, **aucun widget
      réellement rendu** ET `cf_clearance` >200 chars. L'input caché
      `cf-turnstile-response` (toujours présent) ne compte PAS comme interactif.
+   - **Fix du 17 août (`a67e9189`, release 0.1.5)** : trois problèmes chaînés
+     découverts par sondes — (1) `cf_clearance` n'est émis que si la fenêtre est
+     **visible** → `win.Show()` dans la branche `Automatic` pour les sites opt-in
+     (CrunchyScan seul ; les autres restent cachés, zéro flash) ; (2) le cookie est
+     **httpOnly** → lecture via CDP `Network.getCookies` (debugger déjà attaché)
+     au lieu de `document.cookie` (toujours vide) ; (3) le budget de reload est
+     désormais **partagé globalement** (objet `{remaining}` passé au poller, max 3)
+     + arrêt de tous les pollers au `destroy()` — avant, chaque reload relançait
+     `DOMReady` → nouveau poller → boucle non-bornée (~35 navigations/40 s).
 3. **`app/electron/src/ipc/RemoteBrowserWindow.ts` + `FetchProvider.ts`** (`42ae3367`) :
    fenêtre distante forcée sur `session.defaultSession` + cookies partitionnés inclus
    dans l'injection fetch → le `cf_clearance` résolu dans la fenêtre distante est
@@ -272,7 +281,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.4** (publiée le 17 août). Prochain bump (0.1.5) dès le prochain correctif
+  0.1.5** (publiée le 17 août). Prochain bump (0.1.6) dès le prochain correctif
   fonctionnel.
 
 ## 10. État récent (16 août, tous committés/poussés)
@@ -367,6 +376,16 @@ complets, méthodo CDP). État :
   en session partagée → chapitres achetés déverrouillés) + **prix en coins**
   affiché sur les chapitres verrouillés. Release **`Latest`** publiée avec les 3
   zips v0.1.4 (hakuneko.exe + manifest vérifiés). CI vert.
-- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2.
+- **0.1.5** (`3e44c36f`) : **fix de la boucle Cloudflare CrunchyScan** (`a67e9189`)
+  — 3 problèmes chaînés : (1) `cf_clearance` n'est émis que si la fenêtre distante
+  est **visible** → `win.Show()` pour les sites opt-in du reload (CrunchyScan
+  seul ; MangaFire/MangaDrama/Comix restent cachés, zéro flash) ; (2) le cookie est
+  **httpOnly** → lecture via CDP `Network.getCookies` (le debugger est déjà
+  attaché) au lieu de `document.cookie` ; (3) budget de reload **borné globalement
+  à 3** (au lieu d'une boucle non-bornée ~35 navigations/40 s) + arrêt de tous les
+  pollers au `destroy()`. Vérifié : 2138 tests web + 11 electron, typecheck/lint
+  OK, CI vert, zips v0.1.5 vérifiés (hakuneko.exe + manifest). Release **`Latest`**
+  publiée avec les 3 zips.
+- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
   sur les commits docs-only `*.md` — `paths-ignore`).
