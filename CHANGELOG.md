@@ -3,6 +3,15 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.7] - 2026-08-17
+
+### Corrigé
+
+- **Import `cf_clearance` — crash corrigé** : `expires_utc` (microsecondes
+  depuis 1601) dépasse `Number.MAX_SAFE_INTEGER` → node:sqlite levait un
+  `RangeError` dès que l'auto-lecture lisait un cookie (Edge/Chrome fermé).
+  Le timestamp est désormais casté en TEXT dans la requête et parsé en BigInt.
+
 ## [0.1.6] - 2026-08-17
 
 ### Ajouté
