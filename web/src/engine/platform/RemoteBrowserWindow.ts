@@ -1,5 +1,7 @@
 import type { IObservable } from '../Observable';
-import { Runtime } from './PlatformInfo';
+import { Exception } from '../Error';
+import { EngineResourceKey as R } from '../../i18n/ILocale';
+import { PlatformInfo, Runtime } from './PlatformInfo';
 import { PlatformInstanceActivator } from './PlatformInstanceActivator';
 import NodeWebkitRemoteBrowserWindow from './nw/RemoteBrowserWindow';
 import ElectronRemoteBrowserWindow from './electron/RemoteBrowserWindow';
@@ -24,8 +26,14 @@ export interface IRemoteBrowserWindow {
     SendDebugCommand<T extends void | JSONElement>(method: string, parameters?: JSONObject): Promise<T>;
 }
 
-export function CreateRemoteBrowserWindow(): IRemoteBrowserWindow {
-    return new PlatformInstanceActivator<IRemoteBrowserWindow>()
+export function CreateRemoteBrowserWindow(info: PlatformInfo = new PlatformInfo()): IRemoteBrowserWindow {
+    // A remote browser window (used by FetchWindowScript and the like) can only be spawned by a desktop shell
+    // (Electron or NW.js). In a plain browser or any other runtime, fail with a user-friendly, localized message
+    // instead of the opaque `InternalError` raised by the platform activator below.
+    if(info.Runtime !== Runtime.Electron && info.Runtime !== Runtime.NodeWebkit) {
+        throw new Exception(R.FetchProvider_FetchWindow_UnsupportedEnvironmentError, info.Runtime);
+    }
+    return new PlatformInstanceActivator<IRemoteBrowserWindow>(info)
         .Configure(Runtime.NodeWebkit, () => new NodeWebkitRemoteBrowserWindow())
         .Configure(Runtime.Electron, () => new ElectronRemoteBrowserWindow(GetIPC()))
         .Create();

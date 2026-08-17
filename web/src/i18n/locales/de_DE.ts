@@ -204,6 +204,7 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "Die Anfrage an \"{0}\" wurde von der CloudFlare Anti-Bot Erkennung zurückgewiesen.\nStelle sicher, dass CloudFlare freigeschaltet wird bevor auf den Inhalt dieser Website zugegriffen wird (z.B. mit der HakuNeko Assistant Browser Erweiterung).",
   FetchProvider_Fetch_VercelChallenge: "Die Anfrage an \"{0}\" wurde vom Vercel Attack Challenge Mode blockiert.\nBevor auf den Inhalt der Webseite zugegriffen werden kann, muss der Vercel Schutz umgangen werden.",
   FetchProvider_Fetch_Forbidden: "Der Zugriff auf \"{0}\" wurde verweigert.\nStelle sicher, dass die Website erreichbar und der Zugriff berechtigt ist (z.B. VPN um Regionalsperre zu umgehen, manuelle Anmeldung per Webseitenlink).",
+  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "Die Daten scheinen fehlerhaft zu sein, es konnte kein Lesezeichen extrahiert werden!",
   // [SECTION]: Tags

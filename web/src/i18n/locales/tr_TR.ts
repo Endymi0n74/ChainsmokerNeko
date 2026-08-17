@@ -204,6 +204,7 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "\"{0}\" isteği, CloudFlare Anti-Bot tespiti tarafından reddedildi.\nBu web sitesinin içeriğine erişmeden önce CloudFlare engelini aştığınızdan emin olun (örneğin, HakuNeko Assistant tarayıcı uzantısını kullanarak).",
   FetchProvider_Fetch_VercelChallenge: "\"{0}\" isteği, Vercel Saldırı Koruma Modu tarafından reddedildi.\nBu web sitesinin içeriğine erişmeden önce Vercel engelini aştığınızdan emin olun.",
   FetchProvider_Fetch_Forbidden: "\"{0}\" adresine erişim reddedildi.\nWeb sitesinin erişilebilir ve kullanılabilir olduğundan emin olun (örneğin, bölgesel kısıtlamayı aşmak için VPN kullanarak veya site bağlantısı üzerinden manuel giriş yaparak).",
+  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "Sağlanan veriler geçersiz/bozuk görünüyor ve bir yer imine başarılı bir şekilde ayrıştırılamadı!",
   // [SECTION]: Tags

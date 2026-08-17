@@ -204,6 +204,7 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "crwdns2164:0{0}crwdne2164:0",
   FetchProvider_Fetch_VercelChallenge: "crwdns2184:0{0}crwdne2184:0",
   FetchProvider_Fetch_Forbidden: "crwdns2166:0{0}crwdne2166:0",
+  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "crwdns1626:0crwdne1626:0",
   // [SECTION]: Tags
