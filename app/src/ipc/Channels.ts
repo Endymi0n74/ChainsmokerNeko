@@ -140,5 +140,7 @@ export namespace CloudFlareImport {
         ImportFromBrowser = 'CloudFlareImport::ImportFromBrowser',
         /** Channel for IPC callback with signature: `(host: string, value: string) => Promise<string>` */
         SetClearance = 'CloudFlareImport::SetClearance',
+        /** Channel for IPC callback with signature: `(host: string) => Promise<string>` */
+        TestClearance = 'CloudFlareImport::TestClearance',
     }
 }

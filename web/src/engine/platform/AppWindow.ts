@@ -35,6 +35,11 @@ export interface IAppWindow {
      * Returns a human-readable status message.
      */
     SetCloudFlareClearance(host: string, value: string): Promise<string>;
+    /**
+     * Verify whether the `cf_clearance` cookie currently in the app session actually
+     * unblocks the given host. Returns a human-readable status message.
+     */
+    TestCloudFlareClearance(host: string): Promise<string>;
 }
 
 export function CreateAppWindow(splashURL: string): IAppWindow {

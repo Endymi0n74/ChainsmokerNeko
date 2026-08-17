@@ -59,6 +59,7 @@ export class CloudFlareImport {
     constructor(private readonly ipc: IPC<Channels.Web, Channels.App>) {
         this.ipc.Listen<string>(Channels.App.ImportFromBrowser, this.ImportFromBrowser.bind(this) as Callback<string>);
         this.ipc.Listen<string>(Channels.App.SetClearance, this.SetClearance.bind(this) as Callback<string>);
+        this.ipc.Listen<string>(Channels.App.TestClearance, this.TestClearance.bind(this) as Callback<string>);
     }
 
     private NormalizeHost(host: string): string {
@@ -72,6 +73,69 @@ export class CloudFlareImport {
         }
         await this.InjectCookie(domain, value.trim());
         return `cf_clearance injected for ${domain}.`;
+    }
+
+    /**
+     * Verifies whether the `cf_clearance` cookie currently in the shared session actually
+     * unblocks the site, by fetching its home page through Chromium's network stack (which
+     * sends the session cookies) and inspecting the response for a Cloudflare challenge.
+     */
+    private async TestClearance(host: string): Promise<string> {
+        const domain = this.NormalizeHost(host);
+        if (!domain) {
+            return 'Invalid host.';
+        }
+        const url = `https://${domain}/`;
+        try {
+            const cookies = await session.defaultSession.cookies.get({ url, name: 'cf_clearance' });
+            if (cookies.length === 0) {
+                return `No cf_clearance cookie for ${domain} yet — import it from the browser or inject a value first.`;
+            }
+            const response = await session.defaultSession.fetch(url, {
+                method: 'GET',
+                redirect: 'follow',
+                signal: AbortSignal.timeout(20000),
+                headers: {
+                    'User-Agent': session.defaultSession.getUserAgent(),
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                },
+            });
+            const body = await response.text();
+            if (this.IsCloudflareChallenge(response.status, response.headers, body)) {
+                return `Still blocked — Cloudflare challenge detected (HTTP ${response.status}, ${body.length} bytes). Re-import or paste a fresh cf_clearance.`;
+            }
+            if (response.status >= 400) {
+                return `Reached the site but got HTTP ${response.status} (${body.length} bytes) — likely still protected.`;
+            }
+            return `Unblocked — the real page loaded (HTTP ${response.status}, ${body.length} bytes).`;
+        } catch (error) {
+            const name = (error as { name?: string })?.name;
+            const message = (error as { message?: string })?.message;
+            if (name === 'AbortError' || name === 'TimeoutError') {
+                return `Test timed out for ${domain} — the connection may be stuck in a challenge.`;
+            }
+            return `Test failed: ${message ?? String(error)}`;
+        }
+    }
+
+    /** Detects a Cloudflare challenge interstitial from the response status, headers and body. */
+    private IsCloudflareChallenge(status: number, headers: Headers, body: string): boolean {
+        const lower = body.toLowerCase();
+        const markers = [
+            'just a moment',
+            'cf-chl-',
+            'challenge-platform',
+            'challenges.cloudflare.com',
+            'cf-turnstile',
+            'checking your browser',
+            'attention required',
+        ];
+        if (markers.some(marker => lower.includes(marker))) {
+            return true;
+        }
+        const server = headers.get('server')?.toLowerCase() ?? '';
+        return server === 'cloudflare' && (status === 403 || status === 503 || status === 429);
     }
 
     private async ImportFromBrowser(host: string): Promise<string> {

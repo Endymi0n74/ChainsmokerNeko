@@ -94,6 +94,22 @@
         }
         cfStatus = await UI.WindowController.SetCloudFlareClearance(cfHost, cfManualValue.trim()) ?? 'No result.';
     }
+
+    let cfTesting = $state(false);
+    let cfTestStatus = $state('');
+
+    async function testCloudFlareClearance() {
+        if (cfTesting) return;
+        cfTesting = true;
+        cfTestStatus = 'Testing…';
+        try {
+            cfTestStatus = await UI.WindowController.TestCloudFlareClearance(cfHost) ?? 'No result.';
+        } catch (error) {
+            cfTestStatus = 'Test failed: ' + String(error);
+        } finally {
+            cfTesting = false;
+        }
+    }
 </script>
 
 <Modal
@@ -165,6 +181,13 @@
                         >
                             {cfImporting ? 'Importing…' : 'Import cf_clearance from browser'}
                         </Button>
+                        <Button
+                            kind="secondary"
+                            disabled={cfTesting}
+                            onclick={testCloudFlareClearance}
+                        >
+                            {cfTesting ? 'Testing…' : 'Test now'}
+                        </Button>
                     </div>
                     <div class="autodl-actions cf-manual">
                         <TextInput
@@ -178,6 +201,9 @@
                     </div>
                     {#if cfStatus}
                         <span class="autodl-status">{cfStatus}</span>
+                    {/if}
+                    {#if cfTestStatus}
+                        <span class="autodl-status">{cfTestStatus}</span>
                     {/if}
                 </div>
                 <SettingsViewer

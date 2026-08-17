@@ -79,4 +79,12 @@ export default class implements IAppWindow {
             return 'Injection failed: ' + String(error);
         }
     }
+
+    public async TestCloudFlareClearance(host: string): Promise<string> {
+        try {
+            return await this.ipc.Send<string>(CloudFlareChannels.App.TestClearance, host);
+        } catch (error) {
+            return 'Test failed: ' + String(error);
+        }
+    }
 }

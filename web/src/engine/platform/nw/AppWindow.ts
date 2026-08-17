@@ -96,4 +96,8 @@ export default class implements IAppWindow {
     public async SetCloudFlareClearance(_host: string, _value: string): Promise<string> {
         return 'Cloudflare cookie injection is only available in the Electron build.';
     }
+
+    public async TestCloudFlareClearance(_host: string): Promise<string> {
+        return 'Cloudflare bypass testing is only available in the Electron build.';
+    }
 }
