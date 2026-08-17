@@ -62,6 +62,9 @@ export class CloudFlareImport {
         if (browsers.length === 0) {
             return 'No Chromium browser profile found (Edge or Chrome).';
         }
+        // Try every browser profile before giving up: Edge may be locked or use App-Bound
+        // Encryption (v20) while Chrome still exposes a v10 cookie (or vice versa).
+        const failures: string[] = [];
         for (const browser of browsers) {
             try {
                 const cookie = await this.ReadCookie(browser, domain);
@@ -70,17 +73,24 @@ export class CloudFlareImport {
                     const expiry = cookie.expires ? cookie.expires.toUTCString() : 'unknown';
                     return `Imported cf_clearance for ${domain} from ${browser.name} (browser expiry ${expiry}).`;
                 }
+                failures.push(`${browser.name}: no cf_clearance cookie for ${domain}`);
             } catch (error) {
                 if (error instanceof AppBoundEncryptionError) {
-                    return `${browser.name} protects its cookies with App-Bound Encryption — paste the cf_clearance value manually instead.`;
+                    failures.push(`${browser.name}: App-Bound Encryption (v20)`);
+                } else if (this.IsBusyError(error)) {
+                    failures.push(`${browser.name}: running (cookie store locked)`);
+                } else {
+                    failures.push(`${browser.name}: could not be read`);
                 }
-                if (this.IsBusyError(error)) {
-                    return `${browser.name} is running and its cookie store is locked — close ${browser.name} or paste the value manually.`;
-                }
-                // Otherwise try the next browser profile.
             }
         }
-        return `No cf_clearance cookie for ${domain} found in ${browsers.map(browser => browser.name).join(' / ')}.`;
+        if (failures.length > 0 && failures.every(failure => failure.includes('v20'))) {
+            return 'App-Bound Encryption (v20) is enabled — paste the cf_clearance value manually instead.';
+        }
+        if (failures.length > 0 && failures.every(failure => failure.includes('locked'))) {
+            return 'The browser is running and its cookie store is locked — close it or paste the value manually.';
+        }
+        return `Could not import cf_clearance for ${domain} (${failures.join('; ')}). Paste the value manually instead.`;
     }
 
     private FindBrowsers(): BrowserProfile[] {

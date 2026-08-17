@@ -34,6 +34,22 @@ une application desktop de scraping et de téléchargement de mangas, animes et 
 
 … et 17 autres connecteurs ajoutés.
 
+## Contournement Cloudflare (cf_clearance)
+
+Quand un site boucle sur un challenge Cloudflare « managé » (« Un instant… »),
+tu peux réutiliser le cookie `cf_clearance` déjà obtenu par ton navigateur réel :
+**Paramètres → Général → Cloudflare bypass**.
+
+- **Import cf_clearance from browser** lit le cookie depuis Edge ou Chrome et
+  l'injecte dans la session de l'app. ⚠️ L'import automatique ne fonctionne
+  qu'avec **Chrome**, ou **Edge sans App-Bound Encryption** — la lecture v10
+  ne peut pas décrypter les cookies chiffrés en « v20 » (App-Bound Encryption,
+  activée par défaut sur les Edge récents). Ferme le navigateur d'abord : son
+  store de cookies est verrouillé tant qu'il tourne.
+- **Collage manuel** : le chemin fiable dans tous les cas. Ouvre les DevTools
+  (`F12`) sur le site → Application → Cookies → copie la valeur de
+  `cf_clearance` → colle-la dans le champ et clique **Inject**.
+
 ## Démarrage rapide
 
 Prérequis : **Node.js ≥ 24**, **npm ≥ 11.3**.
