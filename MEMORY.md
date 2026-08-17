@@ -1,7 +1,8 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 17 août 2026, soir.
+> Dernière mise à jour : 17 août 2026, fin de soirée — release 0.1.13, WIP vide,
+> CI vert, working tree propre (hors `.tmp/` bac à sable gitignoré).
 
 > ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
 > les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
@@ -42,8 +43,9 @@ composants Vue) qui tourne dans un shell **Electron** (et historiquement NW.js).
     C'est LE dépôt produit : son master = le produit du fork, et les branches PR
     (`upstream/cloudflare-fixes`, `upstream/perf-optimizations`) en partent.
   - **`Endymi0n74/ChainsmokerNeko-legacy`** = ancien dépôt produit (pas un fork
-    enregistré, `fork:false`), renommé le 17 août : il conserve **toutes les
-    releases** et leurs liens de téléchargement (les anciennes URL redirigent).
+    enregistré, `fork:false`), renommé puis **archivé le 17 août** : il conserve
+    **toutes les releases** et leurs liens de téléchargement (les anciennes URL
+    redirigent) — voir §14.
 - `app/electron/.tmp/` est gitignoré → c'est le bac à sable pour les sondes/probes
   (`*.cjs`, `*.mjs`) sans polluer `git status`.
 
@@ -315,7 +317,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).
 
-## 10. État récent (16 août, tous committés/poussés)
+## 10. État du 16 août (historique — tous committés/poussés)
 
 - **Auto-download des nouveaux chapitres** (`a065741f`) : bouton dans Paramètres →
   Général — détecte les chapitres publiés **< 48h** dans les **bookmarks**, filtre les
@@ -392,7 +394,7 @@ complets, méthodo CDP). État :
   fermeture propre, relance → relu sur la même origin (64210). Typecheck + 11 tests
   electron verts.
 
-## 13. Releases récentes (16 août)
+## 13. Releases (16–17 août)
 
 - **0.1.1** (`a408138e`) : fix persistance (port stable 64210) + perf (singleton
   IDB, débounce, virtualisation chapitres, sharding MediaLists, Fuse worker) +
@@ -520,8 +522,9 @@ complets, méthodo CDP). État :
   (UA, session partagée, reload opt-in borné), helper d'import `cf_clearance` (auto
   v10 DPAPI+AES-GCM+retrait préfixe 32 octets, détection v20 ABE, fallthrough
   multi-navigateur Edge→Chrome, collage manuel, bouton « Test now »), matrice des
-  scénarios, limites connues, historique 0.1.5→0.1.9 et procédure pas-à-pas
-  CrunchyScan. Liée depuis le README (section Cloudflare aussi en anglais).
+  scénarios, limites connues, historique 0.1.5→0.1.12 et **méthode A pas-à-pas**
+  (sélecteur de site → URL → résolution → Update → Test now → Clear cache).
+  Liée depuis le README (section Cloudflare aussi en anglais).
 - **Nettoyage du dossier de travail** : `.tmp/` vidé (250 sondes/logs/probes +
   `ChromeSetup.exe` 12 Mo + `chrome-win64.zip` 202 Mo + `robo/`) — **conservé :
   `.tmp/electron-zips`** (cache 400 Mo des 3 binaires Electron, réutilisé par
@@ -533,9 +536,9 @@ complets, méthodo CDP). État :
   `0.1.0`..`0.1.11` + `nightly`) sont sur **`ChainsmokerNeko-legacy`**, désormais
   **archivé le 17 août** comme archive de releases (README pointeur + description,
   les liens de téléchargement redirigent toujours). Le nouveau `ChainsmokerNeko`
-  (vrai fork) porte les releases récentes : **0.1.12** (avec bundles incluant le
-  bouton Clear Cache, rafraîchis le 17 août) + sa `nightly` roulante. Titres
-  uniformisés « ChainsmokerNeko <version> » (voir §13).
+  (vrai fork) porte les releases récentes : **0.1.12** (assets rafraîchis avec le
+  bouton Clear Cache) et **0.1.13** (`Latest`, corps bilingue FR/EN), + sa
+  `nightly` roulante. Titres uniformisés « ChainsmokerNeko <version> » (voir §13).
 - **README nettoyé (17 août, commit `70ed6409`)** : suppression de « Save all
   images » (retiré du code), ajout de MangaDrama aux sites garantis, section
   Cloudflare précise (import/test/clear/persistance), workflow 3 OS, et mention
@@ -551,8 +554,8 @@ complets, méthodo CDP). État :
 - **Renommage fait (17 août)** : `ChainsmokerNeko` → `ChainsmokerNeko-legacy`
   puis `haruneko` → `ChainsmokerNeko`. Le dépôt produit est désormais **un vrai
   fork** → toutes les futures PR partent de lui. Conséquence assumée : les
-  releases restent sur legacy ; les prochaines (0.1.12+) sont publiées sur le
-  nouveau repo.
+  releases 0.1.0→0.1.11 restent sur legacy (archive) ; les nouvelles (0.1.12,
+  0.1.13, …) sont publiées sur le nouveau repo.
 - **Legacy archivé (17 août soir)** : `ChainsmokerNeko-legacy` = **archivé**
   (read-only, `archived:true`) comme **archive de releases** — README pointeur
   (commit GitHub `da40d1e`) + description ; les 14 releases et leurs zips restent
@@ -562,12 +565,12 @@ complets, méthodo CDP). État :
   (section « Téléchargement » → `Endymi0n74/ChainsmokerNeko/releases`, legacy
   seulement comme archive) + CLOUDFLARE.md (pointeur en tête + historique
   versions 0.1.11/0.1.12).
-- **WIP non committé (17 août soir)** : (1) ~~bouton Clear Cloudflare cache~~
-  ✅ committé `061a87a5` + release 0.1.13 ; (2) avertissement
-  **environnement sans Electron** (`RemoteBrowserWindow.ts` lève une Exception
-  localisée + i18n 14 locales + `RemoteBrowserWindow_test.ts` — vitest 2144
-  vert). Typechecks + tests verts ; seul le warning environnement reste non
-  committé.
+- **WIP : VIDE (fin de soirée 17 août)** — tout est committé : bouton
+  **Clear Cloudflare cache** (`061a87a5`, release 0.1.13) et avertissement
+  **environnement sans Electron** (`005f4fd4` : `RemoteBrowserWindow.ts` lève
+  une Exception localisée + i18n 14 locales + `RemoteBrowserWindow_test.ts`,
+  vitest 2144 vert). Working tree propre ; seuls les outils `.tmp/` restent
+  non suivis (gitignorés).
 - **Script de test live réutilisable** (17 août soir, enrichi le soir même) :
   `app/electron/.tmp/live_clearance_test.py` — cycle complet
   (wipe userdata → launch → set cookie → snapshot → quit → relance → vérif),
@@ -576,8 +579,11 @@ complets, méthodo CDP). État :
   de l'écriture, restauration issue du snapshot (valeur identique + `session:false`)
   et persistance du fichier après relance (5 checks). Validé : PASS complet.
   ⚠️ `.tmp/` = bac à sable gitignoré, PAS committé.
-- **Doc du réchauffage CrunchyScan pas-à-pas** (17 août soir) : `CLOUDFLARE.md`
-  §7 Méthode A détaillée — sélecteur de site → clic sur l'**URL** → fenêtre réelle
-  où Cloudflare se résout → fermer → **Update** → vérif via **Test now**, rappel
-  de la persistance (une fois par réseau/IP, pas par lancement) et du
-  **Clear Cloudflare cache** si le cookie est périmé.
+- **Doc du réchauffage CrunchyScan pas-à-pas** (17 août soir, `0eadc738`) :
+  `CLOUDFLARE.md` §7 Méthode A détaillée — sélecteur de site → clic sur l'**URL**
+  → fenêtre réelle où Cloudflare se résout → fermer → **Update** → vérif via
+  **Test now**, rappel de la persistance (une fois par réseau/IP, pas par
+  lancement) et du **Clear Cloudflare cache** si le cookie est périmé.
+- **Liens de téléchargement vérifiés en live (17 août soir)** : toutes les URL
+  des README/CLOUDFLARE.md → **HTTP 200** (page Releases du fork, legacy,
+  upstream) et les 3 assets 0.1.13 → **206** (téléchargeables). Aucun lien mort.
