@@ -3,6 +3,17 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.9] - 2026-08-17
+
+### Corrigé
+
+- **Import `cf_clearance` v10 — préfixe d'intégrité retiré** : Chromium 130+
+  préfixe les valeurs de cookies d'un bloc d'intégrité de 32 octets avant le
+  chiffrement AES-256-GCM. Le décryptage v10 ne le retirait pas → la valeur
+  injectée contenait 32 octets parasites. Le préfixe est désormais retiré après
+  décryptage (validé en réel sur Chrome for Testing : import Edge v20 → Chrome
+  v10, valeur injectée propre).
+
 ## [0.1.8] - 2026-08-17
 
 ### Amélioré
