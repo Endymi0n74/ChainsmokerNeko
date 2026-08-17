@@ -3,6 +3,21 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.13] - 2026-08-17
+
+### Ajouté
+
+- **Bouton « Clear Cloudflare cache »** dans Paramètres → Général → Cloudflare
+  bypass : efface en un clic le snapshot `cloudflare-clearance.json` et tous les
+  cookies `cf_clearance` de la session partagée (à utiliser quand le cookie est
+  périmé et que le site rechallenge). Retourne un résumé du nettoyage.
+
+### Documentation
+
+- **README bilingue** : ajout de `README.en.md` (traduction anglaise complète)
+  avec sélecteur de langue en tête des deux fichiers. Les releases suivent la
+  même convention FR + EN.
+
 ## [0.1.12] - 2026-08-17
 
 ### Ajouté
