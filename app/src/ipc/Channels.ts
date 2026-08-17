@@ -128,6 +128,19 @@ export namespace BloatGuard {
     }
 }
 
+/** Supported IPC Channels for checking for application updates. */
+export namespace AppUpdate {
+
+    /** Send from the Main process and received in the Render process. */
+    export type Web = never;
+
+    /** Send from the Render process and received in the Main process. */
+    export enum App {
+        /** Channel for IPC callback with signature: `() => Promise<{ version: string, url: string, notes: string } | null>` */
+        Check = 'AppUpdate::Check',
+    }
+}
+
 /** Supported IPC Channels for importing a Cloudflare clearance cookie into the app session. */
 export namespace CloudFlareImport {
 

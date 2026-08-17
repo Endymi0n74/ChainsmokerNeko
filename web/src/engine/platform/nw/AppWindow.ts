@@ -1,5 +1,5 @@
 import { Observable, type IObservable } from '../../Observable';
-import type { IAppWindow } from '../AppWindow';
+import type { IAppWindow, IUpdateInfo } from '../AppWindow';
 
 export default class implements IAppWindow {
 
@@ -99,5 +99,9 @@ export default class implements IAppWindow {
 
     public async TestCloudFlareClearance(_host: string): Promise<string> {
         return 'Cloudflare bypass testing is only available in the Electron build.';
+    }
+
+    public async CheckForUpdates(): Promise<IUpdateInfo | null> {
+        return null;
     }
 }

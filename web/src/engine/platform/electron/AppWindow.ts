@@ -1,7 +1,7 @@
 import type { IPC } from '../InterProcessCommunication';
 import { Observable, type IObservable } from '../../Observable';
-import type { IAppWindow } from '../AppWindow';
-import { ApplicationWindow as Channels, CloudFlareImport as CloudFlareChannels } from '../../../../../app/src/ipc/Channels';
+import type { IAppWindow, IUpdateInfo } from '../AppWindow';
+import { ApplicationWindow as Channels, CloudFlareImport as CloudFlareChannels, AppUpdate as AppUpdateChannels } from '../../../../../app/src/ipc/Channels';
 
 export default class implements IAppWindow {
 
@@ -85,6 +85,14 @@ export default class implements IAppWindow {
             return await this.ipc.Send<string>(CloudFlareChannels.App.TestClearance, host);
         } catch (error) {
             return 'Test failed: ' + String(error);
+        }
+    }
+
+    public async CheckForUpdates(): Promise<IUpdateInfo | null> {
+        try {
+            return await this.ipc.Send<IUpdateInfo | null>(AppUpdateChannels.App.Check);
+        } catch {
+            return null;
         }
     }
 }

@@ -4,6 +4,7 @@
     "version": "0.1.11",
     "title": "HakuNeko",
     "description": "Manga, Anime & Novel Downloader (Electron based desktop client)",
+    "repository": "Endymi0n74/ChainsmokerNeko",
     "type": "module",
     "main": "main.js",
     "url": "https://app.hakuneko.download",

@@ -15,6 +15,7 @@
     import DownloadsStatus from './components/DownloadManagerStatus.svelte';
     import Viewer from './components/viewer/Viewer.svelte';
     import AppBar from './components/AppBar.svelte';
+    import UpdateNotification from './components/UpdateNotification.svelte';
     import UserMessage from './components/UserMessages.svelte';
     import ContentPage from './components/content-pages/ContentRouter.svelte';
     // UI: Stores
@@ -69,6 +70,7 @@
             <DownloadsStatus />
         </div>
     </Content>
+    <UpdateNotification />
 </Theme>
 
 <style>

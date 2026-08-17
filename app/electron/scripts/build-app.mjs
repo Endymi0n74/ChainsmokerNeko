@@ -41,6 +41,7 @@ const manifest = {
     ],
     'user-data-dir': null,
     'user-agent': targetConfig['user-agent'] ?? null,
+    'repository': pkgConfig.repository ?? null,
     dependencies: pkgConfig.dependencies
 };
 

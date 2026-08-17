@@ -6,6 +6,13 @@ import { GetLocale } from '../../i18n/Localization';
 import GetIPC from './InterProcessCommunication';
 import type { IObservable } from '../Observable';
 
+/** Update descriptor returned by {@link IAppWindow.CheckForUpdates} when a newer release exists. */
+export type IUpdateInfo = {
+    version: string;
+    url: string;
+    notes: string;
+} & JSONObject;
+
 export interface IAppWindow {
     /**
      * Hide the application window and show the loading splash screen.
@@ -40,6 +47,11 @@ export interface IAppWindow {
      * unblocks the given host. Returns a human-readable status message.
      */
     TestCloudFlareClearance(host: string): Promise<string>;
+    /**
+     * Check the latest GitHub release and return it when it is newer than the running
+     * app version, otherwise resolve to `null`.
+     */
+    CheckForUpdates(): Promise<IUpdateInfo | null>;
 }
 
 export function CreateAppWindow(splashURL: string): IAppWindow {
