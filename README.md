@@ -50,6 +50,9 @@ tu peux réutiliser le cookie `cf_clearance` déjà obtenu par ton navigateur r�
   (`F12`) sur le site → Application → Cookies → copie la valeur de
   `cf_clearance` → colle-la dans le champ et clique **Inject**.
 
+État complet, matrice des scénarios et historique des versions : voir
+[`CLOUDFLARE.md`](CLOUDFLARE.md).
+
 ## Démarrage rapide
 
 Prérequis : **Node.js ≥ 24**, **npm ≥ 11.3**.
