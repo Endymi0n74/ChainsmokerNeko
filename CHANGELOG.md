@@ -3,6 +3,24 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.11] - 2026-08-17
+
+### Ajouté
+
+- **Persistance du cookie `cf_clearance`** : le cookie obtenu en résolvant un
+  challenge Cloudflare (flux « open the site » ou import) est désormais
+  sauvegardé dans `cloudflare-clearance.json` (dossier userData) et réinjecté au
+  démarrage avec une expiration fraîche de 30 jours. Plus besoin de réchauffer
+  Cloudflare à chaque lancement ; un cookie devenu invalide (révoqué côté
+  serveur ou lié à une autre IP/UA) retombe automatiquement sur le flux
+  challenge normal qui re-peuple le snapshot.
+
+### Corrigé
+
+- Le `cf_clearance` posé par le site en **cookie de session** (sans expiration)
+  était perdu à la fermeture de l'app → l'échauffement repartait de zéro à
+  chaque redémarrage.
+
 ## [0.1.10] - 2026-08-17
 
 ### Ajouté
