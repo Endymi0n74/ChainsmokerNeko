@@ -281,7 +281,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.6** (publiée le 17 août). Prochain bump (0.1.7) dès le prochain correctif
+  0.1.7** (publiée le 17 août). Prochain bump (0.1.8) dès le prochain correctif
   fonctionnel.
 
 ## 10. État récent (16 août, tous committés/poussés)
@@ -398,6 +398,18 @@ complets, méthodo CDP). État :
   secure sur le bon domaine, guards hôte/valeur, détection du store verrouillé.
   Release **`Latest`** avec les 3 zips v0.1.6 (hakuneko.exe + main.js + preload.js
   + manifest vérifiés). CI vert.
-- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5.
+- **0.1.7** (`255e1dcf`) : **fix du RangeError `expires_utc`** (`8432bc38`) —
+  les timestamps Chromium (microsecondes depuis 1601) dépassent
+  `Number.MAX_SAFE_INTEGER` → node:sqlite crashait l'auto-lecture dès qu'un
+  cookie était lu (Edge/Chrome fermé). Fix : `CAST(expires_utc AS TEXT)` dans la
+  requête + parsing BigInt. ⚠️ **Test du 17 août** : l'auto-lecture est bloquée
+  sur le profil Edge de l'utilisateur — **tous les cookies sont en App-Bound
+  Encryption « v20 »** (non décryptable en v10, verrou sécurité Chromium), et le
+  fallback CDP (`--remote-debugging-port` sur profil par défaut) est aussi
+  bloqué (Chromium 136+). Le helper détecte v20 et renvoie un message clair →
+  **le collage manuel reste le chemin fiable**. Auto-lecture v10 fonctionnelle
+  sur Chrome / Edge sans ABE. Release **`Latest`** avec les 3 zips v0.1.7
+  (hakuneko.exe + main.js + preload.js + manifest vérifiés). CI vert.
+- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
   sur les commits docs-only `*.md` — `paths-ignore`).
