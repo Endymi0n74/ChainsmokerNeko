@@ -137,8 +137,10 @@ export class CloudFlareImport {
 
             const database = new DatabaseSync(copy, { readOnly: true });
             try {
+                // `expires_utc` (microseconds since 1601) exceeds Number.MAX_SAFE_INTEGER,
+                // so cast it to TEXT to avoid node:sqlite throwing on the overflow.
                 const rows = database.prepare(`
-                    SELECT name, encrypted_value, expires_utc
+                    SELECT name, encrypted_value, CAST(expires_utc AS TEXT) AS expires_utc
                     FROM cookies WHERE host_key LIKE ? ORDER BY creation_utc DESC
                 `).all(`%${host}`);
                 for (const row of rows) {
@@ -207,11 +209,13 @@ export class CloudFlareImport {
 
     private FromChromiumTime(expiresUtc: unknown): Date | undefined {
         // Chromium stores timestamps as microseconds since 1601-01-01.
-        const value = typeof expiresUtc === 'bigint' ? Number(expiresUtc) : Number(expiresUtc);
-        if (!Number.isFinite(value)) {
+        // Values are cast to TEXT in SQL; parse as BigInt to avoid precision loss, then to ms.
+        const value = typeof expiresUtc === 'string' ? BigInt(expiresUtc) : BigInt(expiresUtc as number | bigint);
+        const milliseconds = Number(value / 1000n) - 11644473600000;
+        if (!Number.isFinite(milliseconds)) {
             return undefined;
         }
-        const date = new Date(value / 1000 - 11644473600000);
+        const date = new Date(milliseconds);
         return Number.isNaN(date.getTime()) ? undefined : date;
     }
 }
