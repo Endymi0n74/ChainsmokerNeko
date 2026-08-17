@@ -281,7 +281,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.8** (publiée le 17 août). Prochain bump (0.1.9) dès le prochain correctif
+  0.1.9** (publiée le 17 août). Prochain bump (0.1.10) dès le prochain correctif
   fonctionnel.
 
 ## 10. État récent (16 août, tous committés/poussés)
@@ -416,6 +416,17 @@ complets, méthodo CDP). État :
   l'auto-lecture v10 ne marche qu'avec Chrome ou Edge sans ABE. Release
   **`Latest`** avec les 3 zips v0.1.8 (hakuneko.exe + main.js + preload.js +
   manifest vérifiés). CI vert.
-- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6, 0.1.7.
+- **0.1.9** (`856fe85a`) : **fix du préfixe 32 octets** (`70030e84`) — Chromium
+  130+ préfixe les valeurs de cookies d'un bloc d'intégrité de 32 octets avant
+  AES-256-GCM ; `DecryptCookie` le retirait pas → valeur injectée corrompue.
+  **Test du 17 août** : **Chrome for Testing 152** installé (portable,
+  `D:\Codex\chrome-for-testing`, profil pointé vers `%LOCALAPPDATA%\Google\Chrome\User
+  Data`) pour valider le fallthrough — **Chrome = v10** (pas d'ABE), Edge = v20.
+  Import réel **Edge v20 → Chrome v10** : « Imported cf_clearance from Chrome »,
+  valeur injectée propre. ⚠️ L'installateur officiel ChromeSetup.exe reste bloqué
+  sur un prompt UAC (admin) → utiliser Chrome for Testing. Release **`Latest`**
+  avec les 3 zips v0.1.9 (hakuneko.exe + main.js + preload.js + manifest
+  vérifiés). CI vert.
+- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6, 0.1.7, 0.1.8.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
   sur les commits docs-only `*.md` — `paths-ignore`).
