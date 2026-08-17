@@ -3,6 +3,32 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [0.1.14] - 2026-08-17
+
+### Ajouté
+
+- **Avertissement localisé « environnement sans Electron »** : quand un
+  connecteur requiert une vraie fenêtre navigateur (`FetchWindowScript`) sur un
+  runtime qui n'en fournit pas (aperçu web, Deno, Node…), l'app affiche un
+  message clair et localisé au lieu de l'`InternalError` opaque. Traduit dans
+  les 14 locales, couvert par 6 tests unitaires. Comportement desktop
+  (Electron/NW.js) inchangé.
+
+### Corrigé
+
+- **CI remis au vert** : trois problèmes introduits par le rewrite 3-OS corrigés
+  — caractères non-ASCII dans des commentaires YAML de workflows (runs fantômes
+  en échec 0 s), `${{ runner.temp }}` dans un bloc `env:` de job interdit, et
+  import top-level d'`extract-zip` cassant le job bundles Windows (passé en
+  import lazy, macOS/Linux uniquement).
+
+### Documentation
+
+- Guide **pas-à-pas du réchauffage CrunchyScan** (CLOUDFLARE.md §7) + script de
+  test live vérifiant le snapshot `cf_clearance` (valeur, domaine, persistance).
+- **Badges de release** (version + téléchargements de la dernière version) dans
+  les README français et anglais ; liens de téléchargement vérifiés (HTTP 200/206).
+
 ## [0.1.13] - 2026-08-17
 
 ### Ajouté
