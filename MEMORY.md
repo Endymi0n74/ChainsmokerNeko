@@ -281,8 +281,9 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.9** (publiée le 17 août). Prochain bump (0.1.10) dès le prochain correctif
-  fonctionnel.
+  0.1.10** (publiée le 17 août). Prochain bump (0.1.11) dès le prochain correctif
+  fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
+  (casse exacte, sans préfixe `v`).
 
 ## 10. État récent (16 août, tous committés/poussés)
 
@@ -427,11 +428,28 @@ complets, méthodo CDP). État :
   sur un prompt UAC (admin) → utiliser Chrome for Testing. Release **`Latest`**
   avec les 3 zips v0.1.9 (hakuneko.exe + main.js + preload.js + manifest
   vérifiés). CI vert.
-- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6, 0.1.7, 0.1.8.
-- Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
-  sur les commits docs-only `*.md` — `paths-ignore`).
-  ⚠️ La release `nightly` n'existe pas encore sur le fork (le job `release` la crée
-  à la première exécution master — à vérifier après le prochain push non-docs).
+- **0.1.10** (`9e1222de`) : **import `cf_clearance` multiplateforme** (`9ac1d1f2`)
+  — Windows/macOS/Linux (DPAPI / Keychain+PBKDF2 / `peanuts`+keyring), sans
+  dépendance externe, profils Edge/Chrome (+Chromium Linux) par OS, cookies
+  v10 AES-256-GCM (Windows) ou v10/v11 AES-128-CBC (macOS/Linux), algorithmes
+  vérifiés contre la source Chromium (IV = 16 espaces fixes pour le CBC).
+  ⚠️ `safeStorage` Electron est **incompatible** avec les blobs DPAPI Chrome
+  (prouvé en probe : il produit son propre v10 AES-GCM) → PowerShell conservé
+  sur Windows. **Bouton « Test now »** (`f7a4ce5c`) : channel
+  `CloudFlareImport::TestClearance` qui fetch la page d'accueil via
+  `session.defaultSession.fetch()` (cookies de session) et détecte le challenge
+  (marqueurs + Server/statut). Docs Cloudflare traduites en anglais (`ac2b88a1`).
+  Release **`Latest`** « ChainsmokerNeko 0.1.10 » avec les 3 zips v0.1.10
+  (hakuneko.exe + main.js + preload.js + manifest 0.1.10 vérifiés). CI vert.
+  ✅ Chemin Windows validé en réel (Edge v20 → Chrome v10, valeur injectée
+  exacte). macOS/Linux implémentés d'après la source Chromium mais non testés
+  en live (machine Windows).
+- Release précédentes conservées : 0.1.0 → 0.1.9.
+- Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
+  (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
+- **Titres de releases uniformisés** (17 août) : les releases 0.1.6/0.1.5 (casse
+  « ChainSmokerNeko ») et 0.1.3/0.1.2/0.1.1 (préfixe `v`) ont été renommées en
+  « ChainsmokerNeko <version> » via `gh release edit <tag> --title`.
 
 ## 14. Documentation Cloudflare + nettoyage (17 août)
 
@@ -449,8 +467,7 @@ complets, méthodo CDP). État :
   test v10) supprimé — à re-télécharger depuis
   https://googlechromelabs.github.io/chrome-for-testing/ si un re-test v10 est
   nécessaire (l'installateur officiel ChromeSetup.exe reste bloqué par l'UAC).
-- **État GitHub** : 11 releases conservées (`160826` pré-version + `0.1.0`..`0.1.9`,
-  dernière = `Latest`). Pas de release orpheline ni de branche parasite sur le fork
-  (`fork/master` seule). Les titres ont une casse incohérente (« ChainSmokerNeko » vs
-  « ChainsmokerNeko ») — purement cosmétique, non corrigé (réécrire les releases
-  est destructif).
+- **État GitHub** : 12 releases (`160826` pré-version + `0.1.0`..`0.1.10` +
+  `nightly` roulante ; dernière stable = `Latest` « ChainsmokerNeko 0.1.10 »).
+  Titres uniformisés « ChainsmokerNeko <version> » (voir §13). Pas de branche
+  parasite sur le fork (`fork/master` seule).
