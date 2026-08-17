@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 16 août 2026.
+> Dernière mise à jour : 17 août 2026.
 
 > ⚠️ **CONVENTION UTILISATEUR (à partir du 15 août 2026) : AUCUNE RÉGRESSION.**
 > Chaque changement doit vérifier qu'aucune fonctionnalité déjà validée ne casse :
@@ -430,3 +430,26 @@ complets, méthodo CDP). État :
 - Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6, 0.1.7, 0.1.8.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
   sur les commits docs-only `*.md` — `paths-ignore`).
+  ⚠️ La release `nightly` n'existe pas encore sur le fork (le job `release` la crée
+  à la première exécution master — à vérifier après le prochain push non-docs).
+
+## 14. Documentation Cloudflare + nettoyage (17 août)
+
+- **`CLOUDFLARE.md`** (`dcaedbb3`) : doc de statut utilisateur récapitulant tout le
+  contournement Cloudflare — mécanismes embarqués (UA, session partagée, reload
+  opt-in borné), helper d'import `cf_clearance` (auto v10 DPAPI+AES-GCM+retrait
+  préfixe 32 octets, détection v20 ABE, fallthrough multi-navigateur Edge→Chrome,
+  collage manuel), matrice des scénarios, limites connues, historique 0.1.5→0.1.9
+  et procédure pas-à-pas CrunchyScan. Liée depuis le README.
+- **Nettoyage du dossier de travail** : `.tmp/` vidé (250 sondes/logs/probes +
+  `ChromeSetup.exe` 12 Mo + `chrome-win64.zip` 202 Mo + `robo/`) — **conservé :
+  `.tmp/electron-zips`** (cache 400 Mo des 3 binaires Electron, réutilisé par
+  `deploy-app.mjs`). `D:\Codex\chrome-for-testing` (428 Mo, portable Chrome de
+  test v10) supprimé — à re-télécharger depuis
+  https://googlechromelabs.github.io/chrome-for-testing/ si un re-test v10 est
+  nécessaire (l'installateur officiel ChromeSetup.exe reste bloqué par l'UAC).
+- **État GitHub** : 11 releases conservées (`160826` pré-version + `0.1.0`..`0.1.9`,
+  dernière = `Latest`). Pas de release orpheline ni de branche parasite sur le fork
+  (`fork/master` seule). Les titres ont une casse incohérente (« ChainSmokerNeko » vs
+  « ChainsmokerNeko ») — purement cosmétique, non corrigé (réécrire les releases
+  est destructif).
