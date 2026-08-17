@@ -8,6 +8,12 @@
 > et leçons. En début de session, vérifier l'horodatage : si > 2 h, re-lire l'état
 > réel (git log, git status, releases GitHub) avant d'agir.
 
+> 🌐 **CONVENTION BILINGUE (17 août) : README et releases en FRANÇAIS + ANGLAIS
+> à chaque fois.** README.md (FR) + README.en.md (EN) avec sélecteur de langue en
+> tête ; corps de release bilingue (section **Français** puis **English**), même
+> pour les correctifs. Les autres docs (CLOUDFLARE.md, CHANGELOG.md) restent dans
+> leur langue actuelle.
+
 > ⚠️ **CONVENTION UTILISATEUR (à partir du 15 août 2026) : AUCUNE RÉGRESSION.**
 > Chaque changement doit vérifier qu'aucune fonctionnalité déjà validée ne casse :
 > refaire les tests e2e pertinents (listing ET flux chapitre → pages → image),
@@ -294,8 +300,8 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release  GitHub
-  `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.12** (publiée le 17 août). Prochain bump (0.1.13) dès le prochain correctif
+  `Latest` (3 zips + corps bilingue FR/EN). **Version actuelle : 0.1.13**
+  (publiée le 17 août). Prochain bump (0.1.14) dès le prochain correctif
   fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).
 
@@ -473,6 +479,13 @@ complets, méthodo CDP). État :
   Bundle 3 OS committé (`d56fa332`). ⚠️ Les **assets 0.1.12 ont été rafraîchis**
   le 17 août pour inclure le bouton **Clear Cloudflare cache** (build web
   recopié : avant, seul main.js avait le handler, le renderer était périmé).
+- **0.1.13** (`6b0f7642`, le 17 août soir) : **bouton « Clear Cloudflare cache »**
+  committé (`061a87a5` : `CloudFlareSession.Clear` + channel
+  `CloudFlareImport::ClearCache` + `IAppWindow.ClearCloudFlareCache` + bouton
+  SettingsModal + tests 8/8) + **README bilingue** (`b12757e0` : `README.en.md`
+  + sélecteur de langue). Corps de release **bilingue FR/EN** (1ère). 3 zips
+  vérifiés (manifest 0.1.13, ClearCache présents). Release **`Latest`** sur le
+  fork.
 - Release précédentes conservées : 0.1.0 → 0.1.10.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
   (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
@@ -539,13 +552,12 @@ complets, méthodo CDP). État :
   (section « Téléchargement » → `Endymi0n74/ChainsmokerNeko/releases`, legacy
   seulement comme archive) + CLOUDFLARE.md (pointeur en tête + historique
   versions 0.1.11/0.1.12).
-- **WIP non committé (17 août soir)** : (1) bouton **Clear Cloudflare cache**
-  (`CloudFlareSession.Clear` + channel `CloudFlareImport::ClearCache` +
-  `IAppWindow.ClearCloudFlareCache` + bouton SettingsModal — inclus dans les
-  assets 0.1.12 rafraîchis mais PAS committé) ; (2) avertissement
+- **WIP non committé (17 août soir)** : (1) ~~bouton Clear Cloudflare cache~~
+  ✅ committé `061a87a5` + release 0.1.13 ; (2) avertissement
   **environnement sans Electron** (`RemoteBrowserWindow.ts` lève une Exception
   localisée + i18n 14 locales + `RemoteBrowserWindow_test.ts` — vitest 2144
-  vert). Typechecks + tests verts ; aucun des deux committé.
+  vert). Typechecks + tests verts ; seul le warning environnement reste non
+  committé.
 - **Script de test live réutilisable** (17 août soir) :
   `app/electron/.tmp/live_clearance_test.py` — cycle complet
   (wipe userdata → launch → set cookie → snapshot → quit → relance → vérif),
