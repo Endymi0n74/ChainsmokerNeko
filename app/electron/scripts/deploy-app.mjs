@@ -1,6 +1,5 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import extract from 'extract-zip';
 import { download, run } from '../../tools.mjs';
 
 const pkgFile = 'package.json';
@@ -40,7 +39,10 @@ async function redist(electronVersion, electronPlatform, electronArchitecture) {
         // PowerShell natif au lieu de extract-zip (bug EACCES Windows)
         await run(`powershell -Command "Expand-Archive -Path '${tmpFile}' -DestinationPath '${electronDir}' -Force"`);
     } else {
-        // macOS/Linux : extract-zip (pas de PowerShell sur les runners CI)
+        // macOS/Linux : extract-zip (pas de PowerShell sur les runners CI).
+        // Import lazy : sur Windows le module n'existe pas (le job CI bundles
+        // réutilise l'artefact sans npm ci) et PowerShell est utilisé à la place.
+        const { default: extract } = await import('extract-zip');
         await extract(tmpFile, { dir: electronDir });
     }
     
