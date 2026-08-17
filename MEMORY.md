@@ -444,6 +444,10 @@ complets, méthodo CDP). État :
   ✅ Chemin Windows validé en réel (Edge v20 → Chrome v10, valeur injectée
   exacte). macOS/Linux implémentés d'après la source Chromium mais non testés
   en live (machine Windows).
+  ✅ **Validée par l'utilisateur le 17 août (app 0.1.10)** : bookmarks (91),
+  liste des chapitres (238/238) et « Download all unviewed » → 21 chapitres
+  téléchargés sur disque (`d:\Documents\bd\Box Sync\Shadows House\`).
+  Aucune régression.
 - Release précédentes conservées : 0.1.0 → 0.1.9.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
   (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
