@@ -281,7 +281,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.7** (publiée le 17 août). Prochain bump (0.1.8) dès le prochain correctif
+  0.1.8** (publiée le 17 août). Prochain bump (0.1.9) dès le prochain correctif
   fonctionnel.
 
 ## 10. État récent (16 août, tous committés/poussés)
@@ -410,6 +410,12 @@ complets, méthodo CDP). État :
   **le collage manuel reste le chemin fiable**. Auto-lecture v10 fonctionnelle
   sur Chrome / Edge sans ABE. Release **`Latest`** avec les 3 zips v0.1.7
   (hakuneko.exe + main.js + preload.js + manifest vérifiés). CI vert.
-- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6.
+- **0.1.8** (`56147aa4`) : **fallthrough Chrome** (`e276eb07`) — l'import
+  `cf_clearance` essaie désormais **Chrome** quand Edge échoue (verrouillé/v20)
+  au lieu de s'arrêter au premier échec. Doc README + texte d'aide UI :
+  l'auto-lecture v10 ne marche qu'avec Chrome ou Edge sans ABE. Release
+  **`Latest`** avec les 3 zips v0.1.8 (hakuneko.exe + main.js + preload.js +
+  manifest vérifiés). CI vert.
+- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6, 0.1.7.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
   sur les commits docs-only `*.md` — `paths-ignore`).
