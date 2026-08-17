@@ -82,7 +82,7 @@ jobs:
           # Normalize a leading 'v' so tags stay consistent with previous releases (e.g. '2.0.0').
           VERSION=$(echo "$VERSION" | sed 's/^v//')
           # The bundles are stamped with the package version, so refuse to publish a tag
-          # that does not match it — bump the package.json versions before releasing.
+          # that does not match it - bump the package.json versions before releasing.
           if [ "$VERSION" != "$PKG_VERSION" ]; then
             echo "::error::Version '$VERSION' does not match app/electron/package.json version '$PKG_VERSION'. Bump the package versions first."
             exit 1
