@@ -281,7 +281,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
   `Latest` (3 zips + corps généré depuis le CHANGELOG). **Version actuelle :
-  0.1.5** (publiée le 17 août). Prochain bump (0.1.6) dès le prochain correctif
+  0.1.6** (publiée le 17 août). Prochain bump (0.1.7) dès le prochain correctif
   fonctionnel.
 
 ## 10. État récent (16 août, tous committés/poussés)
@@ -384,8 +384,20 @@ complets, méthodo CDP). État :
   attaché) au lieu de `document.cookie` ; (3) budget de reload **borné globalement
   à 3** (au lieu d'une boucle non-bornée ~35 navigations/40 s) + arrêt de tous les
   pollers au `destroy()`. Vérifié : 2138 tests web + 11 electron, typecheck/lint
-  OK, CI vert, zips v0.1.5 vérifiés (hakuneko.exe + manifest). Release **`Latest`**
+  OK, CI vert,  zips v0.1.5 vérifiés (hakuneko.exe + manifest). Release **`Latest`**
   publiée avec les 3 zips.
-- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4.
+- **0.1.6** (`def620c0`) : **helper d'import `cf_clearance`** (`7cb07c8b`) —
+  section « Cloudflare bypass » dans Paramètres → Général. Bouton
+  « Import cf_clearance from browser » (lecture Edge/Chrome : DPAPI +
+  AES-256-GCM sur le store SQLite, via `node:sqlite` du runtime Electron) +
+  champ de **collage manuel** (fallback quand le navigateur est ouvert/verrouillé
+  ou en **App-Bound Encryption v20**, détecté avec message explicite).
+  Câblage : namespace `CloudFlareImport` (`ImportFromBrowser`/`SetClearance`) +
+  contrôleur `app/electron/src/ipc/CloudFlareImport.ts` + 2 méthodes sur
+  `IAppWindow` (impl Electron + stub NW). Validé en réel : injection httpOnly+
+  secure sur le bon domaine, guards hôte/valeur, détection du store verrouillé.
+  Release **`Latest`** avec les 3 zips v0.1.6 (hakuneko.exe + main.js + preload.js
+  + manifest vérifiés). CI vert.
+- Release précédentes conservées : 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push (mais pas
   sur les commits docs-only `*.md` — `paths-ignore`).
