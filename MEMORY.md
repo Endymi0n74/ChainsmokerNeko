@@ -488,11 +488,18 @@ complets, méthodo CDP). État :
   test v10) supprimé — à re-télécharger depuis
   https://googlechromelabs.github.io/chrome-for-testing/ si un re-test v10 est
   nécessaire (l'installateur officiel ChromeSetup.exe reste bloqué par l'UAC).
-- **État GitHub** : les **14 releases** (`160826` pré-version + `0.1.0`..`0.1.11`
-  + `nightly` roulante ; dernière stable = `Latest` « ChainsmokerNeko 0.1.11 »)
-  sont désormais sur **`ChainsmokerNeko-legacy`** (renommé le 17 août, les
-  anciens liens redirigent). Le nouveau `ChainsmokerNeko` (vrai fork) n'a pas
-  encore de release. Titres uniformisés « ChainsmokerNeko <version> » (voir §13).
+- **État GitHub** : les **14 releases historiques** (`160826` pré-version +
+  `0.1.0`..`0.1.11` + `nightly`) sont sur **`ChainsmokerNeko-legacy`**, désormais
+  **archivé le 17 août** comme archive de releases (README pointeur + description,
+  les liens de téléchargement redirigent toujours). Le nouveau `ChainsmokerNeko`
+  (vrai fork) porte les releases récentes : **0.1.12** (avec bundles incluant le
+  bouton Clear Cache, rafraîchis le 17 août) + sa `nightly` roulante. Titres
+  uniformisés « ChainsmokerNeko <version> » (voir §13).
+- **README nettoyé (17 août, commit `70ed6409`)** : suppression de « Save all
+  images » (retiré du code), ajout de MangaDrama aux sites garantis, section
+  Cloudflare précise (import/test/clear/persistance), workflow 3 OS, et mention
+  que seuls les 4 sites curated sont testés (le reste de `_index.ts` est sans
+  garantie).
 - **PR upstream ouvertes (17 août)** depuis `Endymi0n74/ChainsmokerNeko` (le vrai
   fork, renommé depuis `haruneko`) : **#1797** `fix(cloudflare)` (UA Electron,
   session partagée, reload opt-in, CrunchyScan) et **#1798** `perf(ui)` (liste
