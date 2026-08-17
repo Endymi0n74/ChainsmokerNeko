@@ -269,6 +269,16 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
     ⚠️ `runner` n'est **pas** autorisé dans un bloc `env:` de job (validation GitHub) —
     mettre les env vars au niveau des steps. ⚠️ Pas d'unicode (ex. `→`) dans les
     commentaires YAML des workflows (validation GitHub).
+  - **⚠️ Leçons du 17 août soir (CI passé du rouge au vert, commits `eb62cf46` →
+    `2d541f12`)** : le rewrite 3-OS (`d56fa332`) avait cassé le CI — (1) tiret
+    cadratin UTF-8 `—` dans un commentaire YAML de `create-release.yml` +
+    flèche `➔` dans `website-metrics.yml` → GitHub crée des runs push fantômes
+    en échec 0 s (remplacés par ASCII) ; (2) `${{ runner.temp }}` dans le bloc
+    `env:` **de job** de `create-release.yml` → fichier invalide (déplacé au
+    niveau des steps, comme push-ci) ; (3) `import extract from 'extract-zip'`
+    en top-level dans `deploy-app.mjs` → `ERR_MODULE_NOT_FOUND` sur le job
+    bundles Windows (réutilise l'artefact sans `npm ci`) → import **lazy** dans
+    la branche macOS/Linux uniquement. CI 100 % vert après `2d541f12`.
   - **Cache local hors CI** (16 août) : quand `HAKUNEKO_ELECTRON_CACHE` n'est pas
     défini, `deploy-app.mjs` retombe sur **`.tmp/electron-zips`** (disque du repo, D:)
     au lieu du temp système (C:) — l'utilisateur ne veut plus de stockage sur C:.
