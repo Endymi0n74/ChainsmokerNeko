@@ -40,6 +40,10 @@ When a site loops on a "managed" Cloudflare challenge ("Just a moment…"), you 
 reuse the `cf_clearance` cookie your real browser already obtained:
 **Settings → General → Cloudflare bypass**.
 
+- **Open the site from the app**: in the website selector, choose the site and
+  click its **URL** — a window opens where the challenge resolves, and the
+  `cf_clearance` cookie is kept in the shared session. The simplest way to
+  unblock CrunchyScan.
 - **Import cf_clearance from browser** reads the cookie from Edge, Chrome or
   Chromium and injects it into the app session, on **Windows, macOS and Linux**
   (DPAPI / Keychain / passphrase — no external dependency). Close the browser

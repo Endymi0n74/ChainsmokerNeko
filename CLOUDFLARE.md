@@ -145,7 +145,25 @@ source ("Imported … from Chrome"); failures are aggregated into a summary.
 
 ---
 
-## 7. Recommended procedure to unblock CrunchyScan
+## 7. How to unblock CrunchyScan
+
+### Method A — warm up the session from the app (simplest, validated)
+
+1. In the website selector, choose **CrunchyScan**, then click its **URL** (or
+   the "Open" button next to the site name). A browser window opens on
+   `crunchyscan.org`.
+2. Let Cloudflare pass in that window (wait for the site to load — solve the
+   check if one is shown). The `cf_clearance` cookie is then stored in the
+   **shared session** of the app.
+3. Close the window and go back to CrunchyScan → **Update**: the manga list
+   loads, and chapters/pages/downloads work.
+
+> This is the native flow (the site's `Initialize()` opens the same visible
+> window), and it is enough when your IP already has trust with Cloudflare.
+
+### Method B — reuse a `cf_clearance` from your real browser (fallback)
+
+Use this when Method A keeps looping (e.g. the IP is flagged):
 
 1. In your real browser, open `crunchyscan.org` and pass the challenge (the page
    loads normally).

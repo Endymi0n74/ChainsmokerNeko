@@ -453,6 +453,16 @@ complets, méthodo CDP). État :
 
 ## 14. Documentation Cloudflare + nettoyage (17 août)
 
+- **✅ Flux CrunchyScan validé par l'utilisateur (17 août, app 0.1.9)** : le plus
+  simple est d'ouvrir le site depuis l'app — sélecteur de site → **CrunchyScan** →
+  cliquer sur l'**URL** (ou le bouton « Open » à côté du nom) → une fenêtre s'ouvre
+  où le challenge Cloudflare se résout en interactif → le `cf_clearance` est
+  conservé dans la **session partagée** → de retour sur les mangas, listing,
+  affichage des chapitres ET téléchargement fonctionnent. C'est le flux natif
+  (`Initialize()` ouvre la même fenêtre visible) ; le helper d'import manuel
+  devient un **fallback** (IP marquée). Documenté en méthode A dans
+  `CLOUDFLARE.md` §7 + README.
+
 - **`CLOUDFLARE.md`** (`dcaedbb3`, réécrit en **anglais** le 17 août) : doc de statut
   utilisateur récapitulant tout le contournement Cloudflare — mécanismes embarqués
   (UA, session partagée, reload opt-in borné), helper d'import `cf_clearance` (auto
