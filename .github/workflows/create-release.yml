@@ -116,10 +116,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "$VERSION" \
-            --title "ChainsmokerNeko $VERSION" \
-            --notes-file notes.md \
-            --latest \
-            artifacts/bundles-windows/* \
-            artifacts/bundles-macos/* \
-            artifacts/bundles-linux/*
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            # Release already exists (e.g. Windows bundles published manually):
+            # attach the OS bundles to it instead of failing on the existing tag.
+            echo "Release $VERSION already exists — uploading bundles to it."
+            gh release upload "$VERSION" artifacts/bundles-windows/* artifacts/bundles-macos/* artifacts/bundles-linux/* --clobber
+          else
+            gh release create "$VERSION" \
+              --title "ChainsmokerNeko $VERSION" \
+              --notes-file notes.md \
+              --latest \
+              artifacts/bundles-windows/* \
+              artifacts/bundles-macos/* \
+              artifacts/bundles-linux/*
+          fi
