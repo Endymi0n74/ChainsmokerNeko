@@ -6,9 +6,10 @@ This document explains how **ChainsmokerNeko** handles Cloudflare challenges
 (the "Just a moment…" page that blocks some sites), and in particular how to
 reuse the `cf_clearance` cookie your real browser has already obtained.
 
-**Download the app**: the current stable release (**2.0.0**) ships **6 bundles
-for 3 OS** — Windows zip (ia32/x64/arm64), macOS dmg (Intel/Apple Silicon) and
-Linux AppImage (x64) — all listed in the README and on the fork's
+**Download the app**: the current stable release (**2.0.1**) ships **10 bundles
+for 3 OS** — Windows portable zips + NSIS installers (ia32/x64/arm64), macOS
+dmg (Intel/Apple Silicon), Linux AppImage and snap (x64) — all listed in the
+README and on the fork's
 [Releases page](https://github.com/Endymi0n74/ChainsmokerNeko/releases); the
 `nightly` build is the latest `master`, `Latest` is the newest stable version.
 

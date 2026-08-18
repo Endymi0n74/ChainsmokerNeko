@@ -704,3 +704,28 @@ Causes observées, par fréquence, et parades :
 7. **Interruptions réseau/session Freebuff** (« connection dropped », « session
    ended ») : rien à faire côté agent, les fichiers sur disque survivent —
    reprendre en relisant l'état réel (git status, fichiers) avant d'agir.
+
+## 17. Session carte blanche (18 août, midi)
+
+- **Release 2.0.1 publiée** (Windows : 3 zips + 3 setup.exe NSIS ; CI 3-OS en
+  cours pour macOS dmg + AppImage + snap). Corps bilingue FR/EN.
+- **Fix MangaDrama (2.0.1)** `7203513b` : les chapitres achetés ne sont plus
+  marqués verrouillés — `locked = lock_type !== 'none' && is_purchased !== true`
+  + overlay DOM best-effort (grâce 5 s) sur la liste REST. Racine : le verrou
+  était déduit du seul `lock_type` et cuit dans le titre (`🔒`).
+- **Snap Linux** `bb9709e0` : produit en plus de l'AppImage (upload store opt-in
+  via `SNAPCRAFT_STORE_CREDENTIALS`), `updateBinary` tolère l'exe déjà renommé.
+- **Évolution committée (→ 2.0.2)** `339814a3` : bouton « Check for new
+  chapters now » sur la tuile Suggestions → `RefreshFlagsIfDue(force=true)`
+  déclenche le scan sans attendre la période (respecte toujours « silent »).
+  Validé tsc/eslint/svelte-check + 2152 tests.
+- **Leçon** : le build electron `build-app.mjs` + `vite build` peut être en
+  course (race) → vérifier `build/main.js` existe AVANT `deploy-app.mjs`, sinon
+  l'app démarre à 46 Mo sans fenêtre ni port CDP.
+- **Auto-download 48h = RÉEL** : bouton dans `SettingsModal.svelte`
+  (`downloadNewChapters()`, cutoff 48 h + `Chapter.PublishedAt` + filtre
+  `Tags.Language.English`) — pas seulement un flag.
+- **Lecture : position persistée par chapitre = PAS encore fait** (le lecteur
+  est une grille de miniatures + strip wide ; pas de point de reprise naturel).
+  Prochaine évolution possible : mémoriser le dernier index de page consulté en
+  mode wide et ajouter un bouton « Reprendre à la page N ».
