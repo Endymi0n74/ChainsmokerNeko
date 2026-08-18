@@ -28,6 +28,7 @@
     "scripts": {
         "check": "npm run check:versions && npm run check --workspaces",
         "check:versions": "node scripts/check-versions.mjs",
+        "bump:version": "node scripts/bump-version.mjs",
         "test": "npm run test --workspaces",
         "test:e2e": "npm run build --workspaces && vitest run --config=test/vitest.e2e.js",
         "test:websites": "npm run build --workspaces && vitest run --config=test/vitest.websites.js",

@@ -803,3 +803,8 @@ Causes observées, par fréquence, et parades :
 - **Leçon** : `npm run <script>` échoue localement (« node non reconnu » via
   cmd.exe) alors que `node scripts/check-versions.mjs` direct fonctionne — en
   CI (ubuntu) `npm run` est OK.
+- **Nouvel outil** `scripts/bump-version.mjs` (+ alias `npm run bump:version`) :
+  bump atomique des 3 `package.json` + entrée CHANGELOG en un seul pas — refuse
+  si les manifests sont désalignés, si la version existe déjà ou si le format
+  semver est invalide ; `--dry-run` pour prévisualiser ; édition en place
+  (CRLF préservé). Usage : `node scripts/bump-version.mjs 2.0.5 [--dry-run]`.
