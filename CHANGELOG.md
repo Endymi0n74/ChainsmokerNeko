@@ -3,6 +3,17 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.5] - 2026-08-18
+
+### Ajouté
+
+- **Bump de version atomique** : nouveau script `scripts/bump-version.mjs`
+  (alias `npm run bump:version`) — met à jour les trois `package.json`
+  versionnés et insère l'entrée CHANGELOG en un seul pas, en refusant toute
+  exécution si les manifests sont désalignés, si la version existe déjà ou si
+  le format semver est invalide (`--dry-run` pour prévisualiser). Élimine la
+  cause du désalignement de versions que le garde-fou CI détecte.
+
 ## [2.0.4] - 2026-08-18
 
 ### Ajouté
