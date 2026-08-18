@@ -653,3 +653,37 @@ complets, méthodo CDP). État :
     mangabtt→notify…), seuls **herosweb, knightnofansub, raikiscan, zinchanmanga**
     vivants ; fix herosweb non terminé. À décider : câbler uniquement les vivants
     ou dé-câbler.
+
+## 16. Pourquoi les agents « plantent » (18 août — leçons des sessions)
+
+Causes observées, par fréquence, et parades :
+
+1. **Bascule de modèle en cours de session** : Freebuff alterne entre
+   `deepseek-v4-pro` et `deepseek-v4-flash` (voir les bandeaux
+   `since_your_last_turn`). Flash produit plus d'erreurs de format d'appels
+   d'outils et de troncatures ; chaque bascule perd la mémoire de travail du
+   modèle précédent → d'où le pattern « Continue from the last saved step ».
+   **Parade** : MEMORY.md à jour (convention 2 h) + commits petits et logiques.
+2. **Appels d'outils malformés** : JSON invalide (ex. `suggest_prompts` reçoit
+   une string au lieu d'un array, `read_files` sans champ `path`). Typique du
+   modèle flash sous pression de contexte. **Parade** : relire les schémas des
+   outils, refaire l'appel proprement.
+3. **Timeouts sur commandes longues** : builds, sondes réseau multi-sites,
+   lancements Electron, PowerShell lent. **Parade** : `timeout_seconds` court +
+   `BACKGROUND` avec log `-u`, puis polling ; jamais de boucle de 16 sites en
+   synchrone.
+4. **Quirks Windows + Git Bash** : `/V2` converti en `C:/Program Files/Git/V2`
+   (→ `MSYS_NO_PATHCONV=1` ou `//`), `.cmd` capricieux via `exec` (préférer un
+   stub Node `.mjs`), `wmic` disparu, PowerShell parfois muet (utiliser
+   `Get-CimInstance` ou Python). `ls | head` masque les codes d'erreur (exit =
+   celui de `head`).
+5. **Processus orphelins** : instances Electron de test qui verrouillent la DB
+   IndexedDB (`UnknownError` au seed), ports, fichiers. **Parade** : vérifier
+   `tasklist` + lignes de commande AVANT de relancer ; ne tuer que ses propres
+   PIDs (jamais les hakuneko de l'utilisateur).
+6. **Sync outil/fichier** : `str_replace`/`write_file` signalent parfois
+   « file does not exist » alors que le fichier existe (vérifié par `ls`) —
+   re-tenter via Python si l'outil boucle.
+7. **Interruptions réseau/session Freebuff** (« connection dropped », « session
+   ended ») : rien à faire côté agent, les fichiers sur disque survivent —
+   reprendre en relisant l'état réel (git status, fichiers) avant d'agir.
