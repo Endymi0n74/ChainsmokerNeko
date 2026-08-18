@@ -782,3 +782,24 @@ Causes observées, par fréquence, et parades :
   embarqué, ils ferment la string et cassent le parse TS (TS1005).
 - **Release 2.0.3** publiée (tag `2.0.3`, 6 assets Windows + CI 3-OS pour
   macOS/Linux), docs README/CLOUDFLARE re-pointées vers 2.0.3.
+
+### 2.0.4 (18 août) — test de non-régression MangaDrama + garde-fou CI des versions
+
+- **Test de non-régression** `30716845` : la logique de verrouillage des
+  chapitres est extraite dans `MapMangaDramaChapter` (fonction pure,
+  `web/src/engine/websites/MangaDramaChapter.ts`), inlinée dans le
+  `FetchWindowScript` via `Function.prototype.toString()` → source de vérité
+  unique entre le connecteur et 12 tests unitaires
+  (`MangaDramaChapter_test.ts`). Couvre acheté/non acheté, le strict
+  `is_purchased === true`, le prix (singulier/pluriel, non-coin) et
+  l'auto-contenance de `toString()`.
+- **Garde-fou CI** `2f1e19dc` : `scripts/check-versions.mjs` exige que
+  `package.json`, `web/package.json` et `app/electron/package.json` partagent
+  la même version. Câblé dans `push-ci` (step avant build), `create-release`
+  (job `check` dédié, `needs: check`) et le `check` racine (hérité par le PR
+  CI). Validé en réel : runs push-ci verts `32136305424` et `32137624328`.
+- **Release 2.0.4** (bump `892b012b`, tag `2.0.4`) : 6 assets Windows publiés
+  en local, CI `create-release` déclenché (`32139991497`) pour macOS/Linux/snap.
+- **Leçon** : `npm run <script>` échoue localement (« node non reconnu » via
+  cmd.exe) alors que `node scripts/check-versions.mjs` direct fonctionne — en
+  CI (ubuntu) `npm run` est OK.
