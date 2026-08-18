@@ -651,12 +651,25 @@ complets, méthodo CDP). État :
     doivent être absolus (icône, bitmap, OutFile, File /r).
   - L'**AppImage Linux** était déjà produit (`bundle-app-appimage.mjs`) et déjà
     attaché par le workflow (6 assets v2.0.0). Rien à ajouter côté Linux.
-  - ⚠️ **`web/src/engine/websites/_index.ts` modifié NON committé** (16 connecteurs
-    câblés, tâche interrompue) : validation partielle — 15/16 domaines morts ou
-    détournés (coffeemanga→bunnynovel, colamanga→yoyomanga, firecomics→000,
-    mangabtt→notify…), seuls **herosweb, knightnofansub, raikiscan, zinchanmanga**
-    vivants ; fix herosweb non terminé. À décider : câbler uniquement les vivants
-    ou dé-câbler.
+  - ⚠️ **`web/src/engine/websites/_index.ts` : validation des 16 connecteurs
+    TERMINÉE le 18 août — AUCUN ne passe, tous dé-câblés** (le câblage non
+    committé a été annulé, `_index.ts` = état upstream). Verdict par site :
+    - **Morts/parkés/détournés (14)** : coffeemanga→bunnynovel (site de novels),
+      colamanga→**app-gated** (1 chapitre teaser « COLAMANGA APP观看后续 » sur
+      les 3 mangas testés, pages DRM bloquées → non), firecomics (down),
+      manhwabtt (fermé : « permanently closed down »), mangahack→Xfolio,
+      manga-sehri (down), otsugami (down), readallcomics (521), retsu (DNS),
+      silencescan (down), tmohentai (down), webtoontrnet (down), raikiscan +
+      zinchangmanga (**domaines parkés** router.parklogic.com).
+    - **Vivants mais connecteur cassé (2)** : herosweb (site restructuré :
+      `/episodes/<hash>` au lieu de `/episode/\d+`, SPA sans les sélecteurs
+      CoreView — réécriture complète nécessaire) ; lectorknight (« Nos unimos
+      a algo más grande » = les mangas sont partis, page d'atterrissage seule).
+    - **Harnais de validation réutilisable** : `app/electron/.tmp/validate_colamanga.py`
+      (flux listing→chapitres→pages→image via CDP, API `plugin.Scraper.FetchX`),
+      lancement via bundle `.tmp/colabundle` (électron x64 + build + userdata).
+      Leçon : un HTTP 200 sur la home ne prouve rien — vérifier le contenu réel
+      (titre, structure, chapitres) et le flux complet dans l'app.
 
 ## 16. Pourquoi les agents « plantent » (18 août — leçons des sessions)
 
