@@ -3,6 +3,23 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.1] - 2026-08-18
+
+### Corrigé
+
+- **MangaDrama** : les chapitres achetés (coins) ne sont plus affichés comme
+  verrouillés dans la liste — l'état de verrouillage respecte désormais le champ
+  `is_purchased` de l'API et la page rendue (l'état réel pour l'utilisateur
+  connecté), au lieu du seul `lock_type`.
+
+### Ajouté
+
+- **Installateur NSIS Windows** (per-user, bilingue FR/EN, Add/Remove Programs,
+  raccourcis menu Démarrer, désinstallateur) : `hakuneko-electron-v2.0.1-win32-{ia32,x64,arm64}-setup.exe`
+  en plus des zips portables.
+- **Bundle Linux snap** (`.snap`) en plus de l'AppImage, attaché à la release
+  GitHub (l'upload vers le Snap Store reste opt-in via `SNAPCRAFT_STORE_CREDENTIALS`).
+
 ## [2.0.0] - 2026-08-18
 
 > **Majeure.** ChainsmokerNeko n'est plus un simple fork d'HakuNeko : cette
