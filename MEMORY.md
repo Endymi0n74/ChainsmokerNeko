@@ -765,3 +765,20 @@ Causes observées, par fréquence, et parades :
 - **Build Windows local** : `MAKENSIS` pointe sur le portable
   `app/electron/.tmp/nsis/nsis-3.10/makensis.exe`, cache Electron par défaut
   `app/electron/.tmp/electron-zips/` (déjà chaud).
+
+### 2.0.3 (18 août) — régression cadenas MangaDrama corrigée
+
+- **Bug** : en 2.0.1, un « overlay DOM » était superposé à la liste REST des
+  chapitres. Les items DOM (`collectFromDOM`) ne portent que `{ id, title }` —
+  pas de champ `locked` — donc `domLocked.get(id)` valait toujours `undefined`
+  (falsy) et **déverrouillait visuellement tous les chapitres** (y compris non
+  achetés, qui perdaient leur 🔒 + prix).
+- **Fix** `46231abd` : overlay supprimé, confiance au seul champ `is_purchased`
+  de l'API (le fetch REST tourne dans la fenêtre de session → cookies du login
+  inclus). Verrouillé = `lock_type != 'none' && is_purchased !== true`.
+  Vérifié tsc + eslint + 2152 tests verts.
+- **Leçon** : dans un `FetchWindowScript`, le corps est une template literal —
+  interdit d'écrire des backticks (`` ` ``) dans les commentaires du script
+  embarqué, ils ferment la string et cassent le parse TS (TS1005).
+- **Release 2.0.3** publiée (tag `2.0.3`, 6 assets Windows + CI 3-OS pour
+  macOS/Linux), docs README/CLOUDFLARE re-pointées vers 2.0.3.
