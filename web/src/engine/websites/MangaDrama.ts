@@ -520,9 +520,12 @@ export default class extends DecoratableMangaScraper {
                         const base = plain
                             ? 'Chapter ' + number
                             : 'Chapter ' + number + ' - ' + raw;
+                        // Purchased chapters keep their lock_type in the API; the
+                        // is_purchased flag reflects the logged-in user's ownership.
                         const locked = Boolean(
                             item.lock_type
                             && item.lock_type !== 'none'
+                            && item.is_purchased !== true
                         );
                         // Coin-locked chapters are server-side paywalled; surface
                         // the price so the reader knows what a chapter costs.
@@ -535,17 +538,14 @@ export default class extends DecoratableMangaScraper {
 
                         return {
                             id,
-                            title: markTitle(base + price, locked)
+                            base,
+                            price,
+                            locked
                         };
                     });
                 };
 
-                fetchREST().then(rest => {
-                    if(rest) {
-                        resolve(rest);
-                        return;
-                    }
-
+                const pollDOM = () => new Promise(resolve => {
                     const started = Date.now();
 
                     const poll = () => {
@@ -563,6 +563,42 @@ export default class extends DecoratableMangaScraper {
 
                     poll();
                 });
+
+                // The DOM overlay is best-effort: wait at most 5 s for the page
+                // to render, otherwise fall back to the REST lock state (which
+                // already respects is_purchased).
+                const domGrace = new Promise(resolve =>
+                    setTimeout(() => resolve(null), 5000)
+                );
+
+                Promise.all([fetchREST(), Promise.race([pollDOM(), domGrace])])
+                    .then(([rest, dom]) => {
+                        if(rest && rest.length > 0) {
+                            // The rendered page reflects the logged-in user's real
+                            // state (purchased chapters lose their lock icon) —
+                            // overlay it on the REST list.
+                            const domLocked = new Map(
+                                (dom || []).map(item => [item.id, item.locked])
+                            );
+
+                            resolve(rest.map(item => {
+                                const locked = domLocked.has(item.id)
+                                    ? domLocked.get(item.id)
+                                    : item.locked;
+
+                                return {
+                                    id: item.id,
+                                    title: markTitle(
+                                        item.base + (locked ? item.price : ''),
+                                        locked
+                                    )
+                                };
+                            }));
+                            return;
+                        }
+
+                        resolve(dom || []);
+                    });
             })
             `,
             750,
