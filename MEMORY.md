@@ -817,3 +817,20 @@ Causes observées, par fréquence, et parades :
 - **Release 2.0.5** (bump `29857ced`, tag `2.0.5`) : 6 assets Windows publiés
   en local, CI `create-release` déclenché (`32143837179`) pour macOS/Linux/snap.
   Contenu : uniquement l'outil de bump (aucun changement fonctionnel app).
+
+### Fin de session (18 août, soir) — état stable
+
+- **Version courante** : 2.0.5 (3 `package.json` alignés, tag `2.0.5`, release
+  complète 10 assets / 3 OS, liens HTTP 206 vérifiés).
+- **Tests du bump** : `web/test/BumpVersion_test.ts` (`42b0a3f3`) — 7 cas
+  (alignement, doublon, semver invalide, dry-run, argument manquant, happy
+  path, CRLF préservé) via sous-processus sandbox tmpdir. Suite complète :
+  **2171 tests verts**.
+- **Runs CI verts du jour** : push-ci `32141760208` (bump tool),
+  `32146877863` (test bump, inclut les 2171 tests), `32143785216`/`32143781396`
+  (bump 2.0.5) ; create-release `32139991497` (2.0.4) et `32143837179` (2.0.5)
+  — le job `Verify Manifest Versions` passe en ~11-15 s sur chaque run.
+- **Chaîne de release verrouillée** : `scripts/bump-version.mjs` (bump atomique)
+  → garde-fou `scripts/check-versions.mjs` (CI push-ci + create-release + PR)
+  → test du bump. La cause du désalignement de versions est éliminée.
+- **Working tree propre**, tout poussé sur `fork/master` (dernier `42b0a3f3`).
