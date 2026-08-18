@@ -45,6 +45,10 @@ jobs:
         env:
           electron_config_cache: ${{ runner.temp }}/electron-zips
         run: npm ci
+      - name: Install NSIS (Windows installer)
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: choco install nsis -y --no-progress
       - name: Build Web Application
         run: npm run build --workspace=web
       - name: Bundle Electron Application

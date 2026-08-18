@@ -93,6 +93,9 @@ jobs:
         with:
           name: electron-build
           path: app/electron/build
+      - name: Install NSIS (Windows installer)
+        shell: pwsh
+        run: choco install nsis -y --no-progress
       - name: Create Windows Bundles
         working-directory: app/electron
         env:
@@ -102,7 +105,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-bundles
-          path: app/electron/bundle/*.zip
+          path: app/electron/bundle/*
           if-no-files-found: error
 
   release:
@@ -126,5 +129,5 @@ jobs:
           gh release create --repo ${{ github.repository }} nightly \
             --title "Nightly build ${{ github.sha }}" \
             --latest=false \
-            --notes "Automated build from commit ${{ github.sha }}. Windows x64 / ia32 / arm64. 'latest' stays reserved for tagged releases." \
-            bundle/*.zip
+            --notes "Automated build from commit ${{ github.sha }}. Windows portable zips + NSIS installer (x64 / ia32 / arm64). 'latest' stays reserved for tagged releases." \
+            bundle/*

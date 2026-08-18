@@ -54,10 +54,12 @@ await fs.mkdir(dirTmp, { recursive: true });
 
 if (process.platform === 'win32') {
     const portable = await import('./bundle-app-zip.mjs');
+    const installer = await import('./bundle-app-nsis.mjs');
     
     for (const arch of ['ia32', 'x64', 'arm64']) {
         const dirTemp = await redist(electronVersion, process.platform, arch);
         await portable.bundle(dirApp, dirRes, dirTemp, dirOut);
+        await installer.bundle(dirApp, dirRes, dirTemp, dirOut);
     }
 }
 

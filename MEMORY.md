@@ -622,3 +622,34 @@ complets, méthodo CDP). État :
 - **Liens de téléchargement vérifiés en live (17 août soir)** : toutes les URL
   des README/CLOUDFLARE.md → **HTTP 200** (page Releases du fork, legacy,
   upstream) et les 3 assets 0.1.13 → **206** (téléchargeables). Aucun lien mort.
+
+## 15. Installateur NSIS + état 18 août (matin)
+
+- **Installateur NSIS Windows ajouté (18 août)** : `app/electron/scripts/bundle-app-nsis.mjs`
+  (nouveau) + câblage dans `deploy-app.mjs` (win32 : zip PUIS setup par arch) +
+  `choco install nsis -y --no-progress` dans `create-release.yml` (step conditionné
+  `matrix.target == 'windows'`) et `push-ci.yml` (job bundles) + upload `bundle/*`
+  (zips + `*-setup.exe`) et nightly enrichie.
+  - Installateur **per-user** (MUI2, bilingue EN/FR, icône `app.ico` + bitmap
+    `WizModernImage.bmp` 164×314 déjà présents dans `app/res/win32/`) →
+    `%LOCALAPPDATA%\Programs\HakuNeko`, entrée Add/Remove Programs (HKCU),
+    raccourcis menu Démarrer, désinstallateur `Uninstall.exe` (silencieux `/S`).
+  - **`user-data-dir` retiré du manifest embarqué** → l'app installée utilise
+    %APPDATA%\hakuneko-electron (comme l'usage actuel), contrairement aux zips
+    portables (`userdata/` à côté de l'exe).
+  - **Validé en réel sur machine (18 août)** : build complet x64 → `makensis 3.10`
+    portable (dans `.tmp/nsis/`, téléchargé depuis SourceForge, gitignoré) →
+    install silencieux `/S` ✅ (fichiers + registre) → app installée démarre ✅
+    (arbre Electron complet) → désinstall `/S` ✅ (dossier + registre + menu
+    démarrer nettoyés, userData préservé).
+  - **2 pièges NSIS découverts** : (1) chemins absolus en `/` → « no files found »
+    (garder les `\`) ; (2) `.nsi` écrit dans %TEMP% → tous les chemins référencés
+    doivent être absolus (icône, bitmap, OutFile, File /r).
+  - L'**AppImage Linux** était déjà produit (`bundle-app-appimage.mjs`) et déjà
+    attaché par le workflow (6 assets v2.0.0). Rien à ajouter côté Linux.
+  - ⚠️ **`web/src/engine/websites/_index.ts` modifié NON committé** (16 connecteurs
+    câblés, tâche interrompue) : validation partielle — 15/16 domaines morts ou
+    détournés (coffeemanga→bunnynovel, colamanga→yoyomanga, firecomics→000,
+    mangabtt→notify…), seuls **herosweb, knightnofansub, raikiscan, zinchanmanga**
+    vivants ; fix herosweb non terminé. À décider : câbler uniquement les vivants
+    ou dé-câbler.
