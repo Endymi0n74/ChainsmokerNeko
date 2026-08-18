@@ -18,7 +18,6 @@ const legacyWebsiteIdentifierMapTestCases = [
     { sourceID: 'galaxyaction', targetID: 'galaxymanga' },
     { sourceID: 'instamanhwa', targetID: 'xmanhwa' },
     { sourceID: 'kissaway', targetID: 'klmanga' },
-    { sourceID: 'kisscomic', targetID: 'readcomiconline' },
     { sourceID: 'komikav', targetID: 'apkomik' },
     { sourceID: 'lovehug', targetID: 'welovemanga' },
     { sourceID: 'lyrascans', targetID: 'quantumscans' },
