@@ -808,3 +808,12 @@ Causes observées, par fréquence, et parades :
   si les manifests sont désalignés, si la version existe déjà ou si le format
   semver est invalide ; `--dry-run` pour prévisualiser ; édition en place
   (CRLF préservé). Usage : `node scripts/bump-version.mjs 2.0.5 [--dry-run]`.
+
+### 2.0.5 (18 août) — release outillage : bump atomique validé de bout en bout
+
+- **Le script de bump a servi pour de vrai** : la 2.0.5 a été bumpée via
+  `node scripts/bump-version.mjs 2.0.5` (3 manifests + entrée CHANGELOG
+  insérée, placeholder remplacé ensuite) — l'outil est validé en réel.
+- **Release 2.0.5** (bump `29857ced`, tag `2.0.5`) : 6 assets Windows publiés
+  en local, CI `create-release` déclenché (`32143837179`) pour macOS/Linux/snap.
+  Contenu : uniquement l'outil de bump (aucun changement fonctionnel app).
