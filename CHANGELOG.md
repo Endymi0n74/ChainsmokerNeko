@@ -3,6 +3,65 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.0] - 2026-08-18
+
+> **Majeure.** ChainsmokerNeko n'est plus un simple fork d'HakuNeko : cette
+> version acte le passage au produit autonome — suite complète de contournement
+> Cloudflare, optimisations de performance massives, distribution 3 OS et
+> releases bilingues.
+
+### Ajouté
+
+- **Suite Cloudflare complète** : import du cookie `cf_clearance` depuis
+  Chrome/Edge (déchiffrement v10/v20 + DPAPI, fallthrough multi-navigateurs),
+  collage manuel en secours, persistance du cookie entre les redémarrages,
+  bouton « Clear Cloudflare cache », fenêtre visible uniquement quand un
+  widget réel est présent.
+- **MangaDrama** : connexion au compte, affichage du prix en coins sur les
+  chapitres verrouillés, déverrouillage des chapitres achetés.
+- **Scan de nouveau contenu configurable** : récurrence (défaut 1440 min),
+  paresseux (déclenché à l'ouverture de la vue Suggestions, plus jamais au
+  boot) et silencieux (ignore les sites nécessitant une fenêtre visible —
+  CrunchyScan, JapScan, MangaFire, MangaLink, MangaTilkisi, MangaTR,
+  RainDropFansub).
+- **Téléchargement automatique** des nouveaux chapitres de moins de 48 h des
+  bookmarks (versions anglaises uniquement).
+- **Mise à jour automatique** (electron-updater) avec notification et bouton
+  dans l'app.
+- **Avertissement localisé « environnement sans Electron »** quand un
+  connecteur requiert une vraie fenêtre navigateur sur un runtime qui n'en
+  fournit pas.
+- **Drapeaux de pays** devant les noms des chapitres.
+- **Version affichée** dans la barre latérale, le pied de page du lecteur, le
+  splash screen et les paramètres.
+- **Distribution 3 OS** : bundles Windows (ia32/x64/arm64), macOS (dmg),
+  Linux (snap) construits par CI ; exécutable renommé `hakuneko(.exe)`.
+- **Releases bilingues FR/EN**, badges version/téléchargements, changelog et
+  feuille de route (`ROADMAP.md`).
+
+### Modifié
+
+- **Performance** : liste des chapitres virtualisée (VirtualList, abonnements
+  centralisés), store MediaLists shardé avec diff à la volée (fini le blob
+  mono-clé de 91k entrées), recherche floue Fuse.js déplacée dans un Web
+  Worker, débounce du filtre avec tri unique, singleton IndexedDB partagé.
+- **Accent corail `#e5484d`** (sémantique danger conservée).
+- **UA par défaut conservée** (segment `Electron`) — élimine le challenge
+  MangaFire.
+- **Scan des bookmarks** : plus aucune fenêtre Cloudflare au lancement.
+
+### Corrigé
+
+- Boucles Cloudflare MangaFire / Comix / CrunchyScan (UA, poller de reload,
+  contrôle du widget réel).
+- Login MangaDrama (session non partagée).
+- Persistance des réglages à la fermeture de l'app.
+- Import v10 : `RangeError expires_utc` (Edge fermé) et préfixe 32 octets des
+  cookies Chromium.
+- Scan du nouveau contenu qui ouvrait la fenêtre à chaque démarrage ; un site
+  en échec (ex. CrunchyScan sans `cf_clearance`) ne bloque plus la
+  mémorisation de la vérification.
+
 ## [0.1.15] - 2026-08-18
 
 ### Modifié
