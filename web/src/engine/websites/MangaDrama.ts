@@ -17,6 +17,7 @@ import {
     type MangaPlugin
 } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
+import { MapMangaDramaChapter } from './MangaDramaChapter';
 
 type MangaDramaEntry = {
     id: string;
@@ -326,6 +327,7 @@ export default class extends DecoratableMangaScraper {
             ),
             `
             new Promise(resolve => {
+                ${MapMangaDramaChapter.toString()}
                 const chapterRoot =
                     '/manga/${manga.Identifier}/';
 
@@ -507,42 +509,7 @@ export default class extends DecoratableMangaScraper {
                         return null;
                     }
 
-                    return collected.map(item => {
-                        const id = String(item.slug ?? '')
-                            || 'chapter-' + item.number;
-                        const number = item.number;
-                        const raw = String(item.title ?? '')
-                            .replace(/\\s+/g, ' ')
-                            .trim();
-                        const plain = !raw
-                            || raw.toLowerCase()
-                                === 'chapter ' + number;
-                        const base = plain
-                            ? 'Chapter ' + number
-                            : 'Chapter ' + number + ' - ' + raw;
-                        // Purchased chapters keep their lock_type in the API; the
-                        // is_purchased flag reflects the logged-in user's ownership.
-                        const locked = Boolean(
-                            item.lock_type
-                            && item.lock_type !== 'none'
-                            && item.is_purchased !== true
-                        );
-                        // Coin-locked chapters are server-side paywalled; surface
-                        // the price so the reader knows what a chapter costs.
-                        const price = locked
-                            && item.lock_type === 'coin'
-                            && Number(item.lock_value) > 0
-                            ? ' (' + item.lock_value + ' coin'
-                                + (Number(item.lock_value) > 1 ? 's' : '') + ')'
-                            : '';
-
-                        return {
-                            id,
-                            base,
-                            price,
-                            locked
-                        };
-                    });
+                    return collected.map(MapMangaDramaChapter);
                 };
 
                 const pollDOM = () => new Promise(resolve => {
