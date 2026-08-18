@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 18 août 2026, matin — **v2.0.0 préparée (release DRAFT
-> sur le fork, 3 zips Windows attachés)**, working tree propre, CI à surveiller
-> sur le push 2.0.0.
+> Dernière mise à jour : 18 août 2026, matin — **v2.0.0 PUBLIÉE sur le fork
+> (6 assets : 3 zips Windows + 2 dmg macOS + AppImage Linux, `Latest`)**,
+> working tree propre.
 
 > ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
 > les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
@@ -525,13 +525,14 @@ complets, méthodo CDP). État :
   via `AddAntiScrapingDetection(FetchRedirection.Interactive)` ; + `try/finally`
   dans `RefreshFlagsIfDue` : un site en échec mémorise quand même le scan),
   `33cf1180` (bump 2.0.0 ×3 package.json + CHANGELOG majeure + **`ROADMAP.md`**
-  : périmètre, reporté, convention de versioning, risques). Build : 3 zips
-  Windows v2.0.0 vérifiés (manifest 2.0.0 + hakuneko.exe). **Release 2.0.0 en
-  DRAFT** (bilingue, 3 zips attachés) — à publier après validation utilisateur ;
-  les bundles macOS/Linux seront ajoutés par le CI à la publication (le draft
-  ne crée pas de tag → pas de run workflow). À faire au réveil : vérifier le CI
-  du push (typecheck/build) + publier la release + décider du contenu 2.1
-  (câblage des connecteurs restants, installer natif, thèmes…).
+  : périmètre, reporté, convention de versioning, risques). Build : 3  zips Windows v2.0.0 vérifiés (manifest 2.0.0 + hakuneko.exe). **Release 2.0.0
+  PUBLIÉE le 18 août au matin** (bilingue, `Latest`) puis complétée par le CI :
+  `create-release.yml` a été adapté (`1747d928`) pour **attacher** les bundles
+  à une release existante au lieu d'échouer (`gh release create` erre sur un
+  tag déjà publié) — run `32105187671` vert, **6 assets finaux** : 3 zips
+  win32 (ia32/x64/arm64) + 2 dmg darwin (x64/arm64) + AppImage linux-x64.
+  Prochaines étapes 2.1 possibles : câblage des connecteurs restants, installer
+  natif, thèmes, sync multi-appareils (voir `ROADMAP.md`).
 - Release précédentes conservées : 0.1.0 → 0.1.10.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
   (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
