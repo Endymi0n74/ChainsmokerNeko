@@ -1,8 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 17 août 2026, fin de soirée — release 0.1.13, WIP vide,
-> CI vert, working tree propre (hors `.tmp/` bac à sable gitignoré).
+> Dernière mise à jour : 18 août 2026, matin — **v2.0.0 préparée (release DRAFT
+> sur le fork, 3 zips Windows attachés)**, working tree propre, CI à surveiller
+> sur le push 2.0.0.
 
 > ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
 > les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
@@ -515,6 +516,22 @@ complets, méthodo CDP). État :
   infère le littéral `false` et casse les décorateurs → typer `boolean`
   explicitement. **Plus de fenêtre Cloudflare au lancement.** 3 zips vérifiés
   (manifest 0.1.15 + clé silent dans le bundle). Release **`Latest`** bilingue.
+- **v2.0.0 — MAJEURE (`33cf1180`, le 18 août, matin)** : le fork devient un
+  produit autonome. Contenu : toute la suite Cloudflare (0.1.6→0.1.13), perf
+  (virtualisation, sharding + diff, Fuse worker, débounce, singleton IDB), 3 OS,
+  electron-updater, bilingue. Commits : `6d4b972d` (drapeau
+  `RequiresVisibleBrowserWindow = true` étendu aux 6 autres sites Interactive :
+  JapScan, MangaFire, MangaLink, MangaTilkisi, MangaTR, RainDropFansub — vérifiés
+  via `AddAntiScrapingDetection(FetchRedirection.Interactive)` ; + `try/finally`
+  dans `RefreshFlagsIfDue` : un site en échec mémorise quand même le scan),
+  `33cf1180` (bump 2.0.0 ×3 package.json + CHANGELOG majeure + **`ROADMAP.md`**
+  : périmètre, reporté, convention de versioning, risques). Build : 3 zips
+  Windows v2.0.0 vérifiés (manifest 2.0.0 + hakuneko.exe). **Release 2.0.0 en
+  DRAFT** (bilingue, 3 zips attachés) — à publier après validation utilisateur ;
+  les bundles macOS/Linux seront ajoutés par le CI à la publication (le draft
+  ne crée pas de tag → pas de run workflow). À faire au réveil : vérifier le CI
+  du push (typecheck/build) + publier la release + décider du contenu 2.1
+  (câblage des connecteurs restants, installer natif, thèmes…).
 - Release précédentes conservées : 0.1.0 → 0.1.10.
 - Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
   (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
