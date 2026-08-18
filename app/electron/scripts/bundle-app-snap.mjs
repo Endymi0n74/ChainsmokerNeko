@@ -51,11 +51,10 @@ async function createSnapImage(blinkDeploymentTemporaryDirectory, blinkDeploymen
         }
     } finally {
         fs.unlink(yaml);
-        // snapcraft leaves staging directories behind; they must not end up in
-        // the bundle folder (gh release upload globs it and fails on directories).
-        for (const dir of ['parts', 'stage', 'prime']) {
-            await fs.rm(path.join(blinkDeploymentOutputDirectory, dir), { force: true, recursive: true });
-        }
+        // snapcraft leaves staging directories behind (root-owned, since the pack
+        // step runs under sudo); they must not end up in the bundle folder
+        // (gh release upload globs it and fails on directories).
+        await run('sudo rm -rf parts stage prime', blinkDeploymentOutputDirectory);
     }
 }
 
