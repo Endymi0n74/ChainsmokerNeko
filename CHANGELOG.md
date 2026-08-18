@@ -3,6 +3,19 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.4] - 2026-08-18
+
+### Ajouté
+
+- **Tests de non-régression MangaDrama** : 12 tests unitaires verrouillent la
+  logique de verrouillage/déverrouillage des chapitres selon `is_purchased`.
+  La règle est extraite dans une fonction pure `MapMangaDramaChapter`,
+  partagée entre le connecteur et les tests — le cadenas 🔒 ne peut plus
+  régresser sans faire échouer la suite.
+- **Garde-fou CI des versions** : les trois `package.json` versionnés (racine,
+  web, electron) doivent partager la même version avant tout build/release.
+  Un désalignement fait échouer `push-ci` et `create-release` dès le départ.
+
 ## [2.0.3] - 2026-08-18
 
 ### Corrigé
