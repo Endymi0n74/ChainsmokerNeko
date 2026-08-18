@@ -3,6 +3,21 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.2] - 2026-08-18
+
+### Ajouté
+
+- **Suggestions** : bouton « Vérifier les nouveaux chapitres maintenant » sur la
+  tuile Suggestions — déclenche le scan des bookmarks sans attendre la période
+  configurée (respecte toujours le réglage « silencieux » qui ignore les sites
+  nécessitant une fenêtre navigateur).
+
+### Corrigé
+
+- **Bundle snap Linux** : les dossiers de staging snapcraft (`parts/`, `stage/`,
+  `prime/`, créés en root) sont supprimés après le build — le workflow de
+  release 3 OS ne plante plus en tentant d'attacher un dossier à la release.
+
 ## [2.0.1] - 2026-08-18
 
 ### Corrigé
