@@ -12,8 +12,25 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    name: Verify Manifest Versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+          fetch-depth: 1
+      - name: Install NodeJS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.0.0
+      - name: Verify Manifest Versions
+        run: npm run check:versions
   build:
     name: Build Electron (${{ matrix.target }})
+    needs: check
     strategy:
       fail-fast: false
       matrix:
