@@ -20,11 +20,17 @@ export async function bundle(blinkApplicationSourceDirectory, blinkApplicationRe
 
 async function bundleApp(blinkApplicationSourceDirectory, blinkDeploymentTemporaryDirectory) {
     const target = path.join(blinkDeploymentTemporaryDirectory, 'resources', 'app');
+    await fs.rm(target, { force: true, recursive: true });
     await fs.cp(blinkApplicationSourceDirectory, target, { recursive: true });
 }
 
 async function updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory) {
     const binary = path.join(blinkDeploymentTemporaryDirectory, 'electron');
+    try {
+        await fs.access(binary);
+    } catch {
+        return; // Already renamed (e.g. AppImage pass ran first).
+    }
     await fs.rename(binary, binary.replace(/electron$/i, `${pkgConfig.productName ?? pkgConfig.name}`));
 }
 
@@ -38,7 +44,11 @@ async function createSnapImage(blinkDeploymentTemporaryDirectory, blinkDeploymen
     try {
         await run('sudo snapcraft pack --destructive-mode', blinkDeploymentOutputDirectory);
         await run(`sudo mv ${pkgConfig.name}*.snap ${snapfile}`, blinkDeploymentOutputDirectory);
-        await run('snapcraft upload *.snap --release=edge', blinkDeploymentOutputDirectory);
+        // Publish to the Snap Store only when credentials are provided; the CI
+        // workflow builds the .snap as a GitHub release asset without them.
+        if (process.env.SNAPCRAFT_STORE_CREDENTIALS) {
+            await run('snapcraft upload *.snap --release=edge', blinkDeploymentOutputDirectory);
+        }
     } finally {
         fs.unlink(yaml);
     }

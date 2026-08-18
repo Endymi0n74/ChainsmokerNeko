@@ -49,6 +49,9 @@ jobs:
         if: matrix.target == 'windows'
         shell: pwsh
         run: choco install nsis -y --no-progress
+      - name: Install Snapcraft (Linux snap)
+        if: matrix.target == 'linux'
+        run: sudo snap install snapcraft --classic
       - name: Build Web Application
         run: npm run build --workspace=web
       - name: Bundle Electron Application
