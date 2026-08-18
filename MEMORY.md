@@ -745,3 +745,23 @@ Causes observées, par fréquence, et parades :
 - **Leçon** : `snapcraft pack --destructive-mode` tourne en sudo → tout staging
   créé est root-owned ; ne jamais nettoyer avec `fs.rm` non-root, utiliser
   `sudo rm -rf` (CI Linux = sudo passwordless).
+
+### 2.0.2 (18 août, fin d'après-midi) — bump + release 10 assets
+
+- **Release 2.0.2 publiée** `71ece953` (bump) + tag `2.0.2` : 10 assets
+  (3 zips + 3 setup.exe NSIS Windows, 2 dmg macOS, AppImage + snap Linux),
+  corps bilingue FR/EN, CI `create-release` vert (`32126959242`). Liens
+  téléchargement README (FR/EN) + CLOUDFLARE.md re-pointés vers 2.0.2 et
+  vérifiés HTTP 206.
+- **Contenu 2.0.2** : bouton « Vérifier les nouveaux chapitres maintenant » sur
+  la tuile Suggestions (`339814a3`, scan `force` des bookmarks) + fix snap CI
+  (staging root-owned). Rien d'autre de fonctionnel — MangaDrama/NSIS étaient
+  déjà en 2.0.1.
+- **Piège local réitéré** : `npm run build --workspace=app/electron` échoue
+  (« `node` n'est pas reconnu » via cmd.exe) dans ce shell Git Bash — utiliser
+  `node ./scripts/build-app.mjs` puis `node ../../node_modules/vite/bin/vite.js
+  build` directement, et vérifier `build/main.js` + `build/package.json`
+  (`version` attendue) avant `deploy-app.mjs`.
+- **Build Windows local** : `MAKENSIS` pointe sur le portable
+  `app/electron/.tmp/nsis/nsis-3.10/makensis.exe`, cache Electron par défaut
+  `app/electron/.tmp/electron-zips/` (déjà chaud).
