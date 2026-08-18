@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { ClickableTile, Tile, Tag } from 'carbon-components-svelte';
+    import { Button, ClickableTile, Tile, Tag } from 'carbon-components-svelte';
     import CaretRight from 'carbon-icons-svelte/lib/CaretRight.svelte';
     import BookmarkAdd from 'carbon-icons-svelte/lib/BookmarkAdd.svelte';
+    import Renew from 'carbon-icons-svelte/lib/Renew.svelte';
 
     import { Store as UI } from '../stores/Stores.svelte';
 
@@ -26,14 +27,20 @@
 
     let suggestions: Bookmark[] = [];
     let isRefreshing = false;
-    async function refreshSuggestions() {
+    async function refreshSuggestions(force = false) {
         if (isRefreshing) return;
         isRefreshing = true;
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Lazy content check: fetch bookmark chapters only here (once per
-        // configured period), never at app startup — this avoids opening the
-        // Cloudflare challenge window on launch.
-        await HakuNeko.BookmarkPlugin.RefreshFlagsIfDue();
+        if (force) {
+            // Manual trigger: skip the period throttle, but still respect the
+            // "silent" setting (no window for Cloudflare-visible sites).
+            await HakuNeko.BookmarkPlugin.RefreshFlagsIfDue(true);
+        } else {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            // Lazy content check: fetch bookmark chapters only here (once per
+            // configured period), never at app startup — this avoids opening the
+            // Cloudflare challenge window on launch.
+            await HakuNeko.BookmarkPlugin.RefreshFlagsIfDue();
+        }
         suggestions = await HakuNeko.BookmarkPlugin.GetEntriesWithUnflaggedContent();
         isRefreshing = false;
     }
@@ -63,6 +70,17 @@
                 <BookmarkAdd size={24} />
             </h4>
         </ClickableTile>
+        <Button
+            id="RefreshSuggestions"
+            kind="ghost"
+            size="small"
+            icon={Renew}
+            iconDescription="Check for new chapters now"
+            tooltipPosition="bottom"
+            tooltipAlignment="end"
+            disabled={isRefreshing}
+            onclick={() => refreshSuggestions(true)}
+        />
         {#each suggestions as bookmark (bookmark)}
             <ClickableTile
                 class="suggesttile"

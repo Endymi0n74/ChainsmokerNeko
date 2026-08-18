@@ -99,12 +99,17 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
      * bookmark's chapters opens a real browser window for Cloudflare-protected
      * sites (e.g. CrunchyScan), so this must not run on every app launch.
      */
-    public async RefreshFlagsIfDue(): Promise<void> {
+    /**
+     * Refreshes the new-content flags of all bookmarks when the configured period
+     * has elapsed, or immediately when `force` is set (manual trigger from the
+     * Suggestions view).
+     */
+    public async RefreshFlagsIfDue(force = false): Promise<void> {
         const settings = HakuNeko.SettingsManager.OpenScope();
         if (!settings.Get<Check>(GlobalKey.CheckNewContent).Value) return;
         const periodMinutes = settings.Get<Numeric>(GlobalKey.CheckNewContentPeriod).Value;
         const lastRun = Number(window.localStorage.getItem(CheckNewContentTimestampKey) ?? 0);
-        if (ShouldRefreshContentFlags(lastRun, Date.now(), periodMinutes)) {
+        if (force || ShouldRefreshContentFlags(lastRun, Date.now(), periodMinutes)) {
             const silent = settings.Get<Check>(GlobalKey.CheckNewContentSilent).Value;
             try {
                 await this.RefreshAllFlags(silent);
