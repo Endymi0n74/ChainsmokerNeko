@@ -3,6 +3,17 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.3] - 2026-08-18
+
+### Corrigé
+
+- **MangaDrama** : les chapitres **non achetés** affichent à nouveau le cadenas
+  🔒 et le prix en coins — l'overlay DOM introduit en 2.0.1 écrasait l'état REST
+  (les items DOM ne portent que `id`/`title`, donc leur état de verrou était
+  toujours faux) et déverrouillait visuellement tous les chapitres. L'app fait
+  désormais confiance au champ `is_purchased` de l'API, correctement rempli par
+  la session connectée : verrouillé si non acheté, déverrouillé si acheté.
+
 ## [2.0.2] - 2026-08-18
 
 ### Ajouté
