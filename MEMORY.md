@@ -145,7 +145,10 @@ app/electron/build|bundle/     → build Electron (généré)
   MangaHack→Xfolio (domaines recyclés), KnightNoFansub (site restructuré),
   HerosWeb (redirigé vers heros-web.com, nouveau format), MangaBTT + ZinchanManga
   (pages JS-rendered, extraction CSS impossible), ColaManga (FetchPages bloque).
-  → Fichiers conservés (revival possible) mais non exportés.
+  → **Fichiers supprimés le 18 août** (ménage §18) — voir aussi le re-probe en profondeur
+  du 18 août soir : ColaManga vivant sur yoyomanga.com mais app-gated (chapitres
+  web remplacés par un lien app), HerosWeb vivant mais redesigné Next.js
+  (réécriture nécessaire), les 5 autres confirmés morts.
 
 ## 6. Captcha Cloudflare — cause racine UA (MangaFire) & poller (CrunchyScan)
 
@@ -660,7 +663,8 @@ complets, méthodo CDP). État :
       manhwabtt (fermé : « permanently closed down »), mangahack→Xfolio,
       manga-sehri (down), otsugami (down), readallcomics (521), retsu (DNS),
       silencescan (down), tmohentai (down), webtoontrnet (down), raikiscan +
-      zinchangmanga (**domaines parkés** router.parklogic.com).
+      zinchangmanga (**domaines parkés** router.parklogic.com) — tous
+      **supprimés le 18 août** (ménage §18).
     - **Vivants mais connecteur cassé (2)** : herosweb (site restructuré :
       `/episodes/<hash>` au lieu de `/episode/\d+`, SPA sans les sélecteurs
       CoreView — réécriture complète nécessaire) ; lectorknight (« Nos unimos
@@ -834,3 +838,12 @@ Causes observées, par fréquence, et parades :
   → garde-fou `scripts/check-versions.mjs` (CI push-ci + create-release + PR)
   → test du bump. La cause du désalignement de versions est éliminée.
 - **Working tree propre**, tout poussé sur `fork/master` (dernier `42b0a3f3`).
+
+## Ménage connecteurs (18 août, soir) — 35 morts supprimés
+
+- Audit : 728 URLs testées → 36 morts (26 câblés + 9 orphelins + 1 faux positif `NetTruyenViet` gardé, URL dynamique).
+- Commit `e80f8398` : retrait des 26 câblés de `_index.ts` + mapping legacy `kisscomic→readcomiconline` supprimé (cible disparue).
+- Suivi (non committé, prêt) : suppression **physique** des 105 fichiers (`.ts` + `.webp` + `_e2e.ts`) des 35 connecteurs morts — 26 : ArthurScan BarManga Dmzj Dumanwu Gntai HorrorFC InsanosManhua IrisScanlator KomikCast KomikIndoId LagoonScans MangaEighteenUS MangaKings MangaKiss MangaLivre Manhwax MaviManga NoraNoFansub OnMangaMe PhiliaScans ReadComicOnline SkyManga TuhaoManhua TwoAnimx VNSharing YaoiChan ; 9 orphelins : FireComics MangaSehri Otsugami RaikiScan Retsu SilenceScan TuMangaOnlineHentai WebtoonTRNET ZinchanManga.
+- `WordPressMadara_e2e.ts` : 3 imports morts retirés (ArthurScan_e2e, BarManga_e2e, MangaKiss_e2e). Les fichiers `_e2e.ts` sont inertes (config e2e inexistante, pattern vitest ne les prend pas).
+- Validation : tsc exit 0, 2118 tests verts, eslint inchangé (48 erreurs préexistantes svelte/vue), vite build OK.
+- Restent orphelins vivants/douteux non traités : CoffeeManga, ColaManga (app-gated), HerosWeb, KnightNoFansub, MangaBTT, MangaHack (rebrandé Xfolio), ReadAllComics.
