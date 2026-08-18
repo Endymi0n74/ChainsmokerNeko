@@ -26,8 +26,18 @@ paywall bypass), made reliable and covered by regression tests.
 
 ## Download
 
-Every release (Windows ia32/x64/arm64, macOS dmg, Linux AppImage) is published
-on the fork's **Releases page**:
+The current stable release is **2.0.0** — 6 bundles, 3 OS (direct links):
+
+| Platform | File |
+|---|---|
+| Windows x64 | [hakuneko-electron-v2.0.0-win32-x64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.0/hakuneko-electron-v2.0.0-win32-x64.zip) |
+| Windows ia32 | [hakuneko-electron-v2.0.0-win32-ia32.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.0/hakuneko-electron-v2.0.0-win32-ia32.zip) |
+| Windows ARM | [hakuneko-electron-v2.0.0-win32-arm64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.0/hakuneko-electron-v2.0.0-win32-arm64.zip) |
+| macOS Intel | [hakuneko-electron-v2.0.0-darwin-x64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.0/hakuneko-electron-v2.0.0-darwin-x64.dmg) |
+| macOS Apple Silicon | [hakuneko-electron-v2.0.0-darwin-arm64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.0/hakuneko-electron-v2.0.0-darwin-arm64.dmg) |
+| Linux | [hakuneko-electron-v2.0.0-linux-x64.AppImage](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.0/hakuneko-electron-v2.0.0-linux-x64.AppImage) |
+
+All releases are published on the fork's **Releases page**:
 
 👉 **https://github.com/Endymi0n74/ChainsmokerNeko/releases**
 
