@@ -574,26 +574,19 @@ export default class extends DecoratableMangaScraper {
                 Promise.all([fetchREST(), Promise.race([pollDOM(), domGrace])])
                     .then(([rest, dom]) => {
                         if(rest && rest.length > 0) {
-                            // The rendered page reflects the logged-in user's real
-                            // state (purchased chapters lose their lock icon) —
-                            // overlay it on the REST list.
-                            const domLocked = new Map(
-                                (dom || []).map(item => [item.id, item.locked])
-                            );
-
-                            resolve(rest.map(item => {
-                                const locked = domLocked.has(item.id)
-                                    ? domLocked.get(item.id)
-                                    : item.locked;
-
-                                return {
-                                    id: item.id,
-                                    title: markTitle(
-                                        item.base + (locked ? item.price : ''),
-                                        locked
-                                    )
-                                };
-                            }));
+                            // The REST endpoint runs inside the shared-session
+                            // window, so is_purchased already reflects the
+                            // logged-in user's ownership. Trust it - do NOT
+                            // overlay the rendered DOM, whose items carry no
+                            // locked field (that silently unlocked every
+                            // chapter, purchased or not).
+                            resolve(rest.map(item => ({
+                                id: item.id,
+                                title: markTitle(
+                                    item.base + (item.locked ? item.price : ''),
+                                    item.locked
+                                )
+                            })));
                             return;
                         }
 
