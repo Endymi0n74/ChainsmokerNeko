@@ -729,3 +729,19 @@ Causes observées, par fréquence, et parades :
   est une grille de miniatures + strip wide ; pas de point de reprise naturel).
   Prochaine évolution possible : mémoriser le dernier index de page consulté en
   mode wide et ajouter un bouton « Reprendre à la page N ».
+
+### 2.0.1 finale (18 août, après-midi) — CI vert + 10 assets
+
+- **Release 2.0.1 VALIDÉE** : 10 assets = 3 zips win + 3 setup.exe NSIS + 2 dmg
+  macOS + 1 AppImage + 1 snap Linux. Corps bilingue FR/EN.
+- **Fix snap CI** `80253229` + `5dbd6755` : les dossiers de staging snapcraft
+  (`parts/`, `stage/`, `prime/`) restaient dans `app/electron/bundle/` → le
+  step `gh release upload bundles-linux/*` échouait sur un **dossier** (run 1),
+  puis `fs.rm` (non-root) jetait **EACCES** sur `parts/gnome` (root-owned, run 2).
+  Correction : `sudo rm -rf parts stage prime` dans le `finally` de
+  `bundle-app-snap.mjs`.
+- **Validation finale** : run `create-release` `32123539017` **success** + push CI
+  `32123078992` **success** (commit `5dbd6755`). Working tree propre, tout poussé.
+- **Leçon** : `snapcraft pack --destructive-mode` tourne en sudo → tout staging
+  créé est root-owned ; ne jamais nettoyer avec `fs.rm` non-root, utiliser
+  `sudo rm -rf` (CI Linux = sudo passwordless).
