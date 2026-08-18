@@ -17,6 +17,11 @@ AddAntiScrapingDetection(async (invoke) => {
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
 
+    // Rain Drop Fansub présente un reCAPTCHA interactif (form#lsrecaptcha-form)
+    // qui nécessite une vraie fenêtre visible — la vérification silencieuse
+    // saute donc ce site.
+    public override readonly RequiresVisibleBrowserWindow = true;
+
     public constructor() {
         super('raindropfansub', 'Rain Drop Fansub', 'https://www.raindropteamfan.com', Tags.Language.Turkish, Tags.Media.Manhwa);
     }

@@ -106,8 +106,14 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
         const lastRun = Number(window.localStorage.getItem(CheckNewContentTimestampKey) ?? 0);
         if (ShouldRefreshContentFlags(lastRun, Date.now(), periodMinutes)) {
             const silent = settings.Get<Check>(GlobalKey.CheckNewContentSilent).Value;
-            await this.RefreshAllFlags(silent);
-            window.localStorage.setItem(CheckNewContentTimestampKey, `${Date.now()}`);
+            try {
+                await this.RefreshAllFlags(silent);
+            } finally {
+                // Mémorise le scan même si un site échoue (ex. CrunchyScan sans
+                // cf_clearance lève pendant Update) — sinon le scan retenterait
+                // à chaque affichage de la vue Suggestions.
+                window.localStorage.setItem(CheckNewContentTimestampKey, `${Date.now()}`);
+            }
         }
     }
 

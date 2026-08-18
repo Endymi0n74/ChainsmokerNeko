@@ -18,6 +18,11 @@ AddAntiScrapingDetection(async (invoke) => {
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
 
+    // MangaLink présente un reCAPTCHA interactif (form#lsrecaptcha-form) qui
+    // nécessite une vraie fenêtre visible — la vérification silencieuse saute
+    // donc ce site.
+    public override readonly RequiresVisibleBrowserWindow = true;
+
     public constructor() {
         super('mangalink', 'MangaLink', 'https://link-manga.net', Tags.Media.Manga, Tags.Media.Manhwa, Tags.Media.Manhua, Tags.Language.Arabic, Tags.Source.Aggregator);
     }

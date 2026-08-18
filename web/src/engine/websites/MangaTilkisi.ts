@@ -17,6 +17,11 @@ AddAntiScrapingDetection(async (invoke) => {
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
 
+    // Tilki Scans présente un bouton de vérification interactive
+    // (insan-dogrulama) qui nécessite une vraie fenêtre visible — la vérification
+    // silencieuse saute donc ce site.
+    public override readonly RequiresVisibleBrowserWindow = true;
+
     public constructor() {
         super('mangatilkisi', 'Tilki Scans', 'https://www.tilkiscans.com', Tags.Media.Manhwa, Tags.Media.Manhua, Tags.Media.Manga, Tags.Language.Turkish, Tags.Source.Scanlator);
     }

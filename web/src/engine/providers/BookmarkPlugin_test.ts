@@ -7,7 +7,13 @@ import type { InteractiveFileContentProvider } from '../InteractiveFileContentPr
 import { BookmarkPlugin, ShouldRefreshContentFlags, CheckNewContentTimestampKey } from './BookmarkPlugin';
 import { MissingWebsite, type Bookmark, type BookmarkSerialized } from './Bookmark';
 import CrunchyScan from '../websites/CrunchyScan';
+import JapScan from '../websites/JapScan';
 import MangaFire from '../websites/MangaFire';
+import MangaLink from '../websites/MangaLink';
+import MangaTilkisi from '../websites/MangaTilkisi';
+import MangaTR from '../websites/MangaTR';
+import RainDropFansub from '../websites/RainDropFansub';
+import Comix from '../websites/Comix';
 
 class BlobProxy extends Blob {
 
@@ -395,12 +401,24 @@ describe('BookmarkPlugin', () => {
 
     describe('RequiresVisibleBrowserWindow', () => {
 
-        it('Should be true for CrunchyScan (visible window needed)', () => {
-            expect(new CrunchyScan().RequiresVisibleBrowserWindow).toBe(true);
+        const interactiveSites = [
+            CrunchyScan,
+            JapScan,
+            MangaFire,
+            MangaLink,
+            MangaTilkisi,
+            MangaTR,
+            RainDropFansub,
+        ];
+
+        it('Should be true for all Interactive-challenge sites (visible window needed)', () => {
+            for (const Site of interactiveSites) {
+                expect(new Site().RequiresVisibleBrowserWindow).toBe(true);
+            }
         });
 
         it('Should be false by default for windowless-capable sites', () => {
-            expect(new MangaFire().RequiresVisibleBrowserWindow).toBe(false);
+            expect(new Comix().RequiresVisibleBrowserWindow).toBe(false);
         });
     });
 });

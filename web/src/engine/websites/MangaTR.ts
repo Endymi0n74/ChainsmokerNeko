@@ -29,6 +29,11 @@ AddAntiScrapingDetection(async (invoke) => {
 
 export default class extends DecoratableMangaScraper {
 
+    // Manga-TR présente une protection interactive « Bot Koruması » (slider) qui
+    // nécessite une vraie fenêtre visible — la vérification silencieuse saute
+    // donc ce site.
+    public override readonly RequiresVisibleBrowserWindow = true;
+
     public constructor() {
         super('mangatr', 'Manga-TR', 'https://manga-tr.com', Tags.Media.Manga, Tags.Media.Manhwa, Tags.Language.Turkish, Tags.Source.Aggregator);
     }

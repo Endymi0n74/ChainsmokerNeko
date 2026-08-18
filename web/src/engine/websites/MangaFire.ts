@@ -131,6 +131,11 @@ const APIHelperScript = `
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
 
+    // Le WAF de MangaFire présente un challenge interactif ("Security check")
+    // résolu manuellement dans une vraie fenêtre — la vérification silencieuse
+    // saute donc ce site.
+    public override readonly RequiresVisibleBrowserWindow = true;
+
     public constructor() {
         super(
             'mangafire',
