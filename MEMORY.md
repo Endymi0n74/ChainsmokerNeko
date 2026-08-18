@@ -22,6 +22,10 @@
 > pas seulement le chemin modifié. En cas de doute, re-tester l'existant AVANT de
 > déclarer le travail terminé. Ne jamais laisser un fix partiel dans le working tree.
 
+> 🏷️ **CONVENTION VERSIONING 2.x (18 août) : rester en 2.0.x** — toutes les
+> évolutions/correctifs post-2.0.0 sortent en 2.0.1, 2.0.2, … (installateur NSIS
+> inclus) ; pas de saut en 2.1 tant qu'un vrai périmètre mineur n'est pas décidé.
+
 ## 1. Ce qu'est le projet
 
 Fork personnel de **Haruneko** (successeur de HakuNeko) : application desktop de

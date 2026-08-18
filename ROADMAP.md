@@ -56,13 +56,11 @@ projet**, avec une promesse de non-régression.
 - Releases **bilingues FR/EN** + badges + changelog.
 - Dépôt renommé **ChainsmokerNeko** (l'ancien `-legacy` est archivé).
 
-## Reporté (2.1 et au-delà)
+## Reporté (2.0.x et au-delà)
 
 - **Câblage des connecteurs restants** : les 17 connecteurs ajoutés mais non
   câblés dans `_index.ts` doivent être validés un par un (listing → chapitres →
   pages) avant d'entrer dans une release. Priorité aux sites français/anglais.
-- **Installer natif** (NSIS/AppImage) — aujourd'hui les bundles sont des zips
-  autonomes.
 - **Thèmes personnalisables** (le thème clair/sombre existe déjà).
 - **Synchronisation multi-appareils** des bookmarks et réglages.
 - **Relecture des chapitres** (position de lecture persistée par chapitre).
@@ -74,8 +72,11 @@ projet**, avec une promesse de non-régression.
 - **0.1.x** : correctifs fonctionnels et petites évolutions (chaque correctif
   fonctionnel → bump + 3 bundles + release bilingue).
 - **2.0.0** : majeure — suite Cloudflare + perf + distribution complètes.
+- **2.0.x (convention actuelle, 18 août)** : TOUTES les évolutions et correctifs
+  post-2.0.0 (installateur NSIS inclus) sortent en **2.0.1, 2.0.2, …** — pas de
+  saut direct en 2.1 tant qu'un vrai périmètre mineur n'est pas décidé.
 - Chaque **gros changement** doit être versionné et accompagné d'une release
-  GitHub (3 zips) et d'une entrée CHANGELOG.
+  GitHub (3 zips + setup.exe) et d'une entrée CHANGELOG.
 - **Aucune régression** : typecheck (web/electron), eslint, svelte-check,
   suite vitest (2150+ tests) verts avant tout bump.
 
