@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 18 août 2026, matin — **v2.0.0 PUBLIÉE sur le fork
-> (6 assets : 3 zips Windows + 2 dmg macOS + AppImage Linux, `Latest`)**,
-> working tree propre.
+> Dernière mise à jour : 19 août 2026, soir — **fix JapScan 2.0.6 VALIDÉ** par
+> l'utilisateur (listing + chapitres + téléchargement + affichage OK). Reste 1
+> `.bin` résiduel par chapitre (toléré) ; release 2.0.6 à publier.
 
 > ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
 > les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
@@ -847,3 +847,90 @@ Causes observées, par fréquence, et parades :
 - `WordPressMadara_e2e.ts` : 3 imports morts retirés (ArthurScan_e2e, BarManga_e2e, MangaKiss_e2e). Les fichiers `_e2e.ts` sont inertes (config e2e inexistante, pattern vitest ne les prend pas).
 - Validation : tsc exit 0, 2118 tests verts, eslint inchangé (48 erreurs préexistantes svelte/vue), vite build OK.
 - Restent orphelins vivants/douteux non traités : CoffeeManga, ColaManga (app-gated), HerosWeb, KnightNoFansub, MangaBTT, MangaHack (rebrandé Xfolio), ReadAllComics.
+
+## JapScan — investigation terminée + fix Referer (18 août soir / 19 août matin)
+
+### Symptôme rapporté par l'utilisateur (testé sur le bundle **v2.0.3**, valable en 2.0.5)
+
+- ✅ Listing mangas + chapitres : OK (JapScan est câblé dans `_index.ts`, `RequiresVisibleBrowserWindow = true`).
+- ✅ Affichage des images : OK **mais uniquement via la fenêtre navigateur DRM qui s'ouvre** (l'utilisateur résout le puzzle dans la fenêtre, les images s'affichent).
+- ❌ **Téléchargement KO** : `FetchImage` (fetch simple `@Common.ImageAjax()`) échoue → 403.
+
+### Découvertes de l'investigation (probes dans `.tmp/`)
+
+- **Le « captcha » JapScan n'est PAS Cloudflare** : c'est un **puzzle à glisser** propre au site — `#jc-overlay` (« 🔒 Vérification humaine — Glisse pour les remettre dans le bon ordre ») + `window.__captcha = { needed: true, ... }` avec des bandes `data:image/jpeg;base64` et un hash preuve-de-travail (`b24763`). Validation via `POST /validate-captcha/` + reload.
+- Les images du chapitre sont d'abord embarquées en **`data:` URI** dans le HTML ; après résolution du puzzle, le lecteur (canvas) les affiche. Le DRM capture l'event `{ ax: [...], pi: n }` et renvoie des URLs https avec `?xc=91f4` (**token constant**, vérifié par instrumentation).
+- **Session chaude persistée** : le snapshot `cf_clearance` (`cloudflare-clearance.json` dans `%APPDATA%/hakuneko-electron`) contient `.japscan.foo` et est **restauré au boot** (`CloudFlareSession.Install()`) → la session japscan est chaude dès le lancement (les probes dl4–dl8 ont confirmé HTTP 200 dès 0 s). Le warm-up manuel (clic URL plugin + puzzle) n'est donc nécessaire qu'en cas de snapshot absent/périmé.
+- Le bundle n'est **pas portable** (`makePortable` ajoute `user-data-dir` mais le bundle 2.0.5 embarqué ne l'a pas) → la session vit dans `%APPDATA%/hakuneko-electron` (partagée entre les bundles).
+- L'electron **brut** (sonde `js-probe-*.cjs`) se fait challenger par Cloudflare sur japscan (« Un instant… ») ; **le bundle de l'app passe** (UA propre).
+
+### Cause racine retenue & fix appliqué
+
+- `FetchPages` envoyait `Referer: this.URI.href` (**racine du site**) pour les images, alors que la fenêtre DRM charge les images avec le **Referer de la page du lecteur** → le serveur répond 403 au hotlink.
+- **Fix** (`web/src/engine/websites/JapScan.ts`) : `FetchPages` envoie désormais `Referer: new URL(chapter.Identifier, this.URI).href` (URL du chapitre).
+- Vérifié : tsc exit 0, **2118 tests verts**, fix présent dans le bundle (`Referer:i` dans le chunk japscan).
+
+### Harnais dans `app/electron/.tmp/` (gitignorés, conservés)
+
+- `validate_japscan*.py` (dl2/dl3/dl4/dl5) : CDP listing/chapitres/pages + tests Referer A/B (dl4 = CreateEntry direct, dl5 = inspection fenêtre DRM, dl7 = extraction URLs depuis HTML, dl8–dl10 = analyse `__captcha`/scripts).
+- `js-probe-net.cjs` / `js-probe-net2.cjs` / `js-probe-solve.cjs` / `js-probe-autosolve.cjs` : sondes Electron (headers réseau, puzzle).
+- Décodeurs : `js-decode.mjs`, `js-instrument.mjs`, `js-xc.mjs`, `js-table.mjs`, `js-hook*.mjs`.
+
+### Cause racine finale & fix 2.0.6 (19 août, fin d'après-midi)
+
+- **Décodage du DRM** (`decode-preload-script.mjs`) : `CreateImageLinks` n'est PAS
+  « aléatoire-fragile ». Son preload installe un **hook Proxy déguisé** sur
+  `String.prototype.replace` (`conceal()` : piège `get` pour renvoyer un `toString`
+  qui imite `[native code]`, piège `apply` qui décode le résultat et `dispatchEvent`
+  d'un `CustomEvent { ax, pi }` à nom aléatoire). Le script écoute cet event et
+  résout. Post-traitement : filtre `_banner_`/`e44j82.jpg` + `xc=91f4` sur chaque URL.
+  → c'est l'approche **upstream** (validée par `JapScan_e2e.ts`), pas un chemin mort.
+- **Pourquoi le téléchargement 403/échouait** : `FetchPages` utilisait
+  `Referer: this.URI.href` (racine) ; le CDN image `c*.japscan.foo` exige le
+  **Referer du lecteur** (URL du chapitre).
+- **Régressions successives de mes extractions DOM** (canvas/img/net) : canvases
+  jamais peints (lecteur à chargement à la demande, 300×150 transparents), imgs sans
+  `data-src`, timeline réseau = 2 pages seulement (lozad), et la 4e passe lançait
+  `ExecuteScript` non enrobé → **« Script failed to execute »** (« c'est cassé »).
+- **Fix final appliqué (dans le bundle reconstruit 19/08 ~13:40)** :
+  1. `FetchPages` = **`CreateImageLinks` (DRM) en primaire** ;
+  2. **fallback timeline-réseau** (`#ExtractPagesFromResourceTimeline`, script 100 %
+     enrobé try/catch → ne peut plus lever « Script failed to execute », filtre
+     `c\d+.japscan.foo` + dédoublonnage) si le DRM renvoie vide/échoue ;
+  3. `Referer` = URL du chapitre ;
+  4. `@Common.ImageAjax(true)` (détection du type par octets → plus de `.bin`).
+- Vérifié : tsc web 0, **2118 tests vitest verts**, bundle x64 2.0.6 reconstruit
+  (web hash `MT00NJOR`), `main.js`+`preload.js` présents, fix embarqué
+  (`CreateImageLinks` + `c\d+.japscan.foo` dans `HakuNeko.js`), installé dans
+  `D:\Documents\Compressed\Hakuneko` (userdata/session chaude préservés).
+
+### ✅ Validation utilisateur (19 août) — OK
+
+- Bundle `D:\Documents\Compressed\Hakuneko\hakuneko.exe` (2.0.6) : **listing
+  mangas + chapitres OK, téléchargement des images OK (`.jpg`), affichage dans le
+  lecteur OK**. L'utilisateur résout le puzzle `#jc-overlay` une fois dans la
+  fenêtre, puis tout le flux passe (plus de spinner, plus de noir).
+- **Approche finale retenue** : `FetchPages` = `#ExtractPagesFromReader` en
+  **primaire** (fenêtre visible via `show=true` → `win.Show()`, scroll du lecteur
+  pour déclencher lozad, collecte des URLs `*.japscan.foo` depuis `<img>` +
+  timeline `performance`, dédoublonnage) ; `CreateImageLinks` (DRM) en **repli** ;
+  `Referer` = URL du chapitre ; `@Common.ImageAjax(true)`.
+- **Framework** (`FetchProviderCommon.ts`) : mode `Interactive` = fenêtre montrée
+  puis **poll 2 s** jusqu'à levée du challenge, puis exécution du script d'extraction
+  (corrige le spinner infini des challenges « in-place » sans navigation) ; garde
+  `settled` borne le timeout ; nouveau param `show` sur `FetchWindowScript`.
+- **Diagnostics** : nouveau canal IPC `Diagnostics::WriteLog` (handler
+  `app/electron/src/ipc/Diagnostics.ts`) → `userdata/diagnostics.log` (5 Mo borné,
+  silencieux en cas d'erreur).
+- **Résidu connu (toléré par l'utilisateur)** : 1 fichier `01.bin` en tête de
+  chapitre (1re URL capturée non-image, octets non reconnus par `ImageAjax`).
+  Cosmétique. Ne pas retoucher au filtre sans re-tester le flux complet
+  (règle zéro régression) — le chemin actuel fonctionne.
+
+### Version courante & état git (19 août, post-validation)
+
+- Version : **2.0.6** (3 manifests alignés), CHANGELOG + MEMORY à jour.
+- À committer en commits logiques : diagnostics IPC, framework Interactive/show,
+  fix JapScan, bump 2.0.6 — puis builder 3 zips + setup.exe et publier la
+  release 2.0.6 bilingue.
+- Dernier commit poussé avant ce travail : `3b205421`.
