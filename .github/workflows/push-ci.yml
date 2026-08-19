@@ -128,8 +128,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete --repo ${{ github.repository }} nightly --yes --cleanup-tag 2>/dev/null || true
+          NOTES="Automated build from commit ${{ github.sha }}. Windows portable zips + NSIS installer (x64 / ia32 / arm64). 'latest' stays reserved for tagged releases."
+          NOTES+=$'\n\n---\n\n*Développé en vibe coding avec l\'assistance de **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>*\n\n*Developed with vibe coding, assisted by **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>*'
           gh release create --repo ${{ github.repository }} nightly \
             --title "Nightly build ${{ github.sha }}" \
             --latest=false \
-            --notes "Automated build from commit ${{ github.sha }}. Windows portable zips + NSIS installer (x64 / ia32 / arm64). 'latest' stays reserved for tagged releases." \
+            --notes "$NOTES" \
             bundle/*

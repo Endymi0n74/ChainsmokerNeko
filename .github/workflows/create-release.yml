@@ -129,7 +129,8 @@ jobs:
             const end = changelog.indexOf('\n## [', start + header.length);
             notes = changelog.slice(start, end < 0 ? undefined : end);
           }
-          process.stdout.write(notes.trim() + '\n');
+          const credit = '\n\n---\n\n*Développé en vibe coding avec l\'assistance de **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>*\n\n*Developed with vibe coding, assisted by **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>*\n';
+          process.stdout.write(notes.trim() + credit);
           EOF
       - name: Download Bundles
         uses: actions/download-artifact@v4
