@@ -73,6 +73,18 @@ downloadable from the archived [ChainsmokerNeko-legacy](https://github.com/Endym
 Most of the upstream connectors remain available in
 `web/src/engine/websites/_index.ts`, but **with no guarantee** —only the 5 websites above are reworked and tested by this fork.
 
+## Upstream sync
+
+Connectors from upstream (manga-download/haruneko) are integrated on a rolling basis:
+
+| Website | Language | Status |
+|---------|----------|--------|
+| **AeroToon** (aerotoon.vercel.app) | Turkish | ✅ Live-validated (listing → chapters → pages → image), wired in `_index.ts` |
+| **RawFree** (rawfree.spot) | Japanese | ⏸️ File integrated but **not wired**: the image CDN (`p1.pubg-img.si`) serves an invalid TLS certificate — no image loads for now |
+| **WhyToon** (whytoon.com) | Thai | ⏸️ File integrated but **not wired**: Cloudflare 403 "Just a moment…", unreachable even in a real window |
+
+The latter two can be wired again once their infrastructure becomes reachable.
+
 ## Cloudflare bypass (cf_clearance)
 
 When a website loops on a "managed" Cloudflare challenge ("Just a moment…"), the

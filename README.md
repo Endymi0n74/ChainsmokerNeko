@@ -75,6 +75,18 @@ La quasi-totalité des autres connecteurs de l'upstream reste disponible dans
 `web/src/engine/websites/_index.ts`, mais **sans garantie de fonctionnement** —
 seuls les 5 sites ci-dessus sont retravaillés et testés par ce fork.
 
+## Synchronisation upstream
+
+Les connecteurs de l'upstream (manga-download/haruneko) sont intégrés au fil de l'eau :
+
+| Site | Langue | Statut |
+|------|--------|--------|
+| **AeroToon** (aerotoon.vercel.app) | Turc | ✅ Validé live (listing → chapitres → pages → image), câblé dans `_index.ts` |
+| **RawFree** (rawfree.spot) | Japonais | ⏸️ Fichier intégré mais **non câblé** : le CDN d'images (`p1.pubg-img.si`) présente un certificat TLS invalide — aucune image ne charge pour l'instant |
+| **WhyToon** (whytoon.com) | Thaï | ⏸️ Fichier intégré mais **non câblé** : 403 Cloudflare « Just a moment… » inaccessible même en fenêtre réelle |
+
+Ces deux derniers pourront être câblés quand leur infrastructure sera de nouveau accessible.
+
 ## Cloudflare bypass (cf_clearance)
 
 Quand un site boucle sur un challenge Cloudflare « managé » (« Un instant… »), le
