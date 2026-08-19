@@ -994,6 +994,8 @@ Causes observées, par fréquence, et parades :
   le lecteur du site reste sur `load.gif`) → **décâblé** de `_index.ts`, fichiers conservés.
   `WhyToon` : **403 Cloudflare « Just a moment… »** partout, même en fenêtre réelle (ERR_FAILED)
   → **décâblé** de `_index.ts`, fichiers conservés. (2120 tests verts après décâblage.)
+- README FR/EN : section « Synchronisation upstream / Upstream sync » ajoutée (commit )
+  avec le statut des 3 sites (AeroToon câblé, RawFree/WhyToon non câblés).
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
