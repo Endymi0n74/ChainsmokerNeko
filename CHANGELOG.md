@@ -474,6 +474,6 @@ modifications propres à ce fork.
 
 ## Crédits / Credits
 
-Développé en vibe coding avec l'assistance de **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
+Développé en vibe coding avec l'assistance de **Codebuff (Kumo)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
 
-Developed with vibe coding, assisted by **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
+Developed with vibe coding, assisted by **Codebuff (Kumo)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.

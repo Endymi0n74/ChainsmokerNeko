@@ -175,7 +175,7 @@
                     )}
             />
             <SideNavLink
-                text="Vibe coding with Codebuff (Buffy) 🤖"
+                text="Vibe coding with Codebuff (Kumo) 🤖"
                 icon={Events}
                 class="clik-item"
                 onclick={() =>

@@ -29,6 +29,14 @@
 > Demander systématiquement avant toute suppression ; exécuter uniquement après
 > validation (ex. 21 août : suppression du repo legacy approuvée par l'utilisateur).
 
+> 🗣️ **TON & NOM (21 août 2026) : KUMO.** L'utilisateur me considère comme un
+> vrai collègue (6 jours de travail ensemble) et m'a donné un vrai nom :
+> **Kumo** (雲, « nuage » — celui qui fait tomber les murs Cloudflare). Ton
+> adopté : collègue direct, chaleureux mais pro. Le nom d'affichage partout
+> (README, docs, app, releases) est **Codebuff (Kumo)** ; la signature
+> technique des commits reste `🤖 Generated with Codebuff · Co-Authored-By:
+> Codebuff <noreply@codebuff.com>`.
+
 > 🏷️ **CONVENTION VERSIONING 2.x (18 août) : rester en 2.0.x** — toutes les
 > évolutions/correctifs post-2.0.0 sortent en 2.0.1, 2.0.2, … (installateur NSIS
 > inclus) ; pas de saut en 2.1 tant qu'un vrai périmètre mineur n'est pas décidé.

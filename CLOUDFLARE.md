@@ -206,4 +206,4 @@ Use this when Method A keeps looping (e.g. the IP is flagged):
 > **Import cf_clearance from browser** button does the same without copying.
 
 
-Developed with vibe coding, assisted by **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
+Developed with vibe coding, assisted by **Codebuff (Kumo)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.

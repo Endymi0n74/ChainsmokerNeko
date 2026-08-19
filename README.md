@@ -1,7 +1,7 @@
 # ChainsmokerNeko 🚬🐱
 
 > Fork personnel de **HaruNeko** — téléchargeur de mangas, animes & romans (application desktop).
-> Développé en **vibe coding** avec l'assistance de **Codebuff (Buffy)**.
+> Développé en **vibe coding** avec l'assistance de **Codebuff (Kumo)**.
 
 [![Push (CI)](https://github.com/Endymi0n74/ChainsmokerNeko/actions/workflows/push-ci.yml/badge.svg)](https://github.com/Endymi0n74/ChainsmokerNeko/actions/workflows/push-ci.yml)
 ![Release](https://img.shields.io/github/v/release/Endymi0n74/ChainsmokerNeko?display_name=tag)
@@ -200,6 +200,6 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Remerciements
 
 - Projet dérivé de [HaruNeko](https://github.com/manga-download/haruneko) / [HakuNeko](https://github.com/manga-download/hakuneko).
-- Développé en **vibe coding** avec l'assistance de **Codebuff (Buffy)**, l'agent d'IA de
+- Développé en **vibe coding** avec l'assistance de **Codebuff (Kumo)**, l'agent d'IA de
   codage — chaque commit porte la signature
   `🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>`.
