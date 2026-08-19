@@ -977,6 +977,10 @@ Causes observées, par fréquence, et parades :
   ce qui nous sert** : fichiers du connecteur ajoutés ; câblage dans `_index.ts`
   uniquement si le site passe listing → chapitres → pages (sinon fichier seul,
   non câblé), sans régression.
+- 🏷️ **Crédit vibe coding** : mentionner le développement « vibe coding » avec
+  **Codebuff (Buffy)** et la signature `🤖 Generated with Codebuff · Co-Authored-By:
+  Codebuff <noreply@codebuff.com>` sur le README (FR/EN) et partout où c'est utile
+  (docs, releases, crédits).
 
 ### Intégration upstream du 19 août soir (18 commits en avance chez manga-download/haruneko)
 
