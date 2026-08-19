@@ -1005,6 +1005,10 @@ Causes observées, par fréquence, et parades :
 - Section « Crédits / Credits » ajoutée à ROADMAP.md (commit ) et au brouillon
    (repo legacy archivé en lecture seule — le README du
   legacy ne peut pas être poussé, la copie .tmp sert de référence).
+- Crédit dans l'UI (commit ) : menu À propos (Sidenav) avec un lien
+  « Vibe coding with Codebuff (Buffy) » → repo fork ; splash.html avec ligne discrète
+  sous le texte de chargement. Web build refait (splash.html + FrontendClassic.js contiennent
+  le crédit) ; bundle electron PAS encore reconstruit avec ce changement.
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
