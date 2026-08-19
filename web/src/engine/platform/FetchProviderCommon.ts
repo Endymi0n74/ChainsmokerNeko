@@ -286,14 +286,56 @@ export abstract class FetchProvider {
     }
 
     /**
+     * Polls a window that was shown for an Interactive challenge until the challenge clears,
+     * then runs the extraction script on the now-usable page. Used when the challenge resolves
+     * in place (no navigation) — e.g. JapScan's own `#jc-overlay` puzzle — so `DOMReady` never
+     * fires again and the script would otherwise never run.
+     */
+    private async PollForChallengeResolution(
+        win: ReturnType<typeof CreateRemoteBrowserWindow>,
+        url: string,
+        cloudflareDetectionScript: string,
+        runScript: () => Promise<void>,
+        isSettled: () => boolean,
+        stopPollers: (() => void)[],
+        invocations: { name: string; info: string }[]
+    ): Promise<void> {
+        let pollerId: number;
+        const stop = () => {
+            if (pollerId) ClearTimeout(pollerId);
+        };
+        stopPollers.push(stop);
+
+        const poll = async () => {
+            if (isSettled()) return;
+            let cleared = false;
+            try {
+                const cloudflare = await win.ExecuteScript<{ isChallenge: boolean }>(cloudflareDetectionScript);
+                const antiScraping = await CheckAntiScrapingDetection(win, url);
+                cleared = cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
+            } catch {
+                // A navigation is tearing the execution context down; keep polling until it settles.
+            }
+            if (cleared) {
+                invocations.push({ name: 'ChallengeResolved', info: 'Interactive challenge cleared, running extraction script' });
+                await runScript();
+                return;
+            }
+            if (isSettled()) return;
+            pollerId = await SetTimeout(poll, 2000);
+        };
+        pollerId = await SetTimeout(poll, 2000);
+    }
+
+    /**
      * Open the given {@link request} in a new browser window and inject the given {@link script}.
      * @param request - ...
      * @param script - The JavaScript or function that will be evaluated within the browser window
      * @param delay - The time [ms] to wait after the window was fully loaded and before the {@link script} will be injected
      * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
      */
-    public async FetchWindowScript<T extends void | JSONElement>(request: Request, script: string, delay?: number, timeout?: number): Promise<T> {
-        return this.FetchWindowPreloadScript<T>(request, ``, script, delay, timeout);
+    public async FetchWindowScript<T extends void | JSONElement>(request: Request, script: string, delay?: number, timeout?: number, show = false): Promise<T> {
+        return this.FetchWindowPreloadScript<T>(request, ``, script, delay, timeout, show);
     }
 
     /**
@@ -304,7 +346,7 @@ export abstract class FetchProvider {
      * @param delay - The time [ms] to wait after the window was fully loaded and before the {@link script} will be injected
      * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
      */
-    public async FetchWindowPreloadScript<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000): Promise<T> {
+    public async FetchWindowPreloadScript<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000, show = false): Promise<T> {
 
         const invocations: {
             name: string;
@@ -344,10 +386,36 @@ export abstract class FetchProvider {
         };
 
         return new Promise<T>(async (resolve, reject) => {
+            let settled = false;
+
             let cancellation = await SetTimeout(async () => {
+                settled = true;
                 await destroy();
                 reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
             }, timeout);
+
+            const runScript = async () => {
+                if (settled) return;
+                settled = true;
+                try {
+                    // Some readers (e.g. JapScan) only paint their pages once the window is
+                    // actually visible (IntersectionObserver/lazy loaders pause in a hidden
+                    // window). Show the window before running the extraction script.
+                    if (show) {
+                        await win.Show();
+                        await Delay(1500);
+                    }
+                    await Delay(delay);
+                    const result = await win.ExecuteScript<T>(script);
+                    ClearTimeout(cancellation);
+                    await destroy();
+                    resolve(result);
+                } catch (error) {
+                    ClearTimeout(cancellation);
+                    await destroy();
+                    reject(error);
+                }
+            };
 
             win.DOMReady.Subscribe(async () => {
                 invocations.push({ name: 'DOMReady', info: `Window: ${win}` });
@@ -416,10 +484,18 @@ export abstract class FetchProvider {
                         // NOTE: Allow the user to solve the captcha within 2.5 minutes before rejecting the request with an error
                         ClearTimeout(cancellation);
                         cancellation = await SetTimeout(() => {
-                            destroy();
-                            reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
+                            if (!settled) {
+                                settled = true;
+                                destroy();
+                                reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
+                            }
                         }, 150_000);
                         await win.Show();
+                        // In-place challenges (e.g. JapScan's `#jc-overlay` puzzle) resolve without
+                        // a navigation, so DOMReady never fires again and the extraction script would
+                        // never run. Poll until the challenge clears, then run the script on the
+                        // now-usable reader page.
+                        this.PollForChallengeResolution(win, request.url, cloudflareDetectionScript, runScript, () => settled, stopPollers, invocations);
                         break;
                     case FetchRedirection.Automatic:
                         // Managed challenge without a real widget. The `cf_clearance` cookie is only
@@ -433,16 +509,7 @@ export abstract class FetchProvider {
                         }
                         break;
                     default:
-                        ClearTimeout(cancellation);
-                        try {
-                            await Delay(delay);
-                            const result = await win.ExecuteScript<T>(script);
-                            await destroy();
-                            resolve(result);
-                        } catch (error) {
-                            await destroy();
-                            reject(error);
-                        }
+                        await runScript();
                 }
             });
 
