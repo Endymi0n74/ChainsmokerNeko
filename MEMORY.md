@@ -933,4 +933,64 @@ Causes observées, par fréquence, et parades :
 - À committer en commits logiques : diagnostics IPC, framework Interactive/show,
   fix JapScan, bump 2.0.6 — puis builder 3 zips + setup.exe et publier la
   release 2.0.6 bilingue.
-- Dernier commit poussé avant ce travail : `3b205421`.
+- Commit docs poussé : `dba86720` (README/CLOUDFLARE → 2.0.6, JapScan ajouté).
+
+### Ménage du 19 août (soir) — tout dans D:\Codex\haruneko
+
+- ⚠️ **RÈGLE UTILISATEUR (corrigée le 19 août soir) : NE JAMAIS toucher à
+  `D:\Documents`**. La suppression de `D:\Documents\Compressed\Hakuneko`
+  était une erreur — la copie a été **restaurée à l'identique** (bundle 2.0.6,
+  build `.bin` fix, session `userdata` intacte). Tous mes artefacts restent
+  dans `D:\Codex\haruneko` (`.tmp/` et `bundle/` gitignorés) ; je
+  n'écris/supprime plus rien hors du repo sans demande explicite.
+- **Lancement des tests utilisateur** : `D:\Documents\Compressed\Hakuneko\hakuneko.exe`
+  (inchangé — même bundle, même session).
+- Doublons nettoyés : extraction .tmp du bundle (-357 Mo), zips/dumps/probes morts.
+  Conservés : `app/electron/.tmp/electron-zips` (cache, -400 Mo) + `nsis` + probes.
+- **CI confirmé vert** (push des 5 commits) : run `32267534662` (master) et run
+  `32267565328` (tag 2.0.6) → `completed success` tous les deux.
+- **`.bin` JapScan : conservé (décision utilisateur, 19 août soir)** — tentative de
+  fix (headers image + retry 3× sur corps non-image + filtre d'extension) testée par
+  l'utilisateur : le `01.bin` persiste. Cause : la 1ʳᵉ URL collectée renvoie un
+  **403 HTML déterministe** du CDN (même avec retry + session chaude) — ce n'est pas
+  une page du chapitre mais une ressource parasite (img cassée ou entrée timeline).
+  Filtrer de façon fiable exigerait un ciblage DOM interactif (risque de casser les
+  17 pages qui marchent, zéro régression) → **`web/src/engine/websites/JapScan.ts`
+  reverté à l'état 2.0.6, arbre propre** (seul MEMORY.md reste modifié, non committé).
+  Le bundle installé dans `D:\Documents\Compressed\Hakuneko` (build `MT08WVD6`)
+  fonctionne — 17 `.jpg` + 1 `.bin` cosmétique.
+
+
+---
+
+## Règles renforcées (19 août soir) + tâche récurrente
+
+- ⚠️ **Mémoire : à jour à CHAQUE fois** — après chaque demande/tâche significative,
+  refléter l'état réel (git, releases, décisions, WIP) dans MEMORY.md avant de
+  clôturer le tour.
+- ⚠️ **Périmètre : ne JAMAIS sortir de `D:\Codex`** (lire/écrire/lancer/supprimer
+  quoi que ce soit en dehors du dossier de travail) sans demander explicitement.
+- ⚠️ **Apps PC : ne PAS lancer d'application hors du dossier de travail** (navigateurs,
+  lecteurs, outils système, …) sans demander.
+- 🔄 **Tâche récurrente — upstream `manga-download/haruneko`** : à chaque session,
+  vérifier les commits en avance sur nous (nouveaux connecteurs/sites) et **intégrer
+  ce qui nous sert** : fichiers du connecteur ajoutés ; câblage dans `_index.ts`
+  uniquement si le site passe listing → chapitres → pages (sinon fichier seul,
+  non câblé), sans régression.
+
+### Intégration upstream du 19 août soir (18 commits en avance chez manga-download/haruneko)
+
+- **3 nouveaux sites intégrés et câblés** dans `_index.ts` (fichiers + webp + _e2e) :
+  `RawFree` (rawfree.spot, japonais — dépend de `Zing92Base`, export `MangaExtractor` ajouté),
+  `WhyToon` (whytoon.com, thaï — `FetchNextJS`), `AeroToon` (aerotoon.vercel.app, turc — `FetchJSON`).
+- **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
+  MangaYi (selectors CSS), Dilar (pages).
+- **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
+  conflits risqués avec nos customisations), `Flatmanga`/`MangaBrasuka`/`KomikCast→Voratoon`
+  (sites retirés à notre ménage), `domains updates` (CrunchyScan .fr→.org : on était déjà en
+  `.org` avant eux).
+- Vérifié : tsc web 0, **2124 tests verts**. Commits : `b44d5875` (MangaYi), `6c662099`
+  (YomuComics), `2d2239f3` (Dilar) + commit d'ajout des 3 sites.
+- **Process pour les prochaines sessions** : `git fetch origin` puis `git log --oneline
+  master..origin/master` → intégrer les `feat: add <site>` (fichiers + câblage si simple
+  décorateurs/API) et les fixes de sites qu'on a (cherry-pick).
