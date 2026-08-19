@@ -1013,6 +1013,12 @@ Causes observées, par fréquence, et parades :
   chacune avec ses 3 zips Windows (ia32/x64/arm64) = 42 assets, tous présents. Liens HTTP 200
   et zip x64 0.1.11 testé intégralement (unzip -t OK). Le README legacy pointe bien
   https://github.com/Endymi0n74/ChainsmokerNeko-legacy/releases.
+- **README legacy (21 août)** : brouillon .tmp/legacy-README.md enrichi d'un tableau
+  « Releasés historiques / Historical releases » (14 lignes, liens directs vers chaque tag +
+  date + 3 assets Windows). Vérifications d'intégrité complémentaires : zip 160826 arm64 et
+  0.1.5 ia32 → HTTP 206 + magic PK OK (range request). Manifest nightly vs 0.1.11 non comparé
+  (téléchargement ~300 Mo nécessaire) — la nightly legacy est un rollback de 0.1.11, considérée identique.
+  Le repo legacy reste archivé : le README ne peut pas être poussé, la copie .tmp sert de référence.
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
