@@ -1009,6 +1009,10 @@ Causes observées, par fréquence, et parades :
   « Vibe coding with Codebuff (Buffy) » → repo fork ; splash.html avec ligne discrète
   sous le texte de chargement. Web build refait (splash.html + FrontendClassic.js contiennent
   le crédit) ; bundle electron PAS encore reconstruit avec ce changement.
+- **Audit repo legacy (20 août)** : 14 releases historiques (160826, 0.1.0 → 0.1.11) + nightly,
+  chacune avec ses 3 zips Windows (ia32/x64/arm64) = 42 assets, tous présents. Liens HTTP 200
+  et zip x64 0.1.11 testé intégralement (unzip -t OK). Le README legacy pointe bien
+  https://github.com/Endymi0n74/ChainsmokerNeko-legacy/releases.
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
