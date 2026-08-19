@@ -470,3 +470,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 L'historique complet (3 900+ commits) provient de [HaruNeko](https://github.com/manga-download/haruneko)
 et de [HakuNeko](https://github.com/manga-download/hakuneko). Ce changelog ne couvre que les
 modifications propres à ce fork.
+
+
+## Crédits / Credits
+
+Développé en vibe coding avec l'assistance de **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
+
+Developed with vibe coding, assisted by **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
