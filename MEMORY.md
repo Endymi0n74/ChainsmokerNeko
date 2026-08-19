@@ -1002,6 +1002,9 @@ Causes observées, par fréquence, et parades :
 - Crédit automatique (commit ) : create-release.yml ajoute le bloc bilingue aux
   notes générées depuis le CHANGELOG ; push-ci.yml l'ajoute aux notes nightly ; corps de la
   nightly actuelle mis à jour manuellement.
+- Section « Crédits / Credits » ajoutée à ROADMAP.md (commit ) et au brouillon
+   (repo legacy archivé en lecture seule — le README du
+  legacy ne peut pas être poussé, la copie .tmp sert de référence).
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
