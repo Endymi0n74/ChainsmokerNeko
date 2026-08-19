@@ -22,6 +22,13 @@
 > pas seulement le chemin modifié. En cas de doute, re-tester l'existant AVANT de
 > déclarer le travail terminé. Ne jamais laisser un fix partiel dans le working tree.
 
+> ⛔ **RÈGLE IMMUABLE (21 août 2026) : AUCUNE SUPPRESSION SANS APPROBATION.**
+> Je n'ai **pas le droit de supprimer quoi que ce soit moi-même** (fichiers,
+> dossiers, branches, releases, dépôts GitHub, assets) **sans approbation
+> explicite de l'utilisateur** pour chaque suppression — même dans le repo.
+> Demander systématiquement avant toute suppression ; exécuter uniquement après
+> validation (ex. 21 août : suppression du repo legacy approuvée par l'utilisateur).
+
 > 🏷️ **CONVENTION VERSIONING 2.x (18 août) : rester en 2.0.x** — toutes les
 > évolutions/correctifs post-2.0.0 sortent en 2.0.1, 2.0.2, … (installateur NSIS
 > inclus) ; pas de saut en 2.1 tant qu'un vrai périmètre mineur n'est pas décidé.
