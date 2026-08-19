@@ -984,9 +984,16 @@ Causes observées, par fréquence, et parades :
 
 ### Intégration upstream du 19 août soir (18 commits en avance chez manga-download/haruneko)
 
-- **3 nouveaux sites intégrés et câblés** dans `_index.ts` (fichiers + webp + _e2e) :
+- **3 nouveaux sites intégrés** (fichiers + webp + _e2e) :
   `RawFree` (rawfree.spot, japonais — dépend de `Zing92Base`, export `MangaExtractor` ajouté),
   `WhyToon` (whytoon.com, thaï — `FetchNextJS`), `AeroToon` (aerotoon.vercel.app, turc — `FetchJSON`).
+- **Validation live (20 août, sondes Electron réelles)** : seul **AeroToon** passe
+  listing → chapitres → pages → image (série=26, chapitres=45, pages=16, webp 200 OK) → **reste câblé**.
+  `RawFree` : listing/chapitres OK mais le CDN d'images `p1.pubg-img.si:183` a un **certificat TLS
+  invalide** (UNABLE_TO_VERIFY_LEAF_SIGNATURE / ERR_FAILED même en fenêtre Electron réelle ;
+  le lecteur du site reste sur `load.gif`) → **décâblé** de `_index.ts`, fichiers conservés.
+  `WhyToon` : **403 Cloudflare « Just a moment… »** partout, même en fenêtre réelle (ERR_FAILED)
+  → **décâblé** de `_index.ts`, fichiers conservés. (2120 tests verts après décâblage.)
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
