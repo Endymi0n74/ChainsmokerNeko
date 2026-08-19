@@ -996,6 +996,9 @@ Causes observées, par fréquence, et parades :
   → **décâblé** de `_index.ts`, fichiers conservés. (2120 tests verts après décâblage.)
 - README FR/EN : section « Synchronisation upstream / Upstream sync » ajoutée (commit )
   avec le statut des 3 sites (AeroToon câblé, RawFree/WhyToon non câblés).
+- Crédit vibe coding étendu (commit ) : section « Crédits / Credits » en fin de
+  CHANGELOG.md, footer dans CLOUDFLARE.md, et pied bilingue ajouté aux corps des releases
+  GitHub 0.1.13 → 2.0.6 (via `gh release edit`).
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
