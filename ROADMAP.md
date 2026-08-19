@@ -88,3 +88,9 @@ projet**, avec une promesse de non-régression.
 | Un connecteur se casse | Test de listing e2e committé, non-régression vérifiée à chaque release |
 | Comix / MangaFire changent d'API | Connecteurs isolés ; le reste de l'app n'en dépend pas |
 | Paywall MangaDrama | Connexion compte + achat réel ; pas de contournement des coins |
+
+## Crédits / Credits
+
+Développé en vibe coding avec l'assistance de **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
+
+Developed with vibe coding, assisted by **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
