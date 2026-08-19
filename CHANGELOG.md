@@ -3,6 +3,26 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.6] - 2026-08-19
+
+### Corrigé
+
+- **JapScan — téléchargement des images** : `FetchPages` ouvre désormais le
+  lecteur dans une **fenêtre visible**, le fait défiler pour déclencher le
+  chargement paresseux, puis collecte les URLs du CDN image `*.japscan.foo`
+  (`<img>` + timeline réseau, dédoublonnées) — avec `CreateImageLinks` (DRM) en
+  repli. Le `Referer` est celui du **chapitre** (au lieu de la racine) — cause
+  du 403 hotlink. `@Common.ImageAjax(true)` détecte le type par octets
+  (fichiers `.jpg`, plus d'image noire).
+- **Challenge interactif sans navigation** : en mode `Interactive`, la fenêtre
+  s'affiche puis l'extraction est relancée dès que le challenge est levé
+  (polling borné) — corrige le spinner infini des puzzles « in-place » comme
+  celui de JapScan (`#jc-overlay`).
+- **Diagnostics** : nouveau canal IPC `Diagnostics::WriteLog` qui écrit dans
+  `userdata/diagnostics.log` (borné à 5 Mo, silencieux en cas d'erreur).
+- Reste un `.bin` résiduel en tête de chapitre (URL non-image non reconnue) —
+  cosmétique, sans impact sur la lecture.
+
 ## [2.0.5] - 2026-08-18
 
 ### Ajouté
