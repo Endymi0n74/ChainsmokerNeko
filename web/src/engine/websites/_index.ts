@@ -1,5 +1,6 @@
 // Implemented Websites
 export { default as ACGN } from './ACGN';
+export { default as AeroToon } from './AeroToon';
 export { default as AesirScans } from './AesirScans';
 export { default as AGCScanlation } from './AGCScanlation';
 export { default as AiluraScans } from './AiluraScans';
@@ -555,6 +556,7 @@ export { default as RavenScans } from './RavenScans';
 export { default as RavenSeries } from './RavenSeries';
 export { default as Raw18 } from './Raw18';
 export { default as RawDevart } from './RawDevart';
+export { default as RawFree } from './RawFree';
 export { default as RawInu } from './RawInu';
 export { default as Rawkuma } from './Rawkuma';
 export { default as RawLazy } from './RawLazy';
@@ -711,6 +713,7 @@ export { default as WeebCentral } from './WeebCentral';
 export { default as WeLoMa } from './WeLoMa';
 export { default as WeLoveManga } from './WeLoveManga';
 export { default as WestManga } from './WestManga';
+export { default as WhyToon } from './WhyToon';
 export { default as WitchScans } from './WitchScans';
 export { default as Wnacg } from './Wnacg';
 export { default as WritersScans } from './WritersScans';
