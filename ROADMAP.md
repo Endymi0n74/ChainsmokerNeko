@@ -54,7 +54,7 @@ projet**, avec une promesse de non-régression.
 - Téléchargement automatique des nouveaux chapitres (< 48 h) des bookmarks,
   anglais uniquement.
 - Releases **bilingues FR/EN** + badges + changelog.
-- Dépôt renommé **ChainsmokerNeko** (l'ancien `-legacy` est archivé).
+- Dépôt renommé **ChainsmokerNeko** (l'ancien dépôt a été supprimé).
 
 ## Reporté (2.0.x et au-delà)
 

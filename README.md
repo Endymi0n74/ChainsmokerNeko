@@ -48,8 +48,7 @@ Toutes les versions sont publiées sur la page **Releases du fork** :
 👉 **https://github.com/Endymi0n74/ChainsmokerNeko/releases**
 
 La dernière version stable est marquée `Latest` ; la release `nightly` contient
-le build du dernier push sur `master`. Les anciennes versions (0.1.0 → 0.1.11)
-restent téléchargeables sur le dépôt archivé [ChainsmokerNeko-legacy](https://github.com/Endymi0n74/ChainsmokerNeko-legacy).
+le build du dernier push sur `master`.
 
 ## Fonctionnalités
 
@@ -188,9 +187,7 @@ docs/                      → documentation (VitePress)
 
 Les versions stables sont taguées (`2.0.x`) et publiées sur la page
 [Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases) avec les bundles
-des trois OS. Les anciennes versions (0.1.0 → 0.1.11) restent téléchargeables sur
-[ChainsmokerNeko-legacy](https://github.com/Endymi0n74/ChainsmokerNeko-legacy)
-(archivé, conservé comme archive des releases historiques).
+des trois OS.
 
 ## Contribuer
 

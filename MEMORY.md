@@ -47,10 +47,9 @@ composants Vue) qui tourne dans un shell **Electron** (et historiquement NW.js).
     `manga-download/haruneko` (renommé depuis `Endymi0n74/haruneko` le 17 août).
     C'est LE dépôt produit : son master = le produit du fork, et les branches PR
     (`upstream/cloudflare-fixes`, `upstream/perf-optimizations`) en partent.
-  - **`Endymi0n74/ChainsmokerNeko-legacy`** = ancien dépôt produit (pas un fork
-    enregistré, `fork:false`), renommé puis **archivé le 17 août** : il conserve
-    **toutes les releases** et leurs liens de téléchargement (les anciennes URL
-    redirigent) — voir §14.
+  - ~~**`Endymi0n74/ChainsmokerNeko-legacy`**~~ = **supprimé le 21 août** (décision
+    utilisateur : plus d'utilité). Ses 14 releases historiques (160826, 0.1.0 → 0.1.11,
+    nightly) et leurs liens de téléchargement n'existent plus.
 - `app/electron/.tmp/` est gitignoré → c'est le bac à sable pour les sondes/probes
   (`*.cjs`, `*.mjs`) sans polluer `git status`.
 
@@ -574,13 +573,11 @@ complets, méthodo CDP). État :
   test v10) supprimé — à re-télécharger depuis
   https://googlechromelabs.github.io/chrome-for-testing/ si un re-test v10 est
   nécessaire (l'installateur officiel ChromeSetup.exe reste bloqué par l'UAC).
-- **État GitHub** : les **14 releases historiques** (`160826` pré-version +
-  `0.1.0`..`0.1.11` + `nightly`) sont sur **`ChainsmokerNeko-legacy`**, désormais
-  **archivé le 17 août** comme archive de releases (README pointeur + description,
-  les liens de téléchargement redirigent toujours). Le nouveau `ChainsmokerNeko`
-  (vrai fork) porte les releases récentes : **0.1.12** (assets rafraîchis avec le
-  bouton Clear Cache) et **0.1.13** (`Latest`, corps bilingue FR/EN), + sa
-  `nightly` roulante. Titres uniformisés « ChainsmokerNeko <version> » (voir §13).
+- **État GitHub (à jour 21 août)** : l'ancien dépôt **`ChainsmokerNeko-legacy` a été
+  supprimé** (décision utilisateur) — les releases 0.1.0→0.1.11, 160826 et l'ancienne
+  nightly ne sont plus accessibles. Seul **`ChainsmokerNeko`** (vrai fork) porte les
+  releases : **0.1.12**, **0.1.13**, **2.0.x** (`Latest` 2.0.6, corps bilingue FR/EN)
+  + sa `nightly` roulante. Titres uniformisés « ChainsmokerNeko <version> » (voir §13).
 - **README nettoyé (17 août, commit `70ed6409`)** : suppression de « Save all
   images » (retiré du code), ajout de MangaDrama aux sites garantis, section
   Cloudflare précise (import/test/clear/persistance), workflow 3 OS, et mention
@@ -593,20 +590,17 @@ complets, méthodo CDP). État :
   deux `MERGEABLE` et **toujours valides après le renommage** (le head
   `Endymi0n74:upstream/*` est inchangé). Voir les corps dans
   `app/electron/.tmp/pr-body.md` / `pr-body-perf.md` (gitignorés).
-- **Renommage fait (17 août)** : `ChainsmokerNeko` → `ChainsmokerNeko-legacy`
-  puis `haruneko` → `ChainsmokerNeko`. Le dépôt produit est désormais **un vrai
-  fork** → toutes les futures PR partent de lui. Conséquence assumée : les
-  releases 0.1.0→0.1.11 restent sur legacy (archive) ; les nouvelles (0.1.12,
-  0.1.13, …) sont publiées sur le nouveau repo.
-- **Legacy archivé (17 août soir)** : `ChainsmokerNeko-legacy` = **archivé**
-  (read-only, `archived:true`) comme **archive de releases** — README pointeur
-  (commit GitHub `da40d1e`) + description ; les 14 releases et leurs zips restent
-  téléchargeables. Décision : il a un intérêt (liens historiques), pas de
-  développement.
-- **Liens de téléchargement → nouveau repo (17 août soir, `50004731`)** : README
-  (section « Téléchargement » → `Endymi0n74/ChainsmokerNeko/releases`, legacy
-  seulement comme archive) + CLOUDFLARE.md (pointeur en tête + historique
-  versions 0.1.11/0.1.12).
+- **Renommage fait (17 août)** : `haruneko` → `ChainsmokerNeko` (vrai fork
+  GitHub). L'ancien dépôt `ChainsmokerNeko-legacy` (issu du renommage intermédiaire)
+  a été **supprimé le 21 août** — les releases 0.1.0→0.1.11 ne sont plus
+  téléchargeables ; tout est désormais publié sur le nouveau repo.
+- **Legacy supprimé (21 août)** : `ChainsmokerNeko-legacy` (archivé le 17 août
+  comme archive de releases) a été **supprimé définitivement** à la demande de
+  l'utilisateur — « il n'a plus lieu d'être ». Toutes ses mentions retirées des docs
+  (README FR/EN, ROADMAP, MEMORY).
+- **Liens de téléchargement → nouveau repo (17 août soir, `50004731`, ajusté 21 août)** :
+  README + CLOUDFLARE.md pointent uniquement vers `Endymi0n74/ChainsmokerNeko/releases`
+  (aucune référence legacy).
 - **WIP : VIDE (fin de soirée 17 août)** — tout est committé : bouton
   **Clear Cloudflare cache** (`061a87a5`, release 0.1.13) et avertissement
   **environnement sans Electron** (`005f4fd4` : `RemoteBrowserWindow.ts` lève
@@ -626,9 +620,9 @@ complets, méthodo CDP). État :
   → fenêtre réelle où Cloudflare se résout → fermer → **Update** → vérif via
   **Test now**, rappel de la persistance (une fois par réseau/IP, pas par
   lancement) et du **Clear Cloudflare cache** si le cookie est périmé.
-- **Liens de téléchargement vérifiés en live (17 août soir)** : toutes les URL
-  des README/CLOUDFLARE.md → **HTTP 200** (page Releases du fork, legacy,
-  upstream) et les 3 assets 0.1.13 → **206** (téléchargeables). Aucun lien mort.
+- **Liens de téléchargement vérifiés en live (17 août soir, ajusté 21 août)** :
+  URL des README/CLOUDFLARE.md → **HTTP 200** (page Releases du fork) et les 3
+  assets 0.1.13 → **206** (téléchargeables). Aucun lien mort.
 
 ## 15. Installateur NSIS + état 18 août (matin)
 
@@ -1002,23 +996,17 @@ Causes observées, par fréquence, et parades :
 - Crédit automatique (commit ) : create-release.yml ajoute le bloc bilingue aux
   notes générées depuis le CHANGELOG ; push-ci.yml l'ajoute aux notes nightly ; corps de la
   nightly actuelle mis à jour manuellement.
-- Section « Crédits / Credits » ajoutée à ROADMAP.md (commit ) et au brouillon
-   (repo legacy archivé en lecture seule — le README du
-  legacy ne peut pas être poussé, la copie .tmp sert de référence).
+- Section « Crédits / Credits » ajoutée à ROADMAP.md (commit ).
 - Crédit dans l'UI (commit ) : menu À propos (Sidenav) avec un lien
   « Vibe coding with Codebuff (Buffy) » → repo fork ; splash.html avec ligne discrète
   sous le texte de chargement. Web build refait (splash.html + FrontendClassic.js contiennent
   le crédit) ; bundle electron PAS encore reconstruit avec ce changement.
-- **Audit repo legacy (20 août)** : 14 releases historiques (160826, 0.1.0 → 0.1.11) + nightly,
-  chacune avec ses 3 zips Windows (ia32/x64/arm64) = 42 assets, tous présents. Liens HTTP 200
-  et zip x64 0.1.11 testé intégralement (unzip -t OK). Le README legacy pointe bien
-  https://github.com/Endymi0n74/ChainsmokerNeko-legacy/releases.
-- **README legacy (21 août)** : brouillon .tmp/legacy-README.md enrichi d'un tableau
-  « Releasés historiques / Historical releases » (14 lignes, liens directs vers chaque tag +
-  date + 3 assets Windows). Vérifications d'intégrité complémentaires : zip 160826 arm64 et
-  0.1.5 ia32 → HTTP 206 + magic PK OK (range request). Manifest nightly vs 0.1.11 non comparé
-  (téléchargement ~300 Mo nécessaire) — la nightly legacy est un rollback de 0.1.11, considérée identique.
-  Le repo legacy reste archivé : le README ne peut pas être poussé, la copie .tmp sert de référence.
+- **Audit puis suppression du repo legacy (20-21 août)** : l'audit (20 août) avait
+  confirmé 14 releases (160826, 0.1.0 → 0.1.11) + nightly = 42 zips Windows intègres
+  (HTTP 206 + magic PK sur échantillons, unzip -t OK sur 0.1.11 x64). Le **21 août**,
+  à la demande de l'utilisateur, le dépôt a été **supprimé définitivement** (nécessite
+  le scope GitHub `delete_repo` via `gh auth refresh -h github.com -s delete_repo`
+  si le refresh n'a pas été fait) et le brouillon `.tmp/legacy-README.md` effacé.
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
