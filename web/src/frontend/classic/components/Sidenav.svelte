@@ -175,6 +175,13 @@
                     )}
             />
             <SideNavLink
+                text="Vibe coding with Codebuff (Buffy) 🤖"
+                icon={Events}
+                class="clik-item"
+                onclick={() =>
+                    window.open('https://github.com/Endymi0n74/ChainsmokerNeko')}
+            />
+            <SideNavLink
                 text={appVersion ? `Using version ${appVersion}` : 'Using version'}
                 icon={App}
                 class="clik-item"
