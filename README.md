@@ -27,20 +27,20 @@ régression.
 
 ## Téléchargement
 
-La version stable actuelle est **2.0.5** — 10 bundles, 3 OS (liens directs) :
+La version stable actuelle est **2.0.6** — 10 bundles, 3 OS (liens directs) :
 
 | Plateforme | Fichier |
 |---|---|
-| Windows 64 bits (portable) | [hakuneko-electron-v2.0.5-win32-x64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-win32-x64.zip) |
-| Windows 64 bits (installateur) | [hakuneko-electron-v2.0.5-win32-x64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-win32-x64-setup.exe) |
-| Windows 32 bits (portable) | [hakuneko-electron-v2.0.5-win32-ia32.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-win32-ia32.zip) |
-| Windows 32 bits (installateur) | [hakuneko-electron-v2.0.5-win32-ia32-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-win32-ia32-setup.exe) |
-| Windows ARM (portable) | [hakuneko-electron-v2.0.5-win32-arm64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-win32-arm64.zip) |
-| Windows ARM (installateur) | [hakuneko-electron-v2.0.5-win32-arm64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-win32-arm64-setup.exe) |
-| macOS Intel | [hakuneko-electron-v2.0.5-darwin-x64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-darwin-x64.dmg) |
-| macOS Apple Silicon | [hakuneko-electron-v2.0.5-darwin-arm64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-darwin-arm64.dmg) |
-| Linux (AppImage) | [hakuneko-electron-v2.0.5-linux-x64.AppImage](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-linux-x64.AppImage) |
-| Linux (snap) | [hakuneko-electron-v2.0.5-linux-x64.snap](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.5/hakuneko-electron-v2.0.5-linux-x64.snap) |
+| Windows 64 bits (portable) | [hakuneko-electron-v2.0.6-win32-x64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-win32-x64.zip) |
+| Windows 64 bits (installateur) | [hakuneko-electron-v2.0.6-win32-x64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-win32-x64-setup.exe) |
+| Windows 32 bits (portable) | [hakuneko-electron-v2.0.6-win32-ia32.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-win32-ia32.zip) |
+| Windows 32 bits (installateur) | [hakuneko-electron-v2.0.6-win32-ia32-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-win32-ia32-setup.exe) |
+| Windows ARM (portable) | [hakuneko-electron-v2.0.6-win32-arm64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-win32-arm64.zip) |
+| Windows ARM (installateur) | [hakuneko-electron-v2.0.6-win32-arm64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-win32-arm64-setup.exe) |
+| macOS Intel | [hakuneko-electron-v2.0.6-darwin-x64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-darwin-x64.dmg) |
+| macOS Apple Silicon | [hakuneko-electron-v2.0.6-darwin-arm64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-darwin-arm64.dmg) |
+| Linux (AppImage) | [hakuneko-electron-v2.0.6-linux-x64.AppImage](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-linux-x64.AppImage) |
+| Linux (snap) | [hakuneko-electron-v2.0.6-linux-x64.snap](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.6/hakuneko-electron-v2.0.6-linux-x64.snap) |
 
 Toutes les versions sont publiées sur la page **Releases du fork** :
 
@@ -68,10 +68,11 @@ restent téléchargeables sur le dépôt archivé [ChainsmokerNeko-legacy](https
 | **Comix (comix.to)** | ~91 000 mangas ; connecteur réécrit **sans DRM** |
 | **MangaDrama** | Paywall en coins débloqué ; chapitres anglais ; connexion au compte (les chapitres achetés se déverrouillent) |
 | **CrunchyScan** | Challenge Cloudflare « managé » : fenêtre de résolution, import `cf_clearance`, retry de téléchargement |
+| **JapScan** | Listing/chapitres/pages fiables ; puzzle « glisse » résolu dans une fenêtre visible ; téléchargement corrigé (Referer du chapitre, images en `.jpg`) |
 
 La quasi-totalité des autres connecteurs de l'upstream reste disponible dans
 `web/src/engine/websites/_index.ts`, mais **sans garantie de fonctionnement** —
-seuls les 4 sites ci-dessus sont retravaillés et testés par ce fork.
+seuls les 5 sites ci-dessus sont retravaillés et testés par ce fork.
 
 ## Cloudflare bypass (cf_clearance)
 
@@ -148,14 +149,14 @@ mangas dans le flux applicatif réel — toute régression de listing casse le C
 trois jobs en cascade (les commits purement documentaires `*.md` / `docs/**` sont ignorés) :
 1. **Typecheck & Build** (`ubuntu-latest`) : typecheck (web/electron/nw) + eslint +
    svelte-check + vue-tsc + build web/electron (cache npm + binaire Electron) ;
-2. **Bundles** (après le CI) : réutilise le build via artefact, génère les bundles
-   **Windows** (ia32/x64/arm64), **macOS** (dmg) et **Linux** (AppImage) ;
+2. **Bundles Windows** (après le CI) : réutilise le build via artefact, génère les
+   bundles **Windows** (ia32/x64/arm64 : zips portables + installateurs NSIS) ;
 3. **Release** (uniquement pour `master`) : publie les bundles sur la release roulante
    **`nightly`** (`latest` reste réservé aux versions taguées).
 
 Autres workflows : [`pull-request-ci.yml`](.github/workflows/pull-request-ci.yml) (checks
 + tests e2e/websites sur les PR), [`create-release.yml`](.github/workflows/create-release.yml)
-(release multi-OS manuelle), [`pull-request-deploy.yml`](.github/workflows/pull-request-deploy.yml)
+(release multi-OS manuelle — dmg macOS + AppImage/snap Linux inclus), [`pull-request-deploy.yml`](.github/workflows/pull-request-deploy.yml)
 (préviews Cloudflare, label « Deploy PR ») et [`website-metrics.yml`](.github/workflows/website-metrics.yml)
 (métriques périodiques des sites).
 
@@ -172,7 +173,7 @@ docs/                      → documentation (VitePress)
 
 ## Versions
 
-Les versions stables sont taguées (`0.1.x`) et publiées sur la page
+Les versions stables sont taguées (`2.0.x`) et publiées sur la page
 [Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases) avec les bundles
 des trois OS. Les anciennes versions (0.1.0 → 0.1.11) restent téléchargeables sur
 [ChainsmokerNeko-legacy](https://github.com/Endymi0n74/ChainsmokerNeko-legacy)
