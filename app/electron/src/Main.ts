@@ -12,6 +12,7 @@ import { RemoteBrowserWindowController } from './ipc/RemoteBrowserWindow';
 import { CloudFlareImport } from './ipc/CloudFlareImport';
 import { CloudFlareSession } from './ipc/CloudFlareSession';
 import { AppUpdate } from './ipc/AppUpdate';
+import Diagnostics from './ipc/Diagnostics';
 import { RPCServer } from '../../src/rpc/Server';
 import { RemoteProcedureCallManager } from './ipc/RemoteProcedureCallManager';
 import { RemoteProcedureCallContract } from './ipc/RemoteProcedureCallContract';
@@ -220,6 +221,7 @@ async function OpenWindow(): Promise<void> {
         new CloudFlareImport(ipc);
         new AppUpdate(ipc);
         new BloatGuard(ipc, win.webContents);
+        new Diagnostics(ipc);
         win.RegisterChannels(ipc);
         await win.loadURL(uri.href).catch(error => console.warn(error));
     } catch(error) {

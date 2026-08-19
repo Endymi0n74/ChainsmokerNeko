@@ -159,3 +159,16 @@ export namespace CloudFlareImport {
         ClearCache = 'CloudFlareImport::ClearCache',
     }
 }
+
+/** Supported IPC Channels for writing diagnostic log lines into the app's userData directory. */
+export namespace Diagnostics {
+
+    /** Send from the Main process and received in the Render process. */
+    export type Web = never;
+
+    /** Send from the Render process and received in the Main process. */
+    export enum App {
+        /** Channel for IPC callback with signature: `(message: string) => Promise<void>` */
+        WriteLog = 'Diagnostics::WriteLog',
+    }
+}
