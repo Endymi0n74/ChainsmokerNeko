@@ -999,6 +999,9 @@ Causes observées, par fréquence, et parades :
 - Crédit vibe coding étendu (commit ) : section « Crédits / Credits » en fin de
   CHANGELOG.md, footer dans CLOUDFLARE.md, et pied bilingue ajouté aux corps des releases
   GitHub 0.1.13 → 2.0.6 (via `gh release edit`).
+- Crédit automatique (commit ) : create-release.yml ajoute le bloc bilingue aux
+  notes générées depuis le CHANGELOG ; push-ci.yml l'ajoute aux notes nightly ; corps de la
+  nightly actuelle mis à jour manuellement.
 - **3 fixes upstream cherry-pickés** pour des sites qu'on a déjà : YomuComics (listing),
   MangaYi (selectors CSS), Dilar (pages).
 - **Ignoré à dessein** : commits UI viewer (scrollMagic, ImageViewerWideSettings, multi-drag —
