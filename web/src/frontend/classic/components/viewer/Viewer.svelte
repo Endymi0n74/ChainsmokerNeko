@@ -18,9 +18,36 @@
     let displayedItem: MediaContainer<MediaItem> = $state();;
     let currentImageIndex: number = $state(-1);
 
+    // Reading position persistence — save/restore via localStorage
+    const READING_POS_KEY = 'reading-position';
+    function saveReadingPosition(chapterId: string, imageIndex: number) {
+        try {
+            if (imageIndex < 0) return;
+            const data = JSON.parse(localStorage.getItem(READING_POS_KEY) || '{}');
+            data[chapterId] = imageIndex;
+            // Cap at 500 entries to avoid unbounded growth
+            const keys = Object.keys(data);
+            if (keys.length > 500) {
+                for (const k of keys.slice(0, keys.length - 500)) delete data[k];
+            }
+            localStorage.setItem(READING_POS_KEY, JSON.stringify(data));
+        } catch { /* ignore quota errors */ }
+    }
+    function loadReadingPosition(chapterId: string): number {
+        try {
+            const data = JSON.parse(localStorage.getItem(READING_POS_KEY) || '{}');
+            return data[chapterId] ?? -1;
+        } catch { return -1; }
+    }
+
     let updating: Promise<void> = $derived.by(() =>
         item.Update()
-            .then(() => { displayedItem = item; })
+            .then(() => {
+                displayedItem = item;
+                // Restore saved reading position for this chapter
+                const saved = loadReadingPosition(item.Identifier);
+                if (saved >= 0) currentImageIndex = saved;
+            })
             .catch((error) => { displayedItem = undefined; throw error; })
     );
 
@@ -29,15 +56,18 @@
         UI.selectedItem = UI.selectedItemPrevious;
     }
     function onNextItem() {
+        saveReadingPosition(item.Identifier, 0);
         currentImageIndex = -1;
         if (wide && !UI.selectedItemNext) HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
         UI.selectedItem = UI.selectedItemNext;
     }
     function onClose() {
+        saveReadingPosition(item.Identifier, currentImageIndex);
         HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
     }
 
     function onCloseReader() {
+        saveReadingPosition(item.Identifier, currentImageIndex);
         if (Settings.ViewerFlagCurrentOnClose.Value) {
             HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
         }
