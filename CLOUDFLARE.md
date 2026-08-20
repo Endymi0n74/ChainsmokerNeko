@@ -206,4 +206,36 @@ Use this when Method A keeps looping (e.g. the IP is flagged):
 > **Import cf_clearance from browser** button does the same without copying.
 
 
+## 8. How to use JapScan
+
+JapScan has its own anti-bot challenge (a sliding puzzle "Glisse pour remettre
+dans l'ordre") on top of Cloudflare. The workflow is:
+
+### First-time warm-up
+
+1. **Open the app** and select **JapScan** from the plugin list.
+2. **Click the site URL** to open the real JapScan page in a visible window.
+3. **Solve the Cloudflare challenge** (check the box or wait for it to resolve).
+4. The page loads normally — close the window.
+5. Go back to JapScan → **Update**: the manga list loads.
+
+> This warm-up persists across restarts thanks to the shared session cookies.
+
+### Browsing chapters & downloading
+
+When you open a chapter or start a download, JapScan may present its own
+puzzle ("Glisse pour remettre dans l'ordre"). This happens periodically:
+
+- **Viewing pages** in the reader: the puzzle appears if JapScan detects
+  automated access. Solve it and the pages load.
+- **Downloading**: the same puzzle may pop up during the download. Solve it
+  and the download continues.
+- **Frequency**: once every few chapters or after a long idle period — not
+  on every single action.
+
+> If the puzzle never resolves (stuck), close the window and retry — the
+> session may have expired.
+
+---
+
 Developed with vibe coding, assisted by **Codebuff (Kumo)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.

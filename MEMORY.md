@@ -1076,3 +1076,9 @@ Causes observées, par fréquence, et parades :
   contiguë** du resourcemap (01, 02, … sans trou). 2120 tests verts, typecheck OK.
   Bundle x64 rebuildé via `bash scripts/bundle-x64.sh` et réinstallé dans la copie de test
   (userdata préservé).
+
+- **Doc JapScan ajoutée à CLOUDFLARE.md §8** (20 août soir) : pas-à-pas bilingue
+  pour JapScan (Cloudflare + puzzle anti-bot "Glisse pour remettre dans l'ordre") :
+  warm-up initial (clic URL → résoudre challenge → fermer → Update), puis résolution
+  du puzzle de temps en temps pendant l'affichage/téléchargement des chapitres.
+  Fréquence : pas à chaque action, mais tous les quelques chapitres ou après inactivité.
