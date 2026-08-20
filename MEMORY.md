@@ -1033,3 +1033,29 @@ Causes observées, par fréquence, et parades :
 - **Process pour les prochaines sessions** : `git fetch origin` puis `git log --oneline
   master..origin/master` → intégrer les `feat: add <site>` (fichiers + câblage si simple
   décorateurs/API) et les fixes de sites qu'on a (cherry-pick).
+
+## Lot de 4 tâches (20 août soir)
+
+- **Fix .bin JapScan** (commit `72e0bd6e`) : `isCDN` dans `FetchPages` filtrait
+  TOUTES les ressources `*.japscan.foo` (JS, wasm, …) → un `.bin` résiduel par
+  chapitre. Fix : regex d'extensions image (`\.(jpe?g|png|webp|gif|avif|bmp|tiff?)`)
+  ajoutée au filtre → seules les vraies images passent, le `.bin` disparaît.
+- **Fuse.js resserré** (commit `db7bc106`) : `findAllMatches:true` +
+  `minMatchCharLength:1` + `fieldNormWeight:0` matchaient ~21 % des 70k titres
+  en mode flou. Nouveau : `threshold:0.4`, `minMatchCharLength:2`,
+  `fieldNormWeight:0.3` → beaucoup moins de faux positifs, la sous-chaîne reste OK.
+- **Relecture persistée** (commit `543fb6fa`) : `Viewer.svelte` sauvegarde la
+  position (index d'image) par chapitre dans `localStorage` (`reading-position`,
+  plafond 500 entrées) à la fermeture/next et la restaure à l'ouverture.
+- **HerosWeb** : investigué en profondeur — le site est un **SPA Next.js/Comici**
+  (heros-web.com, séries `/series/<hex>`, épisodes `/episodes/<hex>`, images CDN
+  `cdn-public.comici.jp`). L'**upstream a déjà un template `ComiciViewer`**
+  (`templates/ComiciViewer.ts`) + `HerosWebNew.ts` câblé dans `_index.ts` qui
+  gère exactement ça (FetchWindowScript pour viewerId/memberJwt, API `book/contentsInfo`,
+  descramble). Ma réécriture custom était redondante → revertée ; l'ancien
+  `HerosWeb.ts` legacy (CoreView, site mort `viewer.heros-web.com`) reste non câblé.
+  ⚠️ Comici API en maintenance le 20 août → flux complet non testable ce jour-là.
+
+- Vérifié : tsc web 0 erreur, svelte-check 0 erreur, eslint sur les fichiers modifiés 0,
+  **2120 tests vitest verts** (5 skipped / 1 todo). Working tree propre après les 3 commits.
+
