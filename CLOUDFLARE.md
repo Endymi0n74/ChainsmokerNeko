@@ -156,6 +156,10 @@ source ("Imported … from Chrome"); failures are aggregated into a summary.
 
 ## 7. How to unblock CrunchyScan
 
+CrunchyScan is behind a Cloudflare "managed" challenge. The workflow is
+the **same principle as JapScan**: open the site once from the plugin list
+to resolve Cloudflare, then it works until the cookie expires.
+
 ### Method A — warm up the session from the app (simplest, validated)
 
 This is the **native flow**: the site's `Initialize()` opens a real visible

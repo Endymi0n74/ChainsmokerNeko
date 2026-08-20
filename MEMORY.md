@@ -1082,3 +1082,7 @@ Causes observées, par fréquence, et parades :
   warm-up initial (clic URL → résoudre challenge → fermer → Update), puis résolution
   du puzzle de temps en temps pendant l'affichage/téléchargement des chapitres.
   Fréquence : pas à chaque action, mais tous les quelques chapitres ou après inactivité.
+
+- **Doc CrunchyScan ajoutée à CLOUDFLARE.md §7** (20 août soir) : paragraphe
+  d'introduction bilingue rappelant le workflow identique à JapScan (ouvrir le
+  site une fois depuis les plugins → résoudre Cloudflare → le cookie persiste).
