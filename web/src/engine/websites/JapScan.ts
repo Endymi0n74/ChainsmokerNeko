@@ -77,7 +77,8 @@ export default class extends DecoratableMangaScraper {
     async #ExtractPagesFromReader(referer: string): Promise<string[]> {
         const script = `
             (() => {
-                const isCDN = u => typeof u === 'string' && u.length > 0 && u.indexOf('.japscan.foo') !== -1 && u.indexOf('www.japscan.foo') === -1;
+                const IMG_RE = /\.(jpe?g|png|webp|gif|avif|bmp|tiff?)(?:[?#]|$)/i;
+                const isCDN = u => typeof u === 'string' && u.length > 0 && u.indexOf('.japscan.foo') !== -1 && u.indexOf('www.japscan.foo') === -1 && IMG_RE.test(u);
                 const seen = new Set();
                 const collect = () => {
                     try {
