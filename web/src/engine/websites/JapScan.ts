@@ -80,9 +80,18 @@ export default class extends DecoratableMangaScraper {
                 const IMG_RE = /\.(jpe?g|png|webp|gif|avif|bmp|tiff?)(?:[?#]|$)/i;
                 const isCDN = u => typeof u === 'string' && u.length > 0 && u.indexOf('.japscan.foo') !== -1 && u.indexOf('www.japscan.foo') === -1 && IMG_RE.test(u);
                 const seen = new Set();
+                const isLoaded = img => {
+                    try {
+                        return img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+                    } catch (e) { return false; }
+                };
                 const collect = () => {
                     try {
                         document.querySelectorAll('img').forEach(img => {
+                            // Only collect images that actually decoded (naturalWidth > 0) —
+                            // placeholders/empty responses have no dimensions and would
+                            // otherwise be saved as an empty .bin file.
+                            if (!isLoaded(img)) return;
                             [img.currentSrc, img.src, img.getAttribute('data-src'), img.getAttribute('data-original'), img.getAttribute('data-lazy-src')].forEach(u => {
                                 if (isCDN(u)) seen.add(u);
                             });
@@ -90,7 +99,7 @@ export default class extends DecoratableMangaScraper {
                     } catch (e) {}
                     try {
                         performance.getEntriesByType('resource').forEach(entry => {
-                            if (entry && isCDN(entry.name)) seen.add(entry.name);
+                            if (entry && isCDN(entry.name) && entry.transferSize > 0) seen.add(entry.name);
                         });
                     } catch (e) {}
                 };

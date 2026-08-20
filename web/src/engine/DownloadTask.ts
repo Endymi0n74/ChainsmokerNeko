@@ -68,6 +68,11 @@ export class DownloadTask {
             const promises = this.Media.Entries.Value.map(async (item, index: number) => {
                 try {
                     const data = await item.Fetch(Priority.Low, cancellator.signal);
+                    // Skip empty blobs (e.g. JapScan placeholder responses with 0 bytes):
+                    // they would otherwise be exported as a 0-byte .bin file.
+                    if (data instanceof Blob && data.size === 0) {
+                        return;
+                    }
                     const resource = await this.storageController.SaveTemporary(data);
                     resourcemap.set(index, resource);
                     this.UpdateProgress(resourcemap.size);
@@ -81,7 +86,11 @@ export class DownloadTask {
             if(this.errors.Value.length === 0) {
                 this.UpdateProgress(-1 * this.Media.Entries.Value.length);
                 this.status.Value = Status.Processing;
-                await this.Media.Store(resourcemap);
+                // Re-index so the exported file numbering stays contiguous when
+                // empty blobs were skipped (e.g. index 0 dropped -> 01, 02, ...).
+                const reindexed = new Map<number, string>();
+                [...resourcemap.values()].forEach((resource, index) => reindexed.set(index, resource));
+                await this.Media.Store(reindexed);
             }
         } catch(error) {
             this.errors.Push(error instanceof Error ? error : new Error(error.toString()));
