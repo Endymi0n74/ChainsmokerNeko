@@ -27,20 +27,20 @@ paywall bypass), made reliable and covered by regression tests.
 
 ## Download
 
-The current stable release is **2.0.7** — 10 bundles, 3 OS (direct links):
+The current stable release is **2.1.0** — 10 bundles, 3 OS (direct links):
 
 | Platform | File |
 |---|---|
-| Windows x64 (portable) | [hakuneko-electron-v2.0.7-win32-x64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-win32-x64.zip) |
-| Windows x64 (installer) | [hakuneko-electron-v2.0.7-win32-x64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-win32-x64-setup.exe) |
-| Windows ia32 (portable) | [hakuneko-electron-v2.0.7-win32-ia32.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-win32-ia32.zip) |
-| Windows ia32 (installer) | [hakuneko-electron-v2.0.7-win32-ia32-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-win32-ia32-setup.exe) |
-| Windows ARM (portable) | [hakuneko-electron-v2.0.7-win32-arm64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-win32-arm64.zip) |
-| Windows ARM (installer) | [hakuneko-electron-v2.0.7-win32-arm64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-win32-arm64-setup.exe) |
-| macOS Intel | [hakuneko-electron-v2.0.7-darwin-x64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-darwin-x64.dmg) |
-| macOS Apple Silicon | [hakuneko-electron-v2.0.7-darwin-arm64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-darwin-arm64.dmg) |
-| Linux (AppImage) | [hakuneko-electron-v2.0.7-linux-x64.AppImage](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-linux-x64.AppImage) |
-| Linux (snap) | [hakuneko-electron-v2.0.7-linux-x64.snap](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.7/hakuneko-electron-v2.0.7-linux-x64.snap) |
+| Windows x64 (portable) | [hakuneko-electron-v2.1.0-win32-x64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-win32-x64.zip) |
+| Windows x64 (installer) | [hakuneko-electron-v2.1.0-win32-x64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-win32-x64-setup.exe) |
+| Windows ia32 (portable) | [hakuneko-electron-v2.1.0-win32-ia32.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-win32-ia32.zip) |
+| Windows ia32 (installer) | [hakuneko-electron-v2.1.0-win32-ia32-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-win32-ia32-setup.exe) |
+| Windows ARM (portable) | [hakuneko-electron-v2.1.0-win32-arm64.zip](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-win32-arm64.zip) |
+| Windows ARM (installer) | [hakuneko-electron-v2.1.0-win32-arm64-setup.exe](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-win32-arm64-setup.exe) |
+| macOS Intel | [hakuneko-electron-v2.1.0-darwin-x64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-darwin-x64.dmg) |
+| macOS Apple Silicon | [hakuneko-electron-v2.1.0-darwin-arm64.dmg](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-darwin-arm64.dmg) |
+| Linux (AppImage) | [hakuneko-electron-v2.1.0-linux-x64.AppImage](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-linux-x64.AppImage) |
+| Linux (snap) | [hakuneko-electron-v2.1.0-linux-x64.snap](https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.1.0/hakuneko-electron-v2.1.0-linux-x64.snap) |
 
 All releases are published on the fork's **Releases page**:
 

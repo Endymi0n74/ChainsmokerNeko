@@ -1092,3 +1092,10 @@ Causes observées, par fréquence, et parades :
   Fuse.js resserré, relecture persistée, doc CrunchyScan/JapScan, script build x64.
   Liens README FR/EN mis à jour. CI create-release vert (32415526555).
   Working tree propre.
+
+- **Release 2.1.0 publiée** (20 août soir) : 10 assets (3 Windows zip + 3 NSIS
+  setup + 2 macOS dmg + Linux AppImage + Linux snap). Changements :
+  - MangaFire limit 100→500 (77s→~15s estimé),
+  - PR upstream #1797/#1798 rebasées sur upstream/master.
+  Liens README FR/EN mis à jour. CI create-release vert (32419606317).
+  Working tree propre.
