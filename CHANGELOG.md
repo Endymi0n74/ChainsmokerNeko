@@ -3,6 +3,32 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.7] - 2026-08-20
+
+### Corrigé
+
+- **JapScan — fichier `.bin` résiduel** : le téléchargement produisait un
+  fichier `01.bin` vide (0 octet) à côté des vraies images. Cause : la
+  première URL collectée par le reader renvoyait un blob vide → fingerprint
+  MIME échouait → extension `.bin`. Fix en deux couches : (1) filtre
+  d'extension image (`.jpg/.png/.webp/...`) sur les URLs du CDN JapScan,
+  (2) `DownloadTask` ignore les blobs vides (`size === 0`) et ré-indexe
+  les fichiers restants pour une numérotation contiguë (01, 02, …).
+
+### Amélioré
+
+- **Recherche floue Fuse.js** : options resserrées (`threshold: 0.4`,
+  `minMatchCharLength: 2`, `fieldNormWeight: 0.3`) — beaucoup moins de
+  faux positifs en mode flou sur les 70k titres MangaFire.
+- **Relecture persistée** : la position de lecture (image courante) est
+  sauvegardée par chapitre dans `localStorage` et restaurée à
+  l'ouverture — reprendre là où on s'était arrêté.
+- **Doc Cloudflare** : guide pas-à-pas pour JapScan (puzzle anti-bot,
+  warm-up initial) et CrunchyScan (même principe) ajoutés dans
+  `CLOUDFLARE.md` §§7-8.
+- **Build simplifié** : script unique `bash scripts/bundle-x64.sh`
+  (web + electron + zip x64 en une commande, PATH npm géré).
+
 ## [2.0.6] - 2026-08-19
 
 ### Corrigé
