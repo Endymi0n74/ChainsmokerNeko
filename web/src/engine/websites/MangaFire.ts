@@ -181,7 +181,7 @@ export default class extends DecoratableMangaScraper {
                             if (attempt > 0) {
                                 await new Promise(done => setTimeout(done, 1000 * attempt));
                             }
-                            const response = await __fetch('/api/titles', { page: p, limit: 100 });
+                            const response = await __fetch('/api/titles', { page: p, limit: 500 });
                             if (response.ok) return response;
                         }
                         return null;
