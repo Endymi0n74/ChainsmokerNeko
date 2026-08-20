@@ -1086,3 +1086,9 @@ Causes observées, par fréquence, et parades :
 - **Doc CrunchyScan ajoutée à CLOUDFLARE.md §7** (20 août soir) : paragraphe
   d'introduction bilingue rappelant le workflow identique à JapScan (ouvrir le
   site une fois depuis les plugins → résoudre Cloudflare → le cookie persiste).
+
+- **Release 2.0.7 publiée** (20 août soir) : 10 assets (3 Windows zip + 3 NSIS
+  setup + 2 macOS dmg + Linux AppImage + Linux snap). Changelog : fix .bin JapScan,
+  Fuse.js resserré, relecture persistée, doc CrunchyScan/JapScan, script build x64.
+  Liens README FR/EN mis à jour. CI create-release vert (32415526555).
+  Working tree propre.
