@@ -250,13 +250,19 @@ cd haruneko/web && node ../node_modules/eslint/bin/eslint.js src --ext .ts,.svel
 # svelte-check / vue-tsc
 cd haruneko/web && node ../node_modules/svelte-check/bin/svelte-check
 cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
-# build web puis electron (ordre imposé : electron copie web/build)
+# ⭐ BUNDLE DE TEST x64 EN UNE COMMANDE (recommandé) :
+#   construit web + electron (copie web + manifest + main/preload) + zip x64, PATH npm géré
+bash scripts/bundle-x64.sh              # depuis D:\Codex\haruneko (wrapper → npm run bundle:x64)
+#   → zip dans app/electron/bundle/hakuneko-electron-v<version>-win32-x64.zip
+#   ⚠️ npm n'est PAS trouvé depuis Git Bash par défaut : toujours passer par ce wrapper
+#      (ou `export PATH="/c/Program Files/nodejs:$PATH"` avant npm).
+# Build web puis electron (ordre imposé : electron copie web/build) — équivalent manuel :
 cd haruneko/web && node ../node_modules/vite/bin/vite.js build
 cd haruneko/app/electron && node ./scripts/build-app.mjs
 cd haruneko/app/electron && ../../node_modules/.bin/vite build   # main.js + preload.js
 # sonde Electron (fenêtre de test) — tourne sous le nom de processus `electron.exe`
 cd haruneko && ./node_modules/electron/dist/electron.exe app/electron/.tmp/xxx.cjs
-# bundles Windows (3 arches) — le cache électron est .tmp/electron-zips (disque du repo, D:)
+# bundles Windows complets (3 arches + setup.exe NSIS) — le cache électron est .tmp/electron-zips (D:)
 cd haruneko/app/electron && node scripts/deploy-app.mjs
 # lancer l'app EN PROD via l'exe du bundle (nom de processus `hakuneko.exe`) :
 #   1. extraire bundle/hakuneko-electron-v0.1.0-win32-<arch>.zip

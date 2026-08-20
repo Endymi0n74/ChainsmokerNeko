@@ -26,6 +26,7 @@
         "check": "npm run check:ts && eslint",
         "build": "node ./scripts/build-app.mjs && vite build",
         "bundle": "npm run build && node ./scripts/deploy-app.mjs",
+        "bundle:x64": "node ./scripts/bundle-x64.mjs",
         "test": "vitest run",
         "launch:dev": "npm run build && electron ./build --origin=https://localhost:3000 --ignore-certificate-errors",
         "launch:prod": "npm run build && electron ./build --origin=https://localhost:5000 --ignore-certificate-errors"
