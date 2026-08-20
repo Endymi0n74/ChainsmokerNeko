@@ -3,6 +3,18 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.0] - 2026-08-20
+
+### Amélioré
+
+- **MangaFire — chargement de la liste** : la limite par page de l'API est
+  passée de 100 à 500 titres, réduisant le nombre de requêtes de ~702 à
+  ~141. Le temps de chargement passe d'environ 77 s à ~15 s (estimé).
+  Dégradation gracieuse si le serveur impose une limite inférieure.
+- **PR upstream relancées** : rebasées sur upstream/master (18 commits
+  en retard) — PR #1797 (Cloudflare fixes) et #1798 (perf optimizations)
+  prêtes pour review.
+
 ## [2.0.7] - 2026-08-20
 
 ### Corrigé
