@@ -16,10 +16,10 @@ addEventListener('message', (event: MessageEvent<Payload>) => {
 function SetCollection(titles: string[]): void {
     fuse = new Fuse(titles.map(title => ({ title })), {
         keys: ['title'],
-        findAllMatches: true,
+        threshold: 0.4,
         ignoreLocation: true,
-        minMatchCharLength: 1,
-        fieldNormWeight: 0,
+        minMatchCharLength: 2,
+        fieldNormWeight: 0.3,
     });
     postMessage({ action: 'FuseSearch::Ready' });
 }
