@@ -1065,3 +1065,14 @@ Causes observées, par fréquence, et parades :
 - Vérifié : tsc web 0 erreur, svelte-check 0 erreur, eslint sur les fichiers modifiés 0,
   **2120 tests vitest verts** (5 skipped / 1 todo). Working tree propre après les 3 commits.
 
+
+- **Fix .bin JapScan v2 (commit `4a5c2a92`, 20 août soir)** : le `01.bin` était un
+  **fichier VIDE (0 octet)** — pas un problème de liste d'URLs. La 1re image collectée
+  par le reader renvoyait un blob 0 octet → `GetTypedData` ne matche aucun fingerprint
+  → `application/octet-stream` → extension `.bin` dans `MangaExporter`. Fix en 2 couches :
+  (1) script JapScan : ne collecter que les `<img>` réellement décodés
+  (`naturalWidth/Height > 0`) + ressources `transferSize > 0` ; (2) `DownloadTask.Run` :
+  **skip des blobs vides** (`data instanceof Blob && data.size === 0`) + **re-indexation
+  contiguë** du resourcemap (01, 02, … sans trou). 2120 tests verts, typecheck OK.
+  Bundle x64 rebuildé via `bash scripts/bundle-x64.sh` et réinstallé dans la copie de test
+  (userdata préservé).
