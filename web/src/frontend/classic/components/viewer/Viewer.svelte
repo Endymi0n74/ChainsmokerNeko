@@ -17,14 +17,18 @@
 
     let displayedItem: MediaContainer<MediaItem> = $state();;
     let currentImageIndex: number = $state(-1);
+    let scrollPx: number = $state(0);
+    let _savedPosition: ReadingPosition = $state({ imageIndex: -1, scrollPx: 0 });
 
     // Reading position persistence — save/restore via localStorage
+    // Stores { imageIndex: number, scrollPx: number } per chapter for precise restore
     const READING_POS_KEY = 'reading-position';
-    function saveReadingPosition(chapterId: string, imageIndex: number) {
+    interface ReadingPosition { imageIndex: number; scrollPx: number; }
+    function saveReadingPosition(chapterId: string, pos: ReadingPosition) {
         try {
-            if (imageIndex < 0) return;
+            if (pos.imageIndex < 0) return;
             const data = JSON.parse(localStorage.getItem(READING_POS_KEY) || '{}');
-            data[chapterId] = imageIndex;
+            data[chapterId] = pos;
             // Cap at 500 entries to avoid unbounded growth
             const keys = Object.keys(data);
             if (keys.length > 500) {
@@ -33,11 +37,14 @@
             localStorage.setItem(READING_POS_KEY, JSON.stringify(data));
         } catch { /* ignore quota errors */ }
     }
-    function loadReadingPosition(chapterId: string): number {
+    function loadReadingPosition(chapterId: string): ReadingPosition {
         try {
-            const data = JSON.parse(localStorage.getItem(READING_POS_KEY) || '{}');
-            return data[chapterId] ?? -1;
-        } catch { return -1; }
+            const raw = JSON.parse(localStorage.getItem(READING_POS_KEY) || '{}');
+            const val = raw[chapterId];
+            // Backward compat: old format stored a plain number
+            if (typeof val === 'number') return { imageIndex: val, scrollPx: 0 };
+            return val ?? { imageIndex: -1, scrollPx: 0 };
+        } catch { return { imageIndex: -1, scrollPx: 0 }; }
     }
 
     let updating: Promise<void> = $derived.by(() =>
@@ -45,8 +52,8 @@
             .then(() => {
                 displayedItem = item;
                 // Restore saved reading position for this chapter
-                const saved = loadReadingPosition(item.Identifier);
-                if (saved >= 0) currentImageIndex = saved;
+                _savedPosition = loadReadingPosition(item.Identifier);
+                if (_savedPosition.imageIndex >= 0) currentImageIndex = _savedPosition.imageIndex;
             })
             .catch((error) => { displayedItem = undefined; throw error; })
     );
@@ -56,18 +63,18 @@
         UI.selectedItem = UI.selectedItemPrevious;
     }
     function onNextItem() {
-        saveReadingPosition(item.Identifier, 0);
+        saveReadingPosition(item.Identifier, { imageIndex: 0, scrollPx: 0 });
         currentImageIndex = -1;
         if (wide && !UI.selectedItemNext) HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
         UI.selectedItem = UI.selectedItemNext;
     }
     function onClose() {
-        saveReadingPosition(item.Identifier, currentImageIndex);
+        saveReadingPosition(item.Identifier, { imageIndex: currentImageIndex, scrollPx });
         HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
     }
 
     function onCloseReader() {
-        saveReadingPosition(item.Identifier, currentImageIndex);
+        saveReadingPosition(item.Identifier, { imageIndex: currentImageIndex, scrollPx });
         if (Settings.ViewerFlagCurrentOnClose.Value) {
             HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
         }
@@ -118,11 +125,13 @@
                 <ImageViewer
                     item={displayedItem}
                     {currentImageIndex}
+                    savedScrollPx={_savedPosition.scrollPx}
                     bind:wide
                     {onNextItem}
                     {onPreviousItem}
                     {onClose}
                     {onCloseReader}
+                    onScrollUpdate={(px) => scrollPx = px}
                 />
             {:else if mode === 'Video'}
                 <VideoViewer />

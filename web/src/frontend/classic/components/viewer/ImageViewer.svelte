@@ -7,11 +7,13 @@
     interface Props {
         item: MediaContainer<MediaItem>;
         currentImageIndex: number;
+        savedScrollPx?: number;
         wide: boolean;
         onNextItem: () => void;
         onPreviousItem: () => void;
         onClose: () => void;
         onCloseReader: () => void;
+        onScrollUpdate?: (scrollPx: number) => void;
     };
 
     // UI
@@ -40,7 +42,7 @@
         viewer?.removeEventListener('scroll', onScroll);
     });
 
-    let { item, currentImageIndex, wide = $bindable(), onNextItem, onPreviousItem, onClose, onCloseReader }: Props = $props();
+    let { item, currentImageIndex, savedScrollPx = 0, wide = $bindable(), onNextItem, onPreviousItem, onClose, onCloseReader, onScrollUpdate }: Props = $props();
     let entries = $derived(item.Entries.Value);
     let viewer: HTMLElement;
 
@@ -135,6 +137,8 @@
     }
 
     async function onScroll() {
+        // Report scroll position for persistence
+        onScrollUpdate?.(viewer.scrollTop);
         const scrollableHeight = viewer.scrollHeight - viewer.clientHeight;
         if (viewer.scrollTop >= scrollableHeight) {
             if (!autoNextItem) onNextItemCallback();
@@ -144,11 +148,17 @@
     // Drag and drop scroll
     let pos = { top: 0, left: 0, x: 0, y: 0 };
 
-    // Entering wide mode : scroll to image
+    // Entering wide mode : scroll to saved position (image index or exact px offset)
     $effect(() => {
         if (wide) {
-            if (currentImageIndex != -1) {
-                // delay because of smooth transition
+            if (savedScrollPx > 0 && currentImageIndex != -1) {
+                // Restore exact scroll position (strip/longstrip mode)
+                setTimeout(() => {
+                    viewer.scrollTop = savedScrollPx;
+                    currentImageIndex = -1;
+                }, 200);
+            } else if (currentImageIndex != -1) {
+                // Restore by image index (paginated mode)
                 setTimeout(() => {
                     const targetScrollImage =
                         viewer.querySelectorAll('ImageViewer>img')[
