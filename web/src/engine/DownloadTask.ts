@@ -70,7 +70,7 @@ export class DownloadTask {
                     const data = await item.Fetch(Priority.Low, cancellator.signal);
                     // Skip empty or non-image blobs (e.g. JapScan CDN resources, placeholders):
                     // empty blobs export as 0-byte .bin; non-image blobs shift file numbering.
-                    if (data instanceof Blob && (data.size === 0 || (data.type.length > 0 && !data.type.startsWith("image/")))) {
+                    if (data instanceof Blob && (data.size === 0 || data.type.length > 0 && !data.type.startsWith("image/"))) {
                         return;
                     }
                     const resource = await this.storageController.SaveTemporary(data);
