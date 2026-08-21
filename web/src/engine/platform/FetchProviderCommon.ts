@@ -357,12 +357,6 @@ export abstract class FetchProvider {
 
         win.BeforeWindowNavigate.Subscribe(async uri => {
             invocations.push({ name: 'BeforeNavigate', info: `URL: ${uri.href}` });
-            // NOTE: Do NOT hide the window here. The window is created with `show:false` and calling
-            // `win.Hide()` flips the renderer to `document.hidden=true`, which makes Cloudflare's
-            // managed challenge pause forever ("Un instant…" / "Just a moment…"). The `cf_clearance`
-            // cookie is only issued while the window is actually visible, so sites that opted into the
-            // stalled-challenge reload get `win.Show()` in the Automatic branch below; all other sites
-            // keep the hidden window (no flash) and simply wait for the challenge to auto-resolve.
             return null;
         });
 

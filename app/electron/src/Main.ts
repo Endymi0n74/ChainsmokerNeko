@@ -190,10 +190,7 @@ async function OpenWindow(): Promise<void> {
         const argv = ParseCLI();
         const manifest = await LoadManifest();
         await SetupUserDataDirectory(manifest);
-        // FIX: Cloudflare flags the app's product token (e.g. "hakuneko-electron/43.3.0", inserted by
-        // Electron from package.json `name`/`version`) as a bot UA and serves an endless "Just a moment…"
-        // managed challenge (probe-verified: the standard Chromium/Electron UA passes instantly).
-        // Strip the product token so the default UA is the plain `... Chrome/x Electron/x Safari/x` one.
+        // Strip the app-specific product token to avoid Cloudflare bot detection.
         const productToken = `${app.getName()}/${app.getVersion()}`;
         app.userAgentFallback = manifest['user-agent']
             ?? app.userAgentFallback.replace(new RegExp(`(^|\\s)${productToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s?`), '$1');

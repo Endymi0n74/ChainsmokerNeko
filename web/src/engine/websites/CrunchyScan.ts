@@ -59,8 +59,8 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async Initialize(): Promise<void> {
-        // Ouvre une fenêtre navigateur sur la racine pour déclencher le challenge
-        // Cloudflare et conserver le cookie cf_clearance dans la session partagée.
+        // Open a browser window on first load to let Cloudflare set the
+        // cf_clearance cookie in the app's shared Chromium session.
         await FetchWindowScript(new Request(this.URI.href), '');
     }
 
