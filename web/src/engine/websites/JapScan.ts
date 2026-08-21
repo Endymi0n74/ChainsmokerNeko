@@ -90,7 +90,7 @@ export default class extends DecoratableMangaScraper {
                     } catch (e) {}
                     try {
                         performance.getEntriesByType('resource').forEach(entry => {
-                            if (entry && isCDN(entry.name)) seen.add(entry.name);
+                            if (entry && isCDN(entry.name) && (!entry.initiatorType || entry.initiatorType === 'img' || entry.initiatorType === 'fetch' || entry.initiatorType === 'xmlhttprequest')) seen.add(entry.name);
                         });
                     } catch (e) {}
                 };

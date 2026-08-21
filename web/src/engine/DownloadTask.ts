@@ -68,9 +68,9 @@ export class DownloadTask {
             const promises = this.Media.Entries.Value.map(async (item, index: number) => {
                 try {
                     const data = await item.Fetch(Priority.Low, cancellator.signal);
-                    // Skip empty blobs (e.g. JapScan placeholder responses with 0 bytes):
-                    // they would otherwise be exported as a 0-byte .bin file.
-                    if (data instanceof Blob && data.size === 0) {
+                    // Skip empty or non-image blobs (e.g. JapScan CDN resources, placeholders):
+                    // empty blobs export as 0-byte .bin; non-image blobs shift file numbering.
+                    if (data instanceof Blob && (data.size === 0 || (data.type.length > 0 && !data.type.startsWith("image/")))) {
                         return;
                     }
                     const resource = await this.storageController.SaveTemporary(data);
