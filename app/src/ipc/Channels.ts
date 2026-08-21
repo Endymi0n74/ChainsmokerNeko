@@ -138,6 +138,8 @@ export namespace AppUpdate {
     export enum App {
         /** Channel for IPC callback with signature: `() => Promise<{ version: string, url: string, notes: string } | null>` */
         Check = 'AppUpdate::Check',
+        /** Channel for IPC callback with signature: `(version: string) => Promise<string>` */
+        DownloadAndInstall = 'AppUpdate::DownloadAndInstall',
     }
 }
 
