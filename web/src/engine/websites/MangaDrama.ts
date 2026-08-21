@@ -608,6 +608,25 @@ export default class extends DecoratableMangaScraper {
                         || img.getAttribute('src');
                 };
 
+                const isParasiteImage = (url, img) => {
+                    // Small images (< 100px) are icons, avatars, badges — never chapter content
+                    const w = img.naturalWidth || img.width || 0;
+                    const h = img.naturalHeight || img.height || 0;
+                    if(w > 0 && w < 100) return true;
+                    if(h > 0 && h < 100) return true;
+
+                    // URL keyword filter (broader than before)
+                    if(/(?:^|[\\/_.-])(logo|avatar|icon|banner|ads?|emoji|spinner|loading|badge|emoji|user|profile|gravatar|thumb|button|social|share|comment|reply|widget|sidebar|header|footer|nav|menu)(?:[\\/_.-]|$)/i.test(url)) {
+                        return true;
+                    }
+                    // WordPress gravatar CDN
+                    if(/gravatar\.com/i.test(url)) return true;
+                    // wp-content/uploads small assets (icons, thumbnails)
+                    if(/wp-content\/uploads\/(?!\d{4}\/\d{2}\/)\S+\.(?:png|gif|svg)/i.test(url)) return true;
+
+                    return false;
+                };
+
                 const extractImages = () => {
                     const result = [];
                     const seen = new Set();
@@ -619,8 +638,10 @@ export default class extends DecoratableMangaScraper {
                         document.querySelector('.entry-content'),
                         document.querySelector('.wp-manga-chapter-img'),
                         document.querySelector('article'),
-                        document.body
                     ].filter(Boolean);
+
+                    // Fallback to document.body only if no specific chapter container found
+                    if(roots.length === 0) roots.push(document.body);
 
                     for(const root of roots) {
                         for(const img of root.querySelectorAll('img')) {
@@ -630,10 +651,7 @@ export default class extends DecoratableMangaScraper {
                             try {
                                 const url = new URL(src.trim().replaceAll('&amp;', '&'), location.href).href;
                                 if(seen.has(url)) continue;
-
-                                if(/(?:^|[\\/_.-])(logo|avatar|icon|banner|ads?|emoji|spinner|loading)(?:[\\/_.-]|$)/i.test(url)) {
-                                    continue;
-                                }
+                                if(isParasiteImage(url, img)) continue;
 
                                 seen.add(url);
                                 result.push(url);
