@@ -7,12 +7,9 @@ import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
 import { AddStalledChallengeReload } from '../platform/ChallengeReload';
 import { FetchWindowScript } from '../platform/FetchProvider';
-import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
 
 import { DRMProvider } from './CrunchyScan.DRM';
 
-// Affiche la fenêtre navigateur quand Cloudflare présente son challenge
-// (page « Un instant… » / « Vérifiez que vous êtes humain »).
 AddAntiScrapingDetection(async invoke => {
     const challenged = await invoke<boolean>(`
         (() => {
@@ -25,9 +22,6 @@ AddAntiScrapingDetection(async invoke => {
     return challenged ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?crunchyscan\.org/);
 
-// Opt-in pour le reload automatique des challenges Cloudflare « managés » sans widget
-// (la page garde un cf_clearance valide mais ne redirige jamais). C'est le seul site
-// dont on recharge la page pour obtenir le contenu réel.
 AddStalledChallengeReload(/^https:\/\/(?:www\.)?crunchyscan\.org/);
 
 function CleanTitle(text: string) {
@@ -48,9 +42,6 @@ export default class extends DecoratableMangaScraper {
 
     readonly #drm = new DRMProvider();
 
-    // Le fonctionnement normal de CrunchyScan passe par une vraie fenêtre
-    // navigateur (challenge Cloudflare interactif) — la vérification silencieuse
-    // du nouveau contenu saute donc ce site (réglage check-new-content-silent).
     public override readonly RequiresVisibleBrowserWindow = true;
 
     public constructor() {
@@ -59,8 +50,6 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async Initialize(): Promise<void> {
-        // Open a browser window on first load to let Cloudflare set the
-        // cf_clearance cookie in the app's shared Chromium session.
         await FetchWindowScript(new Request(this.URI.href), '');
     }
 
@@ -74,28 +63,6 @@ export default class extends DecoratableMangaScraper {
     }
 
     public async FetchImage(page: Page, priority: Priority, signal: AbortSignal): Promise<Blob> {
-        return this.imageTaskPool.Add(async () => {
-            // Cloudflare peut challenger ou faire traîner une requête image de façon
-            // intermittente (403 / connexion figée) → timeout par tentative + 3 essais.
-            let lastError: unknown;
-            for (let attempt = 0; attempt < 3; attempt++) {
-                if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-                const attemptSignal = new AbortController();
-                const onAbort = () => attemptSignal.abort();
-                signal.addEventListener('abort', onAbort, { once: true });
-                const timeout = await SetTimeout(() => attemptSignal.abort(), 30_000);
-                try {
-                    return await this.#drm.GetImageData(page.Link, page.Parameters.Referer, attemptSignal.signal);
-                } catch (error) {
-                    if (signal.aborted) throw error;
-                    lastError = error;
-                } finally {
-                    ClearTimeout(timeout);
-                    signal.removeEventListener('abort', onAbort);
-                }
-                await Delay(1000 * (attempt + 1));
-            }
-            throw lastError instanceof Error ? lastError : new Error(String(lastError));
-        }, priority, signal);
+        return this.imageTaskPool.Add(() => this.#drm.GetImageData(page.Link, page.Parameters.Referer, signal), priority, signal);
     }
 }

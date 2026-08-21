@@ -190,7 +190,6 @@ async function OpenWindow(): Promise<void> {
         const argv = ParseCLI();
         const manifest = await LoadManifest();
         await SetupUserDataDirectory(manifest);
-        // Strip the app-specific product token to avoid Cloudflare bot detection.
         const productToken = `${app.getName()}/${app.getVersion()}`;
         app.userAgentFallback = manifest['user-agent']
             ?? app.userAgentFallback.replace(new RegExp(`(^|\\s)${productToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s?`), '$1');
