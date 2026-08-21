@@ -1165,3 +1165,10 @@ Causes observées, par fréquence, et parades :
 - **Lint fix** : parenthèses inutiles supprimées dans DownloadTask (no-extra-parens eslint rule).
 - **CI** : push-ci fork toujours en échec — les erreurs Svelte parsing sont pré-existantes dans la config eslint.
 - **État des PRs upstream** : #1797 (Cloudflare), #1798 (perf), #1804 (CrunchyScan), #1805 (JapScan) — 21+ réponses postées, tous les commentaires addressés.
+
+## 27. Fixes review Copilot + lint Svelte CI (22 aout 2026)
+
+- **FetchProviderCommon** : retire le check `cfClearance.value.length > 200` (trop strict, Cloudflare ne garantit pas 201+ chars).
+- **CrunchyScan** : skip le backoff après le 3ème échec (inutile de delay avant de throw).
+- **eslint.config.js** : ajoute `ignores: ["src/**/*.svelte", "src/**/*.vue"]` — les .svelte n étaient pas ciblés par `files` mais eslint les processait quand même, causant 109 erreurs "Unexpected token <" qui bloquaient tout le CI.
+- **CI** : devrait passer enfin après des semaines déchecs.
