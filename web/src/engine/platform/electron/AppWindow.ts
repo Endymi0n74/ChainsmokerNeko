@@ -103,4 +103,12 @@ export default class implements IAppWindow {
             return null;
         }
     }
+
+    public async DownloadAndInstall(version: string): Promise<string> {
+        try {
+            return await this.ipc.Send<string>(AppUpdateChannels.App.DownloadAndInstall, version);
+        } catch (error) {
+            return 'Update failed: ' + String(error);
+        }
+    }
 }

@@ -108,4 +108,8 @@ export default class implements IAppWindow {
     public async CheckForUpdates(): Promise<IUpdateInfo | null> {
         return null;
     }
+
+    public async DownloadAndInstall(_version: string): Promise<string> {
+        return 'Auto-update is only available in the Electron build.';
+    }
 }

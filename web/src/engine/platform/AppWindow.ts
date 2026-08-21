@@ -57,6 +57,11 @@ export interface IAppWindow {
      * app version, otherwise resolve to `null`.
      */
     CheckForUpdates(): Promise<IUpdateInfo | null>;
+    /**
+     * Download the platform-specific update zip and install it (replace app + restart).
+     * Returns a human-readable status message.
+     */
+    DownloadAndInstall(version: string): Promise<string>;
 }
 
 export function CreateAppWindow(splashURL: string): IAppWindow {
