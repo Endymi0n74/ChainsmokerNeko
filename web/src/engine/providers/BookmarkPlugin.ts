@@ -79,12 +79,16 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
 
     public async RefreshAllFlags(skipWindowSites = false) {
         for (const media of super.Entries.Value) {
-            // En mode silencieux, on ignore les sites dont le fonctionnement
-            // normal nécessite une fenêtre navigateur visible (ex. CrunchyScan),
-            // pour ne pas ouvrir de fenêtre Cloudflare pendant la vérification.
             if (skipWindowSites && this.RequiresVisibleWindow(media)) continue;
-            await media.Update();
-            HakuNeko.ItemflagManager.LoadContainerFlags(media);
+            try {
+                await media.Update();
+                HakuNeko.ItemflagManager.LoadContainerFlags(media);
+            } catch {
+                // Skip bookmarks whose site is unreachable (e.g. CrunchyScan
+                // without cf_clearance). Prevents one failing site from
+                // aborting the entire new-content scan.
+                continue;
+            }
         }
     }
 
@@ -110,7 +114,9 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
         const periodMinutes = settings.Get<Numeric>(GlobalKey.CheckNewContentPeriod).Value;
         const lastRun = Number(window.localStorage.getItem(CheckNewContentTimestampKey) ?? 0);
         if (force || ShouldRefreshContentFlags(lastRun, Date.now(), periodMinutes)) {
-            const silent = settings.Get<Check>(GlobalKey.CheckNewContentSilent).Value;
+            // When manually triggered (force), always check all bookmarks
+            // including window-required sites like CrunchyScan.
+            const silent = !force && settings.Get<Check>(GlobalKey.CheckNewContentSilent).Value;
             try {
                 await this.RefreshAllFlags(silent);
             } finally {

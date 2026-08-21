@@ -609,21 +609,9 @@ export default class extends DecoratableMangaScraper {
                 };
 
                 const isParasiteImage = (url, img) => {
-                    // Small images (< 100px) are icons, avatars, badges — never chapter content
-                    const w = img.naturalWidth || img.width || 0;
-                    const h = img.naturalHeight || img.height || 0;
-                    if(w > 0 && w < 100) return true;
-                    if(h > 0 && h < 100) return true;
-
-                    // URL keyword filter (broader than before)
-                    if(/(?:^|[\\/_.-])(logo|avatar|icon|banner|ads?|emoji|spinner|loading|badge|emoji|user|profile|gravatar|thumb|button|social|share|comment|reply|widget|sidebar|header|footer|nav|menu)(?:[\\/_.-]|$)/i.test(url)) {
-                        return true;
-                    }
-                    // WordPress gravatar CDN
-                    if(/gravatar\.com/i.test(url)) return true;
-                    // wp-content/uploads small assets (icons, thumbnails)
-                    if(/wp-content\/uploads\/(?!\d{4}\/\d{2}\/)\S+\.(?:png|gif|svg)/i.test(url)) return true;
-
+                    if(/gravatar.com/i.test(url)) return true;
+                    if(/(?:^|[/_.-])(logo|avatar|icon|banner|spinner|loading)(?:[/_.-]|$)/i.test(url)) return true;
+                    if(/\.webp(?:\?|$)/i.test(url)) return true;
                     return false;
                 };
 

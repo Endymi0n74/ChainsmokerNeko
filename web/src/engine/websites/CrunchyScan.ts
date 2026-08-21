@@ -7,6 +7,7 @@ import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
 import { AddStalledChallengeReload } from '../platform/ChallengeReload';
 import { FetchWindowScript } from '../platform/FetchProvider';
+import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
 
 import { DRMProvider } from './CrunchyScan.DRM';
 
@@ -63,6 +64,26 @@ export default class extends DecoratableMangaScraper {
     }
 
     public async FetchImage(page: Page, priority: Priority, signal: AbortSignal): Promise<Blob> {
-        return this.imageTaskPool.Add(() => this.#drm.GetImageData(page.Link, page.Parameters.Referer, signal), priority, signal);
+        return this.imageTaskPool.Add(async () => {
+            let lastError: unknown;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+                const attemptSignal = new AbortController();
+                const onAbort = () => attemptSignal.abort();
+                signal.addEventListener("abort", onAbort, { once: true });
+                const timeout = await SetTimeout(() => attemptSignal.abort(), 30_000);
+                try {
+                    return await this.#drm.GetImageData(page.Link, page.Parameters.Referer, attemptSignal.signal);
+                } catch (error) {
+                    if (signal.aborted) throw error;
+                    lastError = error;
+                } finally {
+                    ClearTimeout(timeout);
+                    signal.removeEventListener("abort", onAbort);
+                }
+                await Delay(1000 * (attempt + 1));
+            }
+            throw lastError instanceof Error ? lastError : new Error(String(lastError));
+        }, priority, signal);
     }
 }
