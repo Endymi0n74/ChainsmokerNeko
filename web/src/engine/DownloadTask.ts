@@ -88,8 +88,15 @@ export class DownloadTask {
                 this.status.Value = Status.Processing;
                 // Re-index so the exported file numbering stays contiguous when
                 // empty blobs were skipped (e.g. index 0 dropped -> 01, 02, ...).
+                // Iterate by original index (not insertion order) to preserve
+                // page order even when Promise.allSettled resolves out of order.
                 const reindexed = new Map<number, string>();
-                [...resourcemap.values()].forEach((resource, index) => reindexed.set(index, resource));
+                let newIdx = 0;
+                for(let i = 0; i < this.Media.Entries.Value.length; i++) {
+                    if(resourcemap.has(i)) {
+                        reindexed.set(newIdx++, resourcemap.get(i));
+                    }
+                }
                 await this.Media.Store(reindexed);
             }
         } catch(error) {
