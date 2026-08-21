@@ -1116,6 +1116,22 @@ Causes observées, par fréquence, et parades :
 
 ## 24. Fixes MangaDrama .webp + Bookmarks refresh (22 aout 2026)
 
+## 25. Fix download ordering + MangaDrama restore (22 aout 2026)
+
+- **DownloadTask reindexing fix** : […resourcemap.values()] iterated by
+  insertion order (Promise completion order), not original page index.
+  When Promise.allSettled resolves out of order, exported files were
+  misnumbered. Fixed to iterate by original index (0, 1, 2, ...).
+  This fixes JapScan and all other multi-page downloads.
+
+- **MangaDrama restore** : commit 3bac3c3d accidentally replaced the
+  complete isParasiteImage function with a minimal 3-line version.
+  Restored to the proven version from a5fd43fc.
+  Deploy was also stale (web/ contained old build) — fixed with clean copy.
+
+- Deploy path : web/ in Hakuneko/resources/app/ must match web/build/ exactly.
+  No nested web/web/ or web_new/ artifacts.
+
 - **MangaDrama .webp parasites** : le regex /.webp was broken in the file
   (missing backslash escapes). Fixed to /.webp(?:?|$)/i.
   WordPress decoration .webp files are now properly filtered.
@@ -1132,3 +1148,11 @@ Causes observées, par fréquence, et parades :
   refresh. Now force=true always checks ALL bookmarks.
 
 - **Build v2.1.1** updated with all fixes. Typecheck OK, 2128 tests pass.
+## 25. Fix download ordering + MangaDrama restore (22 aout 2026)
+
+- **DownloadTask reindexing fix**: [...resourcemap.values()] iterated by insertion order (Promise completion order), not original page index. When Promise.allSettled resolves out of order, exported files were misnumbered. Fixed to iterate by original index (0, 1, 2, ...). This fixes JapScan and all other multi-page downloads.
+
+- **MangaDrama restore**: commit 3bac3c3d accidentally replaced the complete isParasiteImage function with a minimal 3-line version. Restored to the proven version from a5fd43fc.
+
+- **Deploy discipline**: web/ in Hakuneko/resources/app/ must match web/build/ exactly. No nested web/web/ artifacts.
+
