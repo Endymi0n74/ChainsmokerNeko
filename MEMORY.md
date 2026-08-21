@@ -1085,3 +1085,50 @@ Causes observées, par fréquence, et parades :
   - PR upstream #1797/#1798 rebasées sur upstream/master.
   Liens README FR/EN mis à jour. CI create-release vert (32419606317).
   Working tree propre.
+
+- **Fix regressions MangaDrama + CrunchyScan** (22 aout) :
+  - **CrunchyScan** : restauration du retry 3x sur FetchImage (timeout 30s par
+    tentative, backoff 1s/2s/3s) — supprime par erreur dans le commit
+    a5fd43fc (reponse au reviewer 27136773). Le retry nest PAS pour les
+    challenges Cloudflare, mais pour les erreurs intermittentes (403 transitoire,
+    connexion figee) pendant le telechargement batch.
+  - **MangaDrama** : assouplissement du filtre isParasiteImage — les mots-cles
+    thumb, user, profile, button, share, sidebar, nav, menu filtrent des vraies
+    images manga (URLs CDN contenant thumbnail, user-id, etc.). Le filtre ne
+    garde maintenant que les patterns explicitement parasites : logo, avatar,
+    icon, banner, spinner, loading + gravatar.com. La verification naturalWidth
+    < 100 (inutile en headless) est supprimee.
+  - Regle immuable rappelee : aucune regression, memoire toujours a jour.
+  - Typecheck OK, 2128 tests passent (0 regression).
+
+## 23. Regles immuables
+
+- **AUCUNE REGRESSION** : tout ce qui fonctionne doit continuer de fonctionner.
+- **MEMOIRE TOUJOURS A JOUR** : mettre a jour MEMORY.md apres chaque changement.
+- **NE PAS OUBLIER CE QUI MARCHE QUAND ON BUILD** : avant de modifier un script de build,
+  verifier que la configuration existante fonctionne (workaround npm, cache electron, etc.).
+  En local : npm 11/Node 26 echoue sur build-app.mjs (EALLOWSCRIPTS sur websocket-rpc).
+  Workaround : copier les deps depuis le node_modules principal, puis appeler bundle-app-zip.mjs
+  directement. En CI (Node 24/npm 22) : build-app.mjs fonctionne.
+- **TOUJOURS BUILDER AVANT DE COMMIT** : pour que l'utilisateur puisse tester avant validation.
+- **DEMANDER AVANT TOUTE SUPPRESSION** : ne jamais supprimer de fichier/feature sans approbation.
+
+
+## 24. Fixes MangaDrama .webp + Bookmarks refresh (22 aout 2026)
+
+- **MangaDrama .webp parasites** : le regex /.webp was broken in the file
+  (missing backslash escapes). Fixed to /.webp(?:?|$)/i.
+  WordPress decoration .webp files are now properly filtered.
+
+- **BookmarkPlugin.RefreshAllFlags** : added try/catch per bookmark.
+  Previously, one failing site (e.g. CrunchyScan without cf_clearance)
+  would abort the entire new-content scan. Now each bookmark is wrapped
+  in try/catch so failures are skipped gracefully.
+
+- **BookmarkPlugin.RefreshFlagsIfDue(force=true)** : manual trigger
+  ("Check for new chapters now" button) now bypasses the silent mode.
+  Previously, force=true still respected the CheckNewContentSilent setting,
+  so window-required sites like CrunchyScan were never checked on manual
+  refresh. Now force=true always checks ALL bookmarks.
+
+- **Build v2.1.1** updated with all fixes. Typecheck OK, 2128 tests pass.
