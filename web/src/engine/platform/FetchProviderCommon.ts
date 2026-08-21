@@ -257,7 +257,7 @@ export abstract class FetchProvider {
                     // Read the cookie through the debugger (CDP) instead — same session, httpOnly visible.
                     const cookies = await win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] });
                     const cfClearance = cookies?.cookies?.find(cookie => cookie.name === 'cf_clearance');
-                    if (budget.remaining > 0 && cfClearance && cfClearance.value.length > 200) {
+                    if (budget.remaining > 0 && cfClearance && cfClearance.value) {
                         budget.remaining--;
                         invocations.push({
                             name: 'ReloadStalledCloudFlareChallenge',

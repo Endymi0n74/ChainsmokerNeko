@@ -81,7 +81,7 @@ export default class extends DecoratableMangaScraper {
                     ClearTimeout(timeout);
                     signal.removeEventListener("abort", onAbort);
                 }
-                await Delay(1000 * (attempt + 1));
+                if (attempt < 2) await Delay(1000 * (attempt + 1));
             }
             throw lastError instanceof Error ? lastError : new Error(String(lastError));
         }, priority, signal);
