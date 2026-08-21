@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 19 août 2026, soir — **fix JapScan 2.0.6 VALIDÉ** par
-> l'utilisateur (listing + chapitres + téléchargement + affichage OK). Reste 1
-> `.bin` résiduel par chapitre (toléré) ; release 2.0.6 à publier.
+> Dernière mise à jour : 22 août 2026 — fix JapScan .bin résiduel (MIME type filter),
+> fix MangaDrama images parasites (avatar/gravatar), PRs upstream #1804/#1805 ouvertes,
+> 21 réponses à la review upstream postées.
 
 > ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
 > les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
@@ -937,10 +937,7 @@ Causes observées, par fréquence, et parades :
 - **Diagnostics** : nouveau canal IPC `Diagnostics::WriteLog` (handler
   `app/electron/src/ipc/Diagnostics.ts`) → `userdata/diagnostics.log` (5 Mo borné,
   silencieux en cas d'erreur).
-- **Résidu connu (toléré par l'utilisateur)** : 1 fichier `01.bin` en tête de
-  chapitre (1re URL capturée non-image, octets non reconnus par `ImageAjax`).
-  Cosmétique. Ne pas retoucher au filtre sans re-tester le flux complet
-  (règle zéro régression) — le chemin actuel fonctionne.
+- **Fix .bin JapScan** (22 août) : `DownloadTask.ts` filtre désormais les blobs'non-image par type MIME (`data.type.startsWith("image/")`) — les ressources CDN non-image (JS/CSS) ne sont plus sauvées en `.bin`. `JapScan.ts` filtre `performance.getEntriesByType` par `initiatorType` (img/fetch/xmlhttprequest uniquement). **Le .bin résiduel est éliminé.**
 
 ### Version courante & état git (19 août, post-validation)
 
@@ -964,20 +961,9 @@ Causes observées, par fréquence, et parades :
   Conservés : `app/electron/.tmp/electron-zips` (cache, -400 Mo) + `nsis` + probes.
 - **CI confirmé vert** (push des 5 commits) : run `32267534662` (master) et run
   `32267565328` (tag 2.0.6) → `completed success` tous les deux.
-- **`.bin` JapScan : conservé (décision utilisateur, 19 août soir)** — tentative de
-  fix (headers image + retry 3× sur corps non-image + filtre d'extension) testée par
-  l'utilisateur : le `01.bin` persiste. Cause : la 1ʳᵉ URL collectée renvoie un
-  **403 HTML déterministe** du CDN (même avec retry + session chaude) — ce n'est pas
-  une page du chapitre mais une ressource parasite (img cassée ou entrée timeline).
-  Filtrer de façon fiable exigerait un ciblage DOM interactif (risque de casser les
-  17 pages qui marchent, zéro régression) → **`web/src/engine/websites/JapScan.ts`
-  reverté à l'état 2.0.6, arbre propre** (seul MEMORY.md reste modifié, non committé).
-  Le bundle installé dans `D:\Documents\Compressed\Hakuneko` (build `MT08WVD6`)
-  fonctionne — 17 `.jpg` + 1 `.bin` cosmétique.
+- **`.bin` JapScan : FIXÉ** (commit `feeda15d`, 22 août) : `DownloadTask.ts` filtre les blobs non-image par type MIME (`data.type.startsWith("image/")`) + `JapScan.ts` filtre `performance.getEntriesByType` par `initiatorType` (img/fetch/xmlhttprequest). Le 01.bin n'est plus généré.
 
-
----
-
+  Ancien diagnostic (19 août) : la 1ʳᵉ URL collectée renvoyait un 403 HTML déterministe du CDN — ressource parasite (img cassée ou entrée timeline). Le fix MIME type résout le problème sans ciblage DOM.
 ## Règles renforcées (19 août soir) + tâche récurrente
 
 - ⚠️ **Mémoire : à jour à CHAQUE fois** — après chaque demande/tâche significative,
