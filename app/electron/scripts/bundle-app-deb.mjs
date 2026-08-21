@@ -11,7 +11,9 @@ const product = pkgConfig.productName ?? pkgConfig.name;
  * Creates a standard Debian package that installs to /opt/hakuneko
  */
 export async function bundle(appSourceDirectory, appResourcesDirectory, deploymentTemporaryDirectory, deploymentOutputDirectory) {
-    const debDir = path.join(deploymentTemporaryDirectory, 'deb-root');
+    // Use a separate staging dir outside deploymentTemporaryDirectory to avoid
+    // ERR_FS_CP_EINVAL (cannot copy dir into a subdirectory of itself)
+    const debDir = path.join(path.dirname(deploymentTemporaryDirectory), `deb-staging-${pkgConfig.version}`);
     const pkgDir = path.join(debDir, `${pkgConfig.name}_${pkgConfig.version}_amd64`);
 
     await fs.rm(debDir, { force: true, recursive: true });
@@ -19,19 +21,21 @@ export async function bundle(appSourceDirectory, appResourcesDirectory, deployme
 
     // 1. Create app directory structure: /opt/hakuneko/
     const optDir = path.join(pkgDir, 'opt', pkgConfig.name);
-    await fs.cp(deploymentTemporaryDirectory, optDir, {
-        recursive: true,
-        filter: (src) => {
-            const rel = path.relative(deploymentTemporaryDirectory, src);
-            // Skip the deb staging dir itself and the app source (we copy that separately)
-            return !rel.startsWith('deb-root') && !rel.startsWith('resources/app');
-        }
-    });
+    await fs.mkdir(optDir, { recursive: true });
 
-    // 2. Copy the web + electron build into resources/app
+    // Copy the web + electron build into resources/app
     const appTarget = path.join(optDir, 'resources', 'app');
     await fs.rm(appTarget, { force: true, recursive: true });
     await fs.cp(appSourceDirectory, appTarget, { recursive: true });
+
+    // Copy the Electron binary and other root files (hakuneko.exe, etc.)
+    const electronEntries = await fs.readdir(deploymentTemporaryDirectory, { withFileTypes: true });
+    for (const entry of electronEntries) {
+        if (entry.name === 'deb-root' || entry.name === 'resources') continue;
+        const src = path.join(deploymentTemporaryDirectory, entry.name);
+        const dst = path.join(optDir, entry.name);
+        await fs.cp(src, dst, { recursive: true });
+    }
 
     // 3. Create DEBIAN/control
     const debianDir = path.join(pkgDir, 'DEBIAN');
@@ -90,4 +94,7 @@ export async function bundle(appSourceDirectory, appResourcesDirectory, deployme
     await fs.rm(artifact, { force: true });
     await run(`dpkg-deb --build '${pkgDir}' '${artifact}'`);
     console.log('Created:', path.basename(artifact));
+
+    // 8. Cleanup staging directory
+    await fs.rm(debDir, { force: true, recursive: true });
 }
