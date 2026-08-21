@@ -1156,3 +1156,12 @@ Causes observées, par fréquence, et parades :
 
 - **Deploy discipline**: web/ in Hakuneko/resources/app/ must match web/build/ exactly. No nested web/web/ artifacts.
 
+
+## 26. Session solo 22 aout 2026 — nettoyage + upstream sync + tests
+
+- **Nettoyage .tmp/** : 90+ fichiers probe/scripts supprimés, gardé deploy.bat + electron-zips + nsis.
+- **Upstream sync** : domaines mis à jour (JManga, KLMangash, Raw18, Syosetu), MerlinScans réécrit avec template InitManga.
+- **Test DownloadTask reindexing** : 3 nouveaux tests vérifiant l ordre des pages sous Promise.allSettled (2131 tests total).
+- **Lint fix** : parenthèses inutiles supprimées dans DownloadTask (no-extra-parens eslint rule).
+- **CI** : push-ci fork toujours en échec — les erreurs Svelte parsing sont pré-existantes dans la config eslint.
+- **État des PRs upstream** : #1797 (Cloudflare), #1798 (perf), #1804 (CrunchyScan), #1805 (JapScan) — 21+ réponses postées, tous les commentaires addressés.
