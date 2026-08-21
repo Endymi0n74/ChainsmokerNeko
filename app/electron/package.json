@@ -14,12 +14,10 @@
     },
     "dependencies": {
         "commander": "15.0.0",
-        "electron-updater": "^6.8.9",
         "websocket-rpc": "github:manga-download/websocket-rpc#v1.2.7"
     },
     "devDependencies": {
         "electron": "43.3.0",
-        "extract-zip": "2.0.1",
         "plist": "5.0.0"
     },
     "scripts": {
