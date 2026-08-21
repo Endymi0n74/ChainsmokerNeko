@@ -411,3 +411,74 @@ describe('DownloadTask', () => {
         });
     });
 });
+    describe('Page Order', () => {
+
+        it('Should preserve original page order when downloads complete out of order', async () => {
+            // Simulate 4 items resolving at different delays — items that resolve
+            // first are inserted into resourcemap first, so [...resourcemap.values()]
+            // (old code) would iterate in completion order, not original index order.
+            // The fix iterates by original index instead.
+            const delays = [30, 5, 20, 10]; // item 1 resolves first, item 3 second, etc.
+            const items = delays.map((delay, i) => {
+                const item = { Fetch: vi.fn() };
+                item.Fetch.mockImplementation(() =>
+                    new Promise(resolve => setTimeout(() => resolve(`page${i}`), delay))
+                );
+                return item as unknown as MediaItem;
+            });
+            const fixture = new TestFixture().SetupMediaContainer(items);
+            fixture.MediaContainerMock.Store.mockResolvedValue(undefined);
+            fixture.StorageControllerMock.SaveTemporary.mockImplementation((data) => Promise.resolve("resource_" + data));
+            const testee = fixture.CreateTestee();
+
+            await testee.Run();
+
+            expect(fixture.MediaContainerMock.Store).toHaveBeenCalledTimes(1);
+            const storedMap = fixture.MediaContainerMock.Store.mock.calls[0][0];
+            // Verify Store receives a Map with keys 0,1,2,3 and values in original order
+            expect(storedMap.get(0)).toBe('resource_page0');
+            expect(storedMap.get(1)).toBe('resource_page1');
+            expect(storedMap.get(2)).toBe('resource_page2');
+            expect(storedMap.get(3)).toBe('resource_page3');
+        });
+
+        it('Should reindex contiguously when some items are filtered out', async () => {
+            // Items 0 and 2 succeed, items 1 and 3 are filtered (empty blobs).
+            // Resulting map should have keys 0→page0, 1→page2 (reindexed).
+            const items = [
+                { Fetch: vi.fn().mockResolvedValue('page0') },
+                { Fetch: vi.fn().mockResolvedValue(new Blob([], { type: 'image/png' })) }, // size 0 → filtered
+                { Fetch: vi.fn().mockResolvedValue('page2') },
+                { Fetch: vi.fn().mockResolvedValue(new Blob([], { type: 'image/png' })) }, // size 0 → filtered
+            ] as unknown as MediaItem[];
+            const fixture = new TestFixture().SetupMediaContainer(items);
+            fixture.MediaContainerMock.Store.mockResolvedValue(undefined);
+            fixture.StorageControllerMock.SaveTemporary.mockImplementation((data) => Promise.resolve('resource_' + data));
+            const testee = fixture.CreateTestee();
+
+            await testee.Run();
+
+            expect(fixture.MediaContainerMock.Store).toHaveBeenCalledTimes(1);
+            const storedMap = fixture.MediaContainerMock.Store.mock.calls[0][0];
+            expect(storedMap.size).toBe(2);
+            expect(storedMap.get(0)).toBe('resource_page0');
+            expect(storedMap.get(1)).toBe('resource_page2');
+        });
+
+        it('Should reindex contiguously when first item is filtered', async () => {
+            // Item 0 fails, items 1-3 succeed. Resulting map: 0→page1, 1→page2, 2→page3.
+            const items = [
+                { Fetch: vi.fn().mockRejectedValue('fail') },
+                { Fetch: vi.fn().mockResolvedValue('page1') },
+                { Fetch: vi.fn().mockResolvedValue('page2') },
+                { Fetch: vi.fn().mockResolvedValue('page3') },
+            ] as unknown as MediaItem[];
+            const fixture = new TestFixture().SetupMediaContainer(items);
+            const testee = fixture.CreateTestee();
+
+            await testee.Run();
+
+            expect(fixture.MediaContainerMock.Store).toHaveBeenCalledTimes(0); // errors → no Store
+            expect(testee.Errors.Value.length).toBe(1);
+        });
+    });
