@@ -74,7 +74,9 @@ if (process.platform === 'darwin') {
 if (process.platform === 'linux') {
     const appimage = await import('./bundle-app-appimage.mjs');
     const snap = await import('./bundle-app-snap.mjs');
+    const deb = await import('./bundle-app-deb.mjs');
     let dirTemp = await redist(electronVersion, process.platform, 'x64');
     await appimage.bundle(dirApp, dirRes, dirTemp, dirOut);
     await snap.bundle(dirApp, dirRes, dirTemp, dirOut);
+    await deb.bundle(dirApp, dirRes, dirTemp, dirOut);
 }
