@@ -3,6 +3,21 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.1] - 2026-08-20
+
+### Ajouté
+
+- **Auto-update** : un bouton "Install v…" dans la notification de mise à jour
+  télécharge le zip de la plateforme depuis GitHub Releases, remplace l'app
+  et la redémarre automatiquement. Fallback vers le lien GitHub en NW.js.
+- **Scroll persistence amélioré** : la position de scroll exacte (pixel)
+  est sauvegardée par chapitre en plus de l'index d'image, pour une
+  restauration précise sur les webtoons/long strips.
+- **Connecteurs upstream** : DivaScans, RawFree, Voratoon, WhyToon câblés
+  (cherry-picked depuis upstream). +8 sites disponibles.
+- **Package Linux .deb** : ajouté au workflow de release pour les distros
+  Debian/Ubuntu (dpkg-deb).
+
 ## [2.1.0] - 2026-08-20
 
 ### Amélioré
