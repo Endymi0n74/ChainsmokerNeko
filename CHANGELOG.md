@@ -3,11 +3,20 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.2.0] - 2026-08-22
+
+### Retiré
+
+- **VirtualList** : retiré des listes bookmarks et chapitres. Le composant
+  n'était pas câblé dans l'upstream et causait un affichage tronqué
+  (scrollTop=0 sans overflow-y:auto). Revenu au {#each} classique.
+
 ## [2.1.2] - 2026-08-22
 
-### Ajouté
+### Fixed
 
-- _À compléter._
+- **MangaDrama FetchPages** : remplacer regex literals par string checks pour corriger "Script failed to execute".
+- **FetchProviderCommon** : logs diagnostiques [KUMO] pour erreurs runScript et redirect.
 
 ## [2.1.1] - 2026-08-20
 
