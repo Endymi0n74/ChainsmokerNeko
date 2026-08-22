@@ -8,7 +8,7 @@
 
 ## 📥 Download
 
-👉 **[Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/v2.2.0)** — Windows (x64/ia32/arm64)
+👉 **[Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/2.2.0)** — Windows (x64/ia32/arm64)
 
 ## 📸 Screenshots
 
