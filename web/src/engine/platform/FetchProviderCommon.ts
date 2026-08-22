@@ -306,18 +306,27 @@ export abstract class FetchProvider {
         };
         stopPollers.push(stop);
 
+        let pollAttempts = 0;
+        const MAX_POLL_ATTEMPTS = 30;
         const poll = async () => {
             if (isSettled()) return;
+            if (++pollAttempts > MAX_POLL_ATTEMPTS) {
+                console.warn("[KUMO] PollForChallengeResolution: max attempts reached for", url);
+                return;
+            }
             let cleared = false;
             try {
                 const cloudflare = await win.ExecuteScript<{ isChallenge: boolean }>(cloudflareDetectionScript);
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
                 cleared = cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
-            } catch {
-                // A navigation is tearing the execution context down; keep polling until it settles.
+            } catch (error) {
+                if (error?.message?.includes("Failed to find window") || pollAttempts > 5) {
+                    console.warn("[KUMO] PollForChallengeResolution: stopping poller for", url, error?.message);
+                    return;
+                }
             }
             if (cleared) {
-                invocations.push({ name: 'ChallengeResolved', info: 'Interactive challenge cleared, running extraction script' });
+                invocations.push({ name: "ChallengeResolved", info: "Interactive challenge cleared, running extraction script" });
                 await runScript();
                 return;
             }
