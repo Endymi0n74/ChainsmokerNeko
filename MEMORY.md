@@ -1189,3 +1189,19 @@ Causes observées, par fréquence, et parades :
 - **CrunchyScan** : skip le backoff après le 3ème échec (inutile de delay avant de throw).
 - **eslint.config.js** : ajoute `ignores: ["src/**/*.svelte", "src/**/*.vue"]` — les .svelte n étaient pas ciblés par `files` mais eslint les processait quand même, causant 109 erreurs "Unexpected token <" qui bloquaient tout le CI.
 - **CI** : devrait passer enfin après des semaines déchecs.
+
+## 28. Fix build npm 11.19 + ws (22 août 2026)
+
+npm 11.19 (Node 26) bloque `npm install --omit=dev` sur les git deps (websocket-rpc)
+avec EALLOWSCRIPTS. Fix : build-app.mjs saute npm install si build/node_modules existe.
+
+Le module `ws` (dependency de websocket-rpc) n est pas inclus dans le zip npm de
+websocket-rpc. Il faut l installer manuellement :
+```
+cd app/electron/build/node_modules
+node -e "const h=require("https"),f=require("fs");h.get("https://registry.npmjs.org/ws/-/ws-8.18.2.tgz",r=>{const c=[];r.on("data",d=>c.push(d));r.on("end",()=>{f.writeFileSync("ws.tgz",Buffer.concat(c));require("child_process").execSync("tar -xzf ws.tgz && mv package ws && rm ws.tgz")})})"
+```
+Ou plus simplement : télécharger le tgz manuellement et extraire dans node_modules/ws/.
+
+**Règle : ne jamais supprimer build/node_modules. Si absent, le copier depuis le
+déploiement existant + réinstaller ws.**
