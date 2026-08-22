@@ -1251,3 +1251,12 @@ Les abonnements centralisés (flagMap/taskMap) restent en place.
 - Le deploy-app.mjs fait `fs.cp(build/, resources/app/)` — il copie le build ELECTRON, pas le build WEB
 - **Règle** : après `vite build`, copier `web/build/*` → `app/electron/build/web/` AVANT le bundle
 
+
+## 31. Règle immuable — dossier de travail (22 août 2026)
+
+**RÈGLE ABSOLUE** : ne JAMAIS toucher un dossier hors D:\Codex\haruneko sans accord EXPLICITE de l'utilisateur.
+- Pas de copie dans D:\Documents\Compressed\Hakuneko
+- Pas de suppression dans D:\Documents
+- Pas de modification de fichiers hors du workspace
+- Si un deploy est nécessaire, DEMANDER d'abord
+- La seule exception : D:\Codex\.electron-cache (cache Electron, pas critique)
