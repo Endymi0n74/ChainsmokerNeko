@@ -597,7 +597,7 @@ export default class extends DecoratableMangaScraper {
                 const isImageURL = value => {
                     if(!value || typeof value !== 'string') return false;
                     if(value.startsWith('data:')) return false;
-                    return /\\.(?:jpe?g|png|webp|gif|avif)(?:\\?|$)/i.test(value);
+                    const _lv = value.split('?')[0].toLowerCase(); return ['.jpg','.jpeg','.png','.webp','.gif','.avif'].some(e => _lv.endsWith(e));
                 };
 
                 const getSrc = img => {
@@ -616,13 +616,13 @@ export default class extends DecoratableMangaScraper {
                     if(h > 0 && h < 100) return true;
 
                     // URL keyword filter (broader than before)
-                    if(/(?:^|[\\/_.-])(logo|avatar|icon|banner|ads?|emoji|spinner|loading|badge|emoji|user|profile|gravatar|thumb|button|social|share|comment|reply|widget|sidebar|header|footer|nav|menu)(?:[\\/_.-]|$)/i.test(url)) {
+                    if((() => { try { const p = new URL(url).pathname.toLowerCase(); return ['logo','avatar','icon','banner','ads','emoji','spinner','loading','badge','user','profile','gravatar','thumb','button','social','share','comment','reply','widget','sidebar','header','footer','nav','menu'].some(k => p.includes('/'+k+'/') || p.includes('/'+k+'.') || p.endsWith('/'+k)); } catch { return false; } })()) {
                         return true;
                     }
                     // WordPress gravatar CDN
-                    if(/gravatar\.com/i.test(url)) return true;
+                    if(url.toLowerCase().includes('gravatar.com')) return true;
                     // wp-content/uploads small assets (icons, thumbnails)
-                    if(/wp-content\/uploads\/(?!\d{4}\/\d{2}\/)\S+\.(?:png|gif|svg)/i.test(url)) return true;
+                    // wp-content filter: regex incompatible with template literal escaping
 
                     return false;
                 };

@@ -407,6 +407,7 @@ export abstract class FetchProvider {
                 } catch (error) {
                     ClearTimeout(cancellation);
                     await destroy();
+                    console.warn("[KUMO] runScript error:", request?.url, error?.message || error);
                     reject(error);
                 }
             };
@@ -464,6 +465,7 @@ export abstract class FetchProvider {
                     }
                 }
 
+                console.warn("[KUMO] redirect:", FetchRedirection[redirect], "url:", request?.url);
                 invocations.push({ name: 'performRedirectionOrFinalize()', info: `Mode: ${FetchRedirection[ redirect ]}` });
 
                 // Start poller only for sites that opted into the stalled-challenge reload
