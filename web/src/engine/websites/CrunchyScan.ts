@@ -36,7 +36,7 @@ function MangaLinkExtractor(head: HTMLHeadingElement, uri: URL) {
     };
 }
 
-@Common.MangaCSS(/^{origin}\/lecture-en-ligne\/[^/]+$/, 'main.container .baseManga h2', MangaLinkExtractor)
+@Common.MangaCSS(/^{origin}\/lecture-en-ligne\/[^/]+\/?$/, 'main.container .baseManga h2', MangaLinkExtractor)
 @Common.MangasMultiPageCSS<HTMLAnchorElement>('a[class*="text"][href*="/lecture-en-ligne/"]', Common.PatternLinkGenerator('/api/getLastManga?method=grid&page={page}'), 0, a => ({ id: a.pathname, title: CleanTitle(a.text) }))
 @Common.ChaptersSinglePageCSS('#ChapterWrap a.chapter-link[href*="/read/"]')
 export default class extends DecoratableMangaScraper {
