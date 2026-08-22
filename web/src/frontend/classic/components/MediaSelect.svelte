@@ -297,7 +297,7 @@
                 />
             </div>
         {/await}
-        {#each filteredmedias as item (item)}
+        {#each (filteredmedias as MediaContainer2[]) as item (item)}
             <div class="media">
                 <Media media={item} />
             </div>
