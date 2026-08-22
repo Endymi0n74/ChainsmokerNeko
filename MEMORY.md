@@ -1205,3 +1205,32 @@ Ou plus simplement : télécharger le tgz manuellement et extraire dans node_mod
 
 **Règle : ne jamais supprimer build/node_modules. Si absent, le copier depuis le
 déploiement existant + réinstaller ws.**
+
+## 29. Fix MangaDrama FetchPages — regex template literal (22 août 2026)
+
+**Problème** : le `FetchPages` de MangaDrama injectait un script JS via `executeJavaScript()`.
+Ce script contenait des regex literals (`/pattern/`) à l'intérieur de template literals
+TypeScript (backticks). **Vite compresse les séquences de backslashes** lors du build :
+`\.` dans le source TS → `.` dans le bundle → le regex devient syntaxiquement invalide
+quand `executeJavaScript` tente de le parser → erreur "Script failed to execute".
+
+**Fix** : remplacer TOUS les regex literals dans le script injecté par des **checks de
+strings purs** (`.includes()`, `.startsWith()`, `.endsWith()`, `URL` parsing) qui ne
+contiennent aucun caractère spécial à échapper.
+
+**Leçon** : JAMAIS de regex literals dans un script injecté via template literal + Vite.
+Utiliser des checks de strings ou `new RegExp()` avec des strings (pas de `/pattern/`).
+
+**Fichiers touchés** :
+- `web/src/engine/websites/MangaDrama.ts` : `isImageURL`, `isParasiteImage`, `gravatar`
+- `web/src/engine/platform/FetchProviderCommon.ts` : logs diagnostiques `[KUMO]`
+- `web/src/frontend/classic/lib/VirtualList.svelte` : optimisation scroll (rAF → onscroll)
+
+**Commit** : `441224fe`
+
+## 29. Fix MangaDrama FetchPages — regex template literal (22 août 2026)
+
+**Problème** : regex literals dans template literal TypeScript → Vite compresse les backslashes → script injecté cassé.
+**Fix** : remplacer par checks de strings (.includes, .startsWith, .endsWith).
+**Leçon** : JAMAIS de regex literals dans un script injecté via template literal + Vite.
+**Commit** : 441224fe
