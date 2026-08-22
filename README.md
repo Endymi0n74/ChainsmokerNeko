@@ -14,16 +14,6 @@
 
 <!-- TODO: ajouter 1-2 captures d'écran ici -->
 
-## ✨ Ce que ce fork apporte
-
-
-```bash
-npm ci
-npm run build --workspace=web
-npm run build --workspace=app/electron
-./node_modules/electron/dist/electron.exe ./app/electron/build
-```
-
 ## 📄 Licence
 
 [Unlicense](UNLICENSE) — domaine public.
