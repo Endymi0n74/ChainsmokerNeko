@@ -40,6 +40,7 @@ const manifestPaths = [
     'package.json',
     'web/package.json',
     'app/electron/package.json',
+    'app/electron/build/package.json',
 ];
 
 const manifests = manifestPaths.map(manifestPath => {
