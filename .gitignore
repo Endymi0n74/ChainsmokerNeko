@@ -9,4 +9,4 @@ deploy
 dist
 node_modules
 junit.xml
-web/vite.config.ts.timestamp*
+**/.npmrc
