@@ -3,6 +3,12 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.2] - 2026-08-22
+
+### Ajouté
+
+- _À compléter._
+
 ## [2.1.1] - 2026-08-20
 
 ### Ajouté
