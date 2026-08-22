@@ -17,20 +17,23 @@
     children
   }: Props<T> = $props();
   
-  let scrollTop = $state(0);
+  let frame : number;
+  let scrollTop = $state(0)
 
-  // Use native scroll event instead of rAF polling (zero CPU when idle)
-  function onScroll() {
-    const st = container?.scrollTop ?? 0;
-    if (st !== scrollTop) scrollTop = st;
+  // Poll the container for scroll changes
+  function poll() {
+    if (container?.scrollTop !== scrollTop) {
+      scrollTop = container?.scrollTop;
+    }
+    frame = requestAnimationFrame(poll);
   }
 
   onMount(() => {
-    container?.addEventListener("scroll", onScroll, { passive: true });
+    frame = requestAnimationFrame(poll);
   });
 
   onDestroy(() => {
-    container?.removeEventListener("scroll", onScroll);
+    cancelAnimationFrame(frame);
   });
   
   // Reset the scroll position on items change
@@ -39,7 +42,7 @@
     scrollTop=0;
   });
 
-  const extraItemsOffset=5;
+  const extraItemsOffset=10;
   let spacerHeight = $derived(Math.max(containerHeight, items.length * itemHeight));
   let itemsPerFrame = $derived(Math.ceil(containerHeight / itemHeight) + 1);
   let firstItem = $derived(Math.floor(scrollTop / itemHeight));
@@ -61,6 +64,5 @@
     width: 100%; 
     /* Prevent the items from bleeding through, causing more scrolling */
     overflow: hidden;
-    contain: layout style;
   }
 </style>

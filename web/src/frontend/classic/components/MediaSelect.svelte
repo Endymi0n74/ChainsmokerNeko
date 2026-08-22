@@ -19,7 +19,6 @@
     // UI: Components
     import Media from './Media.svelte';
     import Tracker from './Tracker.svelte';
-    import VirtualList from '../lib/VirtualList.svelte';
     // UI : Stores
     import {Store as UI } from '../stores/Stores.svelte';
     import { Settings } from '../stores/Settings.svelte';
@@ -298,15 +297,11 @@
                 />
             </div>
         {/await}
-        <VirtualList items={filteredmedias as MediaContainer2[]} itemHeight={24} container={medialistref} containerHeight={medialistrefHeight}>
-            {#snippet children(item)}
-                <div class="media">
-                        <Media
-                        media={item}
-                        />
-                </div>
-            {/snippet}
-        </VirtualList>
+        {#each filteredmedias as item (item)}
+            <div class="media">
+                <Media media={item} />
+            </div>
+        {/each}
     </div>
     <div id="MediaCount">
         Medias : {filteredmedias.length}/{medias.length}

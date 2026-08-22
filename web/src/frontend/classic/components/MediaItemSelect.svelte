@@ -20,7 +20,6 @@
     import { onDestroy } from 'svelte';
 
     import MediaComponent from './MediaItem.svelte';
-    import VirtualList from '../lib/VirtualList.svelte';
     import { Store as UI } from '../stores/Stores.svelte';
     import { Tags, type Tag } from '../../../engine/Tags';
     const availableLanguageTags = Tags.Language.toArray();
@@ -44,6 +43,7 @@
     let selectedItems: MediaContainer<MediaItem>[] = $state([]);
     let reverseSortOrder: boolean = $state(false);
 
+    let itemsdiv: HTMLElement = $state();
     let loadItem: Promise<MediaContainer<MediaChild>> = $state();
 
     $effect(() => {
@@ -229,8 +229,6 @@
     });
     let showItems = $derived(reverseSortOrder ? filteredItems.toReversed() : filteredItems);
 
-    let itemsdiv: HTMLElement = $state();
-    let itemsdivHeight = $state(0);
 
     let MediaLanguages: Tag[] = $derived(
         items.reduce((detectedLangaugeTags: Tag[], item) => {
@@ -534,7 +532,6 @@
         id="ItemList"
         class="list"
         bind:this={itemsdiv}
-        bind:clientHeight={itemsdivHeight}
         onclick={resetSelection}
     >
         {#await loadItem}
@@ -557,13 +554,7 @@
                 </InlineNotification>
             </div>
         {/await}
-        <VirtualList
-            items={showItems}
-            itemHeight={24}
-            container={itemsdiv}
-            containerHeight={itemsdivHeight}
-        >
-            {#snippet children(item)}
+        {#each showItems as item (itemKey(item))}
                 {@const key = itemKey(item)}
                 <MediaComponent
                     {item}
@@ -577,8 +568,7 @@
                     onmouseup={mouseHandler(item)}
                     onmouseenter={mouseHandler(item)}
                 />
-            {/snippet}
-        </VirtualList>
+            {/each}
     </div>
     {#if items?.length > 0}
         <div id="DownloadButtons">

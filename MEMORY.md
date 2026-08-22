@@ -1234,3 +1234,20 @@ Utiliser des checks de strings ou `new RegExp()` avec des strings (pas de `/patt
 **Fix** : remplacer par checks de strings (.includes, .startsWith, .endsWith).
 **Leçon** : JAMAIS de regex literals dans un script injecté via template literal + Vite.
 **Commit** : 441224fe
+
+## 30. Retrait VirtualList — fix liste tronquée (22 août 2026)
+
+**Problème** : VirtualList n'a jamais été câblé par l'upstream (commit 3d7a3438). Notre fork l'a ajouté mais sans
+overflow-y:auto sur #ItemList/#MediaList, le conteneur ne scrolle pas → scrollTop=0 → seul le premier
+batch d'items s'affiche.
+
+**Fix** : retirer VirtualList de MediaSelect.svelte ET MediaItemSelect.svelte, revenir au {#each} classique.
+Les abonnements centralisés (flagMap/taskMap) restent en place.
+
+**LEÇON CRITIQUE — pipeline de build** :
+- `vite build` écrit dans `web/build/` (hash MT4K1ECX)
+- Le bundle Electron pioche dans `app/electron/build/web/`
+- Il faut SYNCHRONISER les deux avant de lancer `deploy-app.mjs`
+- Le deploy-app.mjs fait `fs.cp(build/, resources/app/)` — il copie le build ELECTRON, pas le build WEB
+- **Règle** : après `vite build`, copier `web/build/*` → `app/electron/build/web/` AVANT le bundle
+
