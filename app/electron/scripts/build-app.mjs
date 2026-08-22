@@ -12,7 +12,9 @@ try {
     targetConfig = JSON.parse(await fs.readFile(targetFile));
 } catch { /* IGNORE */ }
 
+const nmDir=path.resolve(dirBuild,"node_modules");let hasNm=false;try{await fs.access(nmDir);hasNm=true;await fs.rename(nmDir,path.resolve(".tmp","saved_node_modules"));}catch{}
 await purge(dirBuild);
+if(hasNm){try{await fs.rename(path.resolve(".tmp","saved_node_modules"),nmDir);}catch{}}
 
 // Copie le build web local
 const dirWebTarget = path.resolve(dirBuild, 'web');
@@ -46,4 +48,4 @@ const manifest = {
 };
 
 await fs.writeFile(targetFile, JSON.stringify(manifest, null, 4));
-await run('npm install --omit=dev', dirBuild);
+try{await fs.access(path.resolve(dirBuild,"node_modules"));console.log("[build-app] node_modules exists, skipping install");}catch{await run("npm install --omit=dev", dirBuild);}

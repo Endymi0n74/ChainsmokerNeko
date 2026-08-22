@@ -250,22 +250,39 @@ cd haruneko/web && node ../node_modules/eslint/bin/eslint.js src --ext .ts,.svel
 # svelte-check / vue-tsc
 cd haruneko/web && node ../node_modules/svelte-check/bin/svelte-check
 cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
-# ⭐ BUNDLE DE TEST x64 EN UNE COMMANDE (recommandé) :
-#   construit web + electron (copie web + manifest + main/preload) + zip x64, PATH npm géré
-bash scripts/bundle-x64.sh              # depuis D:\Codex\haruneko (wrapper → npm run bundle:x64)
-#   → zip dans app/electron/bundle/hakuneko-electron-v<version>-win32-x64.zip
-#   ⚠️ npm n'est PAS trouvé depuis Git Bash par défaut : toujours passer par ce wrapper
-#      (ou `export PATH="/c/Program Files/nodejs:$PATH"` avant npm).
-# Build web puis electron (ordre imposé : electron copie web/build) — équivalent manuel :
+# ⭐ BUNDLE DE TEST x64 (PROCÉDURE DÉFINITIVE — 22 août 2026) :
+#
+# PRÉREQUIS : node_modules doit exister dans build/ AVANT le build.
+# Si absent : copier depuis le déploiement existant :
+#   powershell -Command "Copy-Item 'D:DocumentsCompressedHakunekoesourcesapp
+ode_modules' 'build
+ode_modules' -Recurse -Force"
+#
+# ÉTAPE 1 : Build web (obligatoire, met à jour web/build/)
 cd haruneko/web && node ../node_modules/vite/bin/vite.js build
-cd haruneko/app/electron && node ./scripts/build-app.mjs
-cd haruneko/app/electron && ../../node_modules/.bin/vite build   # main.js + preload.js
+#
+# ÉTAPE 2 : Bundle x64 (UNE SEULE COMMANDE)
+cd haruneko/app/electron && node scripts/bundle-x64.mjs
+#   → zip : app/electron/bundle/hakuneko-electron-v<version>-win32-x64.zip
+#
+# ÉTAPE 3 : Deploy dans le dossier de test
+powershell -Command "Copy-Item '.tmp/hakuneko-electron-v*-win32-x64/*' 'D:/Documents/Compressed/Hakuneko' -Recurse -Force"
+#   → lancer D:DocumentsCompressedHakunekohakuneko.exe
+#
+# ⚠️ CRITIQUE : npm 11.19 (Node 26) bloque `npm install --omit=dev` sur les git deps.
+#   → build-app.mjs saute npm install si build/node_modules existe déjà.
+#   → Ne JAMAIS supprimer build/node_modules avant le build.
+#   → Si node_modules manque : le copier depuis le déploiement (voir PRÉREQUIS).
+#
 # sonde Electron (fenêtre de test) — tourne sous le nom de processus `electron.exe`
 cd haruneko && ./node_modules/electron/dist/electron.exe app/electron/.tmp/xxx.cjs
+#
 # bundles Windows complets (3 arches + setup.exe NSIS) — le cache électron est .tmp/electron-zips (D:)
 cd haruneko/app/electron && node scripts/deploy-app.mjs
+#   ⚠️ NSIS requis pour le setup.exe. Si manquant : utiliser bundle-x64.mjs pour le zip x64 seul.
+#
 # lancer l'app EN PROD via l'exe du bundle (nom de processus `hakuneko.exe`) :
-#   1. extraire bundle/hakuneko-electron-v0.1.0-win32-<arch>.zip
+#   1. extraire bundle/hakuneko-electron-v<version>-win32-<arch>.zip
 #   2. lancer hakuneko.exe depuis le dossier extrait
 #   → le serveur local écoute sur http://127.0.0.1:64210 (port STABLE → persistance des réglages/bookmarks)
 # ⚠️ RÈGLE (16 août) : lancer l'app via `hakuneko.exe`, tuer les SONDES par PID.
