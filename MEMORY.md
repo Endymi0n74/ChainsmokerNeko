@@ -1260,3 +1260,35 @@ Les abonnements centralisés (flagMap/taskMap) restent en place.
 - Pas de modification de fichiers hors du workspace
 - Si un deploy est nécessaire, DEMANDER d'abord
 - La seule exception : D:\Codex\.electron-cache (cache Electron, pas critique)
+
+
+## 32. Fix crash - IPC rejections non gerees (23 aout 2026)
+
+Probleme: l app crash quand on clique CrunchyScan dans les plugins.
+- CloseWindow: Failed to find window = rejection non geree
+- ExecuteScript: Script failed to execute = rejection non geree
+
+Cause: destroy() appelait win.Close() sans await. Le try/catch ne capturait pas la rejection IPC.
+
+Fix (commit b50842fb):
+1. await win.Close() dans destroy()
+2. runScript catch: si Failed to find window, resolve(undefined) au lieu de reject
+3. Poller max 30 tentatives + guard window destroyed garde en place
+
+Regle: tout appel IPC DOIT etre await dans un try/catch.
+
+
+## 32. Fix crash - IPC rejections non gerees (23 aout 2026)
+
+Probleme: l app crash quand on clique CrunchyScan dans les plugins.
+- CloseWindow: Failed to find window = rejection non geree
+- ExecuteScript: Script failed to execute = rejection non geree
+
+Cause: destroy() appelait win.Close() sans await. Le try/catch ne capturait pas la rejection IPC.
+
+Fix (commit b50842fb):
+1. await win.Close() dans destroy()
+2. runScript catch: si Failed to find window, resolve(undefined) au lieu de reject
+3. Poller max 30 tentatives + guard window destroyed garde en place
+
+Regle: tout appel IPC DOIT etre await dans un try/catch.
