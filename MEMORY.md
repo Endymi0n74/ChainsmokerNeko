@@ -1300,3 +1300,27 @@ La commande de sync DOIT copier TOUS les fichiers web/build/ (pas juste le dossi
 
 ERREUR : cp -r web/build/$WEBHASH ... rate index.html, favicon.ico, index.css
 RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
+
+## §33 — MangaDrama .webp parasite filter
+
+**Date** : 23 août 2026
+**Problème** : les téléchargements MangaDrama contenaient des .webp parasites (avatars, badges, related manga thumbnails)
+**Fix** : filtre de taille dans `isParasiteImage` — tout .webp < 300px sur un des axes est exclu. Les pages manga font typiquement > 400px.
+**Fichier** : `web/src/engine/websites/MangaDrama.ts` L617
+**Commit** : `60c6ae93`
+
+---
+
+## §34 — FetchProviderCommon crash fixes (commits b50842fb, 9a463f5b)
+
+**Date** : 23 août 2026
+**Problème** : l'app gelait quand on ouvrait les plugins (CrunchyScan/JapScan) — le poller tournait à l'infini, les IPC rejections crashaient Electron
+**Fixes** :
+1. PollForChallengeResolution borné à 30 tentatives (60s)
+2. Guard 'Failed to find window' → arrêt immédiat
+3. `win.Close().catch(() => {})` fire-and-forget (pas de deadlock)
+4. `resolve(undefined)` quand fenêtre déjà détruite (pas de crash)
+**Règle** : ne jamais `await` un IPC call sans .catch() quand le window peut être détruit entre-temps.
+
+---
+
