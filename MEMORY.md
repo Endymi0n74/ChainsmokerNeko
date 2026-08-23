@@ -1338,3 +1338,13 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 **Fichier** : `web/src/engine/websites/JapScan.ts`
 
 ---
+
+## §36 — JapScan: limit chapter fetch concurrency (commit b6e94974)
+
+**Date** : 23 août 2026
+**Problème** : lister tous les bookmarks JapScan saturait la mémoire — chaque FetchChapters ouvrait un RemoteBrowserWindow via le DRM, et avec beaucoup de bookmarks, les fenêtres s'accumulaient plus vite qu'elles n'étaient détruites.
+**Fix** : ajouté `chaptersTaskPool = new TaskPool(1, new RateLimit(4, 1))` — 1 seul appel FetchChapters à la fois, max 4/sec. Le DRM ouvre toujours une fenêtre, mais elle est détruite avant la suivante.
+**Pattern** : même approach que BilibiliManhua (`mangasSequentialTaskPool`) — utiliser un TaskPool(1) pour les opérations qui ouvrent des fenêtres browser.
+**Fichier** : `web/src/engine/websites/JapScan.ts`
+
+---
