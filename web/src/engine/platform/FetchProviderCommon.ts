@@ -381,7 +381,7 @@ export abstract class FetchProvider {
                 if (this.featureFlags.VerboseFetchWindow.Value) {
                     console.log('FetchWindow()::invocations', invocations);
                 } else {
-                    win.Close();
+                    await win.Close();
                 }
             } catch (error) {
                 console.warn(error);
@@ -416,8 +416,13 @@ export abstract class FetchProvider {
                 } catch (error) {
                     ClearTimeout(cancellation);
                     await destroy();
-                    console.warn("[KUMO] runScript error:", request?.url, error?.message || error);
-                    reject(error);
+                    if (error?.message?.includes("Failed to find window")) {
+                        console.warn("[KUMO] runScript: window already destroyed, resolving empty for", request?.url);
+                        resolve(undefined as T);
+                    } else {
+                        console.warn("[KUMO] runScript error:", request?.url, error?.message || error);
+                        reject(error);
+                    }
                 }
             };
 
