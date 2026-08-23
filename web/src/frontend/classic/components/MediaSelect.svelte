@@ -217,6 +217,16 @@
 
     let medialistref : HTMLElement = $state();
     let medialistrefHeight = $state(0);
+
+    // Virtual scroll
+    const VIRTUAL_ITEM_HEIGHT = 25.6;
+    const VIRTUAL_BUFFER = 15;
+    const VIRTUAL_THRESHOLD = 100;
+    let scrollTop = 0;
+    function onMediaListScroll() {
+        scrollTop = medialistref?.scrollTop ?? 0;
+    }
+
 </script>
 
 {#if isTrackerModalOpen}
@@ -282,7 +292,7 @@
     <div id="MediaFilter">
         <Search id="MediaFilterSearch" size="sm" bind:value={mediaNameFilter} />
     </div>
-    <div id="MediaList" class="list" bind:this={medialistref} bind:clientHeight={medialistrefHeight}>
+    <div id="MediaList" class="list" bind:this={medialistref} bind:clientHeight={medialistrefHeight} on:scroll={onMediaListScroll}>
         {#await loadPlugin}
             <div class="loading center">
                 <div><Loading withOverlay={false} /></div>
@@ -297,11 +307,23 @@
                 />
             </div>
         {/await}
-        {#each (filteredmedias as MediaContainer2[]) as item (item)}
-            <div class="media">
-                <Media media={item} />
-            </div>
-        {/each}
+        {#if filteredmedias.length > VIRTUAL_THRESHOLD}
+            {@const start = Math.max(0, Math.floor(scrollTop / VIRTUAL_ITEM_HEIGHT) - VIRTUAL_BUFFER)}
+            {@const end = Math.min(filteredmedias.length, Math.ceil((scrollTop + medialistrefHeight) / VIRTUAL_ITEM_HEIGHT) + VIRTUAL_BUFFER)}
+            <div style="height:{start * VIRTUAL_ITEM_HEIGHT}px" aria-hidden="true"></div>
+            {#each filteredmedias.slice(start, end) as MediaContainer2[] as item (item)}
+                <div class="media">
+                    <Media media={item} />
+                </div>
+            {/each}
+            <div style="height:{Math.max(0, (filteredmedias.length - end) * VIRTUAL_ITEM_HEIGHT)}px" aria-hidden="true"></div>
+        {:else}
+            {#each (filteredmedias as MediaContainer2[]) as item (item)}
+                <div class="media">
+                    <Media media={item} />
+                </div>
+            {/each}
+        {/if}
     </div>
     <div id="MediaCount">
         Medias : {filteredmedias.length}/{medias.length}
@@ -373,6 +395,7 @@
         box-sizing: border-box;
         width: 100%;
         overflow-x: hidden;
+        overflow-y: auto;
         background-color: var(--cds-field-01);
         user-select: none;
     }

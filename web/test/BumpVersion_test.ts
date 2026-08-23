@@ -20,11 +20,13 @@ class Sandbox {
         fs.mkdirSync(scriptsDir, { recursive: true });
         fs.mkdirSync(path.join(this.dir, 'web'), { recursive: true });
         fs.mkdirSync(path.join(this.dir, 'app', 'electron'), { recursive: true });
+        fs.mkdirSync(path.join(this.dir, 'app', 'electron', 'build'), { recursive: true });
         this.script = path.join(scriptsDir, 'bump-version.mjs');
         fs.copyFileSync(scriptSource, this.script);
         this.WriteManifest('package.json', '2.0.4');
         this.WriteManifest('web/package.json', '2.0.4');
         this.WriteManifest('app/electron/package.json', '2.0.4');
+        this.WriteManifest('app/electron/build/package.json', '2.0.4');
         this.WriteChangelog([
             '# Changelog',
             '',

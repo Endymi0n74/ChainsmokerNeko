@@ -100,6 +100,7 @@
     {onmouseup}
     {onmousedown}
     {onmouseenter}
+    oncontextmenu={(e) => { e.preventDefault(); }}
 >
     {#if !downloadTaskStatus}
         <Button

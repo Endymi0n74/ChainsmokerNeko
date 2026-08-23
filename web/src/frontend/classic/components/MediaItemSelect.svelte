@@ -89,9 +89,8 @@
 
     /** Unique key for an item, stable across list reloads (mirrors `IsSameAs`). */
     function itemKey(item: MediaContainer<MediaItem>): string {
-        return item.Parent
-            ? `${item.Parent.Identifier}::${item.Identifier}`
-            : item.Identifier;
+        const pluginId = item.Parent?.Parent?.Identifier ?? "unknown";
+        return `${pluginId}::${item.Parent?.Identifier}::${item.Identifier}`;
     }
 
     /** Re-reads the flags of every item of the current media (one batch). */
@@ -117,7 +116,9 @@
 
     /** Applies a flag event to the local map (mirrors ItemflagManager semantics). */
     function onFlagChanged(flagData: EntryFlagEventData) {
+        // Ignore flag events from a different manga (the global channel broadcasts all events).
         const entry = flagData.Entry as MediaContainer<MediaItem>;
+        if (entry.Parent?.Identifier !== UI.selectedMedia?.Identifier) return;
         if (flagData.Kind === FlagType.Current) {
             // Flagging 'Current' marks every later chapter as Viewed and clears
             // the flags of the earlier chapters.
@@ -532,7 +533,7 @@
         id="ItemList"
         class="list"
         bind:this={itemsdiv}
-        onclick={resetSelection}
+        onclick={(e) => { if (!(e.target as HTMLElement).closest(".listitem")) resetSelection(); }}
     >
         {#await loadItem}
             <div class="loading center">

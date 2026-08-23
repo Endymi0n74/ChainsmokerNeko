@@ -225,6 +225,7 @@ export abstract class FetchProvider {
     ): Promise<() => void> {
         const maxReloads = 3;
         const interval = 5000;
+        let stopped = false;
 
         const checkScript = `
             (() => {
@@ -245,7 +246,7 @@ export abstract class FetchProvider {
         `;
 
         const doCheck = async () => {
-            if (budget.remaining <= 0) return;
+            if (stopped || budget.remaining <= 0) return;
             try {
                 const result = await win.ExecuteScript<{
                     isChallenge: boolean;
@@ -274,13 +275,14 @@ export abstract class FetchProvider {
         let timeoutId: number;
         const schedule = async () => {
             await doCheck();
-            if (budget.remaining > 0) {
+            if (!stopped && budget.remaining > 0) {
                 timeoutId = await SetTimeout(schedule, interval);
             }
         };
         timeoutId = await SetTimeout(schedule, interval);
 
         return () => {
+            stopped = true;
             if (timeoutId) ClearTimeout(timeoutId);
         };
     }
@@ -431,12 +433,12 @@ export abstract class FetchProvider {
 
                 let redirect: FetchRedirection;
 
-                // FIX: give a Cloudflare "managed" challenge ("Just a moment…" / "Un instant…") time to
-                // auto-resolve BEFORE inspecting the page. Running any script in the window during the
-                // challenge's ~1-2s proof/finalize window (the detection below) disturbs the challenge
-                // and makes it reload into a fresh challenge forever (probe-verified: detection at
-                // dom-ready loops, detection after ~2s auto-resolves and lists the mangas).
-                await Delay(2500);
+                // Only wait for managed-challenge auto-resolution on sites that opt into stalled-challenge
+// reload. Other sites do not pay this latency penalty.
+if (ShouldReloadStalledChallenge(request.url)) {
+    await Delay(2500);
+}
+
 
                 // The challenge may auto-resolve (and thus navigate) right around the grace delay, which
                 // tears down the execution context and makes `ExecuteScript` fail. Poll the read-only

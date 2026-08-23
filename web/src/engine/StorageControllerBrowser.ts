@@ -66,7 +66,7 @@ export class StorageControllerBrowser implements StorageController {
                 const db = request.result;
                 // Reset the cached connection when it is closed externally
                 // (e.g., a database version upgrade from another context).
-                db.onversionchange = () => db.close();
+                db.onversionchange = () => { db.close(); this.#connection = undefined; };
                 db.onclose = () => this.#connection = undefined;
                 resolve(db);
             };

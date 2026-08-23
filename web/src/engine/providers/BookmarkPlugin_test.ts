@@ -8,7 +8,6 @@ import { BookmarkPlugin, ShouldRefreshContentFlags, CheckNewContentTimestampKey 
 import { MissingWebsite, type Bookmark, type BookmarkSerialized } from './Bookmark';
 import CrunchyScan from '../websites/CrunchyScan';
 import JapScan from '../websites/JapScan';
-import MangaFire from '../websites/MangaFire';
 import MangaLink from '../websites/MangaLink';
 import MangaTilkisi from '../websites/MangaTilkisi';
 import MangaTR from '../websites/MangaTR';
@@ -404,7 +403,6 @@ describe('BookmarkPlugin', () => {
         const interactiveSites = [
             CrunchyScan,
             JapScan,
-            MangaFire,
             MangaLink,
             MangaTilkisi,
             MangaTR,
