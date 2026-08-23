@@ -381,7 +381,7 @@ export abstract class FetchProvider {
                 if (this.featureFlags.VerboseFetchWindow.Value) {
                     console.log('FetchWindow()::invocations', invocations);
                 } else {
-                    await win.Close();
+                    win.Close().catch(() => {});
                 }
             } catch (error) {
                 console.warn(error);
