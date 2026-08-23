@@ -1292,3 +1292,11 @@ Fix (commit b50842fb):
 3. Poller max 30 tentatives + guard window destroyed garde en place
 
 Regle: tout appel IPC DOIT etre await dans un try/catch.
+
+## 33. Lecon : sync build web → electron (23 aout 2026)
+
+La commande de sync DOIT copier TOUS les fichiers web/build/ (pas juste le dossier hash) :
+  rm -rf app/electron/build/web/* && cp -r web/build/* app/electron/build/web/
+
+ERREUR : cp -r web/build/$WEBHASH ... rate index.html, favicon.ico, index.css
+RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
