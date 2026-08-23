@@ -1348,3 +1348,17 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 **Fichier** : `web/src/engine/websites/JapScan.ts`
 
 ---
+
+## §37 — JapScan: cache chapter lists to prevent memory saturation (commit ed46e93f)
+
+**Date** : 23 août 2026
+**Problème** : même avec le TaskPool(1), lister 50+ bookmarks JapScan saturait la mémoire (4.5 GB renderer). Chaque `FetchChapters` ouvre un `RemoteBrowserWindow` (process Chromium ~100MB). Avec 50 bookmarks, c'est 5GB+ cumulés.
+**Fix** : cache in-memory (Map, TTL 1h) pour les résultats de `FetchChapters`. Le 1er fetch pour chaque manga ouvre encore une fenêtre DRM, mais les refreshes suivants retournent le cache instantanément sans ouvrir de fenêtre.
+**Résultat** : premier lancement = N fenêtres (une par manga, sérialisées). Refreshes suivants = 0 fenêtre, instantané.
+**Pattern** : `readonly #chapterCache = new Map<string, { chapters, ts }>()` — ne pas utiliser `static` avec les decorators de classe.
+**Fichier** : `web/src/engine/websites/JapScan.ts`
+
+---
+
+## §37 — JapScan cache chapter lists (ed46e93f)
+**Date**: 23 août 2026 — cache in-memory 1h TTL pour FetchChapters. 1er fetch = fenêtre DRM, suivants = instantané. Évite la saturation mémoire (4.5GB renderer -> stable).
