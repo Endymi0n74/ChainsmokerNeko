@@ -1362,3 +1362,4 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 
 ## §37 — JapScan cache chapter lists (ed46e93f)
 **Date**: 23 août 2026 — cache in-memory 1h TTL pour FetchChapters. 1er fetch = fenêtre DRM, suivants = instantané. Évite la saturation mémoire (4.5GB renderer -> stable).
+## §37 JapScan cache (ed46e93f)
