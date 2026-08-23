@@ -27,6 +27,9 @@ export default class extends DecoratableMangaScraper {
 
     readonly #drm = new DRMProvider();
     private readonly chaptersTaskPool = new TaskPool(1, new RateLimit(4, 1));
+    // Cache chapter lists to avoid re-opening browser windows on every refresh
+    readonly #chapterCache = new Map<string, { chapters: Chapter[]; ts: number }>();
+    readonly #CACHE_TTL = 3600_000; // 1 hour
     public override ValidateMangaURL(url: string): boolean {
         try {
             const u = new URL(url);
@@ -68,10 +71,17 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async FetchChapters(manga: Manga): Promise<Chapter[]> {
-        return this.chaptersTaskPool.Add(async () => {
-            const chapters = await this.#drm.CreateChapterList(new URL(manga.Identifier, this.URI));
-            return chapters.map(({ id, title }) => new Chapter(this, manga, id, title));
+        const key = manga.Identifier;
+        const cached = this.#chapterCache.get(key);
+        if (cached && (Date.now() - cached.ts) < this.#CACHE_TTL) {
+            return cached.chapters;
+        }
+        const chapters = await this.chaptersTaskPool.Add(async () => {
+            const data = await this.#drm.CreateChapterList(new URL(manga.Identifier, this.URI));
+            return data.map(({ id, title }) => new Chapter(this, manga, id, title));
         }, Priority.Normal);
+        this.#chapterCache.set(key, { chapters, ts: Date.now() });
+        return chapters;
     }
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {
