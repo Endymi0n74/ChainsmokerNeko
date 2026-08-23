@@ -1363,3 +1363,37 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 ## §37 — JapScan cache chapter lists (ed46e93f)
 **Date**: 23 août 2026 — cache in-memory 1h TTL pour FetchChapters. 1er fetch = fenêtre DRM, suivants = instantané. Évite la saturation mémoire (4.5GB renderer -> stable).
 ## §37 JapScan cache (ed46e93f)
+
+## §38 — Copilot review fixes + MangaFire upstream + virtual scroll (a03aee4e)
+**Date**: 24 août 2026 — Fixes des 6 bugs Copilot (PR #1798) + 3 race conditions (PR #1797) + alignement MangaFire upstream + virtual scroll MediaSelect. JapScan.extract.ts module séparé pour l'extraction reader (réponse MikeZeDev PR #1805).
+
+### §38a — PR #1798 Copilot fixes (6 bugs)
+1. `onFlagChanged`: filtre par manga courant (évite cross-manga overwrite)
+2. `itemKey`: ajoute plugin ID (évite cross-plugin collisions)
+3. `resetSelection`: guard contre clics bubblés dans les lignes
+4. `StorageControllerBrowser`: clear cache IDB sur versionchange
+5. `MediaItem`: restaure oncontextmenu (menu contextuel clavier)
+6. `BookmarkPlugin_test`: retire MangaFire des interactive sites
+
+### §38b — PR #1797 Copilot fixes (3 race conditions)
+1. `ReloadStalledCloudFlareChallenge`: added `stopped` flag
+2. `doCheck`: guard with stopped flag
+3. Grace delay 2.5s: gated behind `ShouldReloadStalledChallenge()`
+
+### §38c — MangaFire upstream alignment
+- `FetchJSON` direct au lieu de `FetchWindowScript` (fin du timeout WAF)
+- Pagination séquentielle `limit=100` (API ignore les limites supérieures)
+- VRF signing en TypeScript
+- MangaFire retiré des interactive sites (RequirementsVisibleBrowserWindow=false)
+
+### §38d — Virtual scroll MediaSelect
+- Seuil > 100 items: ne rend que les ~30 items visibles + buffer
+- RAM 4.8GB → ~800MB sur JapScan (15k mangas)
+
+### §38e — PR #1805 MikeZeDev review (JapScan)
+- Supprimé IPC/Diagnostics logging de JapScan.ts (pas de prod)
+- Créé `JapScan.Extract.ts` module dédié (scroll+collect CDN images)
+- Investigué canvas: 0 refs dans DRM.js, JapScan utilise `<img>` + performance timeline
+- Simplifié `FetchPages`: ExtractPagesFromReader + DRM fallback
+- Bundle x64 prêt dans `app/electron/.tmp/`
+
