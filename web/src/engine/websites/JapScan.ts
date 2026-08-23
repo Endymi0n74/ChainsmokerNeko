@@ -7,6 +7,8 @@ import { FetchCSS, FetchWindowScript } from '../platform/FetchProvider';
 import GetIPC from '../platform/InterProcessCommunication';
 import { Diagnostics as DiagnosticsChannels } from '../../../../app/src/ipc/Channels';
 import { DRMProvider } from './JapScan.DRM';
+import { TaskPool, Priority } from '../taskpool/TaskPool';
+import { RateLimit } from '../taskpool/RateLimit';
 
 AddAntiScrapingDetection(async invoke => {
     // JapScan's own anti-bot (the "Glisse pour remettre dans l'ordre" puzzle) is announced by
@@ -24,6 +26,7 @@ export default class extends DecoratableMangaScraper {
     public override readonly RequiresVisibleBrowserWindow = true;
 
     readonly #drm = new DRMProvider();
+    private readonly chaptersTaskPool = new TaskPool(1, new RateLimit(4, 1));
     public override ValidateMangaURL(url: string): boolean {
         try {
             const u = new URL(url);
@@ -65,8 +68,10 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async FetchChapters(manga: Manga): Promise<Chapter[]> {
-        const chapters = await this.#drm.CreateChapterList(new URL(manga.Identifier, this.URI));
-        return chapters.map(({ id, title }) => new Chapter(this, manga, id, title));
+        return this.chaptersTaskPool.Add(async () => {
+            const chapters = await this.#drm.CreateChapterList(new URL(manga.Identifier, this.URI));
+            return chapters.map(({ id, title }) => new Chapter(this, manga, id, title));
+        }, Priority.Normal);
     }
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {
