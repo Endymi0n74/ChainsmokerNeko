@@ -614,6 +614,8 @@ export default class extends DecoratableMangaScraper {
                     const h = img.naturalHeight || img.height || 0;
                     if(w > 0 && w < 100) return true;
                     if(h > 0 && h < 100) return true;
+                    // .webp parasites are typically thumbnails < 300px; manga pages are wider
+                    if(url.toLowerCase().endsWith(".webp") && ((w > 0 && w < 300) || (h > 0 && h < 300))) return true;
 
                     // URL keyword filter (broader than before)
                     if((() => { try { const p = new URL(url).pathname.toLowerCase(); return ['logo','avatar','icon','banner','ads','emoji','spinner','loading','badge','user','profile','gravatar','thumb','button','social','share','comment','reply','widget','sidebar','header','footer','nav','menu'].some(k => p.includes('/'+k+'/') || p.includes('/'+k+'.') || p.endsWith('/'+k)); } catch { return false; } })()) {
