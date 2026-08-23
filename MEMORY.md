@@ -1324,3 +1324,17 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 
 ---
 
+
+## §35 — JapScan: normalize paste URLs + null-safe FetchManga (commit 086645bf)
+
+**Date** : 23 août 2026
+**Problème** : coller une URL JapScan avec segment optionnel (ex. `/manga/slug/volume-7/`) ou slug invalide (`/manga/-/`) crashait l'app — le decorator `@Common.MangaCSS` fetchait l'URL telle quelle, le sélecteur CSS ne trouvait rien, et `head.innerText` crashait sur `undefined`.
+**Fix** :
+1. Supprimé le decorator `@Common.MangaCSS` (il crée une subclass qui override nos méthodes)
+2. Ajouté `ValidateMangaURL` override — parse l'URL avec `new URL()` + hostname regex (pas de regex backslash dans le code généré)
+3. Ajouté `FetchManga` override — normalise l'URL (extrait juste `/manga|manhwa|bd/slug/`) avant de fetch
+4. Callback null-safe : `head?.innerText?.replace(...)` au lieu de `head.innerText`
+**Règle** : quand le decorator `@Common.MangaCSS` pose problème, le supprimer et overrider `ValidateMangaURL` + `FetchManga` directement dans la classe.
+**Fichier** : `web/src/engine/websites/JapScan.ts`
+
+---
