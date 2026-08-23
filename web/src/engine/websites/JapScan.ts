@@ -3,7 +3,7 @@ import icon from './JapScan.webp';
 import { DecoratableMangaScraper, type Manga, Chapter, Page, type MangaPlugin } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
-import { FetchWindowScript } from '../platform/FetchProvider';
+import { FetchCSS, FetchWindowScript } from '../platform/FetchProvider';
 import GetIPC from '../platform/InterProcessCommunication';
 import { Diagnostics as DiagnosticsChannels } from '../../../../app/src/ipc/Channels';
 import { DRMProvider } from './JapScan.DRM';
@@ -16,7 +16,6 @@ AddAntiScrapingDetection(async invoke => {
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
 
-@Common.MangaCSS<HTMLHeadingElement>(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}\/(manga|manhwa|bd)\/[^/]+\/(?:[^/]+\/)*$/, '#main div.card-body h1', (head, uri) => ({ id: uri.pathname, title: head.innerText.replace(/^man[gh][wu]?a\s+/i, '') }))
 @Common.ImageAjax(true)
 export default class extends DecoratableMangaScraper {
 
@@ -25,6 +24,26 @@ export default class extends DecoratableMangaScraper {
     public override readonly RequiresVisibleBrowserWindow = true;
 
     readonly #drm = new DRMProvider();
+    public override ValidateMangaURL(url: string): boolean {
+        try {
+            const u = new URL(url);
+            const h = u.hostname;
+            if (!/((www\.)?japscan\.)[a-z]{2,4}/.test(h)) return false;
+            const p = u.pathname.split('/').filter(Boolean);
+            return p.length >= 2 && ['manga', 'manhwa', 'bd'].includes(p[0]);
+        } catch { return false; }
+    }
+
+    public override async FetchManga(provider: MangaPlugin, url: string): Promise<Manga> {
+        const uri = new URL(url);
+        const p = uri.pathname.split('/').filter(Boolean);
+        const np = p.length >= 2 ? '/' + p[0] + '/' + p[1] + '/' : uri.pathname;
+        const nu = new URL(np, uri.origin);
+        return Common.FetchMangaCSS.call(this, provider, nu.href, '#main div.card-body h1', (head: HTMLHeadingElement | null, u: URL) => ({
+            id: np,
+            title: head?.innerText?.replace(/man[gh][wu]?a\s+/i, '')?.trim() ?? ''
+        }));
+    }
 
     public constructor() {
         super('japscan', 'JapScan', 'https://www.japscan.foo', Tags.Media.Manga, Tags.Media.Manhwa, Tags.Media.Manhua, Tags.Language.French, Tags.Source.Aggregator);
