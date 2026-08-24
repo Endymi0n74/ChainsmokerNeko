@@ -4,6 +4,7 @@ import { FetchWindowScript } from '../platform/FetchProvider';
 import { DecoratableMangaScraper, type MangaPlugin, Manga, Chapter, Page } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
 import { RateLimit } from '../taskpool/RateLimit';
+import { AddStalledChallengeReload } from '../platform/ChallengeReload';
 
 type APIChapter = {
     id: number;
@@ -90,6 +91,8 @@ const ScriptMangas = `
         return result;
     })()
 `;
+
+AddStalledChallengeReload(/^https:\/\/(?:www\.)?comix\.to/);
 
 @Common.MangaCSS(/^{origin}\/title\/[^/]+$/, 'meta[property="og:title"]')
 @Common.ImageAjax()
