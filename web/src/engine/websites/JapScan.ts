@@ -43,7 +43,7 @@ export default class extends DecoratableMangaScraper {
         const p = uri.pathname.split('/').filter(Boolean);
         const np = p.length >= 2 ? '/' + p[0] + '/' + p[1] + '/' : uri.pathname;
         const nu = new URL(np, uri.origin);
-        return Common.FetchMangaCSS.call(this, provider, nu.href, '#main div.card-body h1', (head: HTMLHeadingElement | null, u: URL) => ({
+        return Common.FetchMangaCSS.call(this, provider, nu.href, '#main div.card-body h1', (head: HTMLHeadingElement | null) => ({
             id: np,
             title: head?.innerText?.replace(/man[gh][wu]?a\s+/i, '')?.trim() ?? ''
         }));
@@ -71,7 +71,7 @@ export default class extends DecoratableMangaScraper {
     public override async FetchChapters(manga: Manga): Promise<Chapter[]> {
         const key = manga.Identifier;
         const cached = this.#chapterCache.get(key);
-        if (cached && (Date.now() - cached.ts) < this.#CACHE_TTL) {
+        if (cached && Date.now() - cached.ts < this.#CACHE_TTL) {
             return cached.chapters;
         }
         const chapters = await this.chaptersTaskPool.Add(async () => {

@@ -434,11 +434,10 @@ export abstract class FetchProvider {
                 let redirect: FetchRedirection;
 
                 // Only wait for managed-challenge auto-resolution on sites that opt into stalled-challenge
-// reload. Other sites do not pay this latency penalty.
-if (ShouldReloadStalledChallenge(request.url)) {
-    await Delay(2500);
-}
-
+                // reload. Other sites do not pay this latency penalty.
+                if (ShouldReloadStalledChallenge(request.url)) {
+                    await Delay(2500);
+                }
 
                 // The challenge may auto-resolve (and thus navigate) right around the grace delay, which
                 // tears down the execution context and makes `ExecuteScript` fail. Poll the read-only
