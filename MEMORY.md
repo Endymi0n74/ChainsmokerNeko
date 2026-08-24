@@ -1,9 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 22 août 2026 — fix JapScan .bin résiduel (MIME type filter),
-> fix MangaDrama images parasites (avatar/gravatar), PRs upstream #1804/#1805 ouvertes,
-> 21 réponses à la review upstream postées.
+> Dernière mise à jour : 24 août 2026 — nightly v2.2.0 (093d2746), MangaMoins restauré, CrunchyScan Interactive.
 
 > ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
 > les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
@@ -151,6 +149,7 @@ app/electron/build|bundle/     → build Electron (généré)
     désactivait TOUT reload → les 3 sites restaient figés. Le contrôle actuel ne
     détecte qu'un widget **réellement rendu** (iframe/checkbox) → le reload est
     rétabli pour les challenges « managés » sans widget. **✅ Corrigé et committé**.
+- **MangaMoins** : connector restauré (24 août) — `@Common.ImageAjax()` pour FixImage + icon + e2e. Câblé dans `_index.ts`.
 - 17 autres sites ajoutés (commit `96741258`) — **audités le 16 août** : seul **PornComix** a été
   câblé dans `_index.ts` (e2e complet OK). Les 16 autres restent **non câblés** car invalides
   (vérifié par tests e2e + sondes) : 8 domaines morts (`ERR_NAME_NOT_RESOLVED`/SSL :
@@ -254,7 +253,8 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 #
 # PRÉREQUIS : node_modules doit exister dans build/ AVANT le build.
 # Si absent : copier depuis le déploiement existant :
-#   powershell -Command "Copy-Item 'D:DocumentsCompressedHakunekoesourcesapp
+#   powershell -Command "Copy-Item 'D:DocumentsCompressedHakuneko
+esourcesapp
 ode_modules' 'build
 ode_modules' -Recurse -Force"
 #
@@ -357,8 +357,8 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release  GitHub
-  `Latest` (3 zips + corps bilingue FR/EN). **Version actuelle : 0.1.15**
-  (publiée le 18 août). Prochain bump (0.1.16) dès le prochain correctif
+  `Latest` (3 zips + corps bilingue FR/EN). *Version actuelle : 2.2.0*
+  (publiée le 18 août). Prochain bump (2.2.1) dès le prochain correctif
   fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).
 
@@ -439,274 +439,24 @@ complets, méthodo CDP). État :
   fermeture propre, relance → relu sur la même origin (64210). Typecheck + 11 tests
   electron verts.
 
-## 13. Releases (16–17 août)
+## 13. Releases (historique)
 
-- **0.1.1** (`a408138e`) : fix persistance (port stable 64210) + perf (singleton
-  IDB, débounce, virtualisation chapitres, sharding MediaLists, Fuse worker) +
-  renommages/icône/drapeaux/version/splash.
-- **0.1.2** (`a288bcbf`) : diff des `MediaLists` (réécriture ciblée, comparaison
-  à la volée). Benchmark live consigné dans `BENCHMARKS.md` §2 (70 → 0 écritures).
-- **0.1.3** (`7a6bc0e4`) : débounce adaptatif **120 ms sous-chaîne / 200 ms flou**,
-  E2E ~313 → **~192 ms**. Release publiée avec les 3 zips.
-- **0.1.4** (`f0e218e6`) : **login MangaDrama dans l'app** — `Initialize()`
-  vérifie `/wp-json/wp/v2/users/me` ; si non connecté, ouvre une fenêtre visible
-  sur `/my-account/` (poll 5 s, auto-fermeture à la connexion, cookies persistés
-  en session partagée → chapitres achetés déverrouillés) + **prix en coins**
-  affiché sur les chapitres verrouillés. Release **`Latest`** publiée avec les 3
-  zips v0.1.4 (hakuneko.exe + manifest vérifiés). CI vert.
-- **0.1.5** (`3e44c36f`) : **fix de la boucle Cloudflare CrunchyScan** (`a67e9189`)
-  — 3 problèmes chaînés : (1) `cf_clearance` n'est émis que si la fenêtre distante
-  est **visible** → `win.Show()` pour les sites opt-in du reload (CrunchyScan
-  seul ; MangaFire/MangaDrama/Comix restent cachés, zéro flash) ; (2) le cookie est
-  **httpOnly** → lecture via CDP `Network.getCookies` (le debugger est déjà
-  attaché) au lieu de `document.cookie` ; (3) budget de reload **borné globalement
-  à 3** (au lieu d'une boucle non-bornée ~35 navigations/40 s) + arrêt de tous les
-  pollers au `destroy()`. Vérifié : 2138 tests web + 11 electron, typecheck/lint
-  OK, CI vert,  zips v0.1.5 vérifiés (hakuneko.exe + manifest). Release **`Latest`**
-  publiée avec les 3 zips.
-- **0.1.6** (`def620c0`) : **helper d'import `cf_clearance`** (`7cb07c8b`) —
-  section « Cloudflare bypass » dans Paramètres → Général. Bouton
-  « Import cf_clearance from browser » (lecture Edge/Chrome : DPAPI +
-  AES-256-GCM sur le store SQLite, via `node:sqlite` du runtime Electron) +
-  champ de **collage manuel** (fallback quand le navigateur est ouvert/verrouillé
-  ou en **App-Bound Encryption v20**, détecté avec message explicite).
-  Câblage : namespace `CloudFlareImport` (`ImportFromBrowser`/`SetClearance`) +
-  contrôleur `app/electron/src/ipc/CloudFlareImport.ts` + 2 méthodes sur
-  `IAppWindow` (impl Electron + stub NW). Validé en réel : injection httpOnly+
-  secure sur le bon domaine, guards hôte/valeur, détection du store verrouillé.
-  Release **`Latest`** avec les 3 zips v0.1.6 (hakuneko.exe + main.js + preload.js
-  + manifest vérifiés). CI vert.
-- **0.1.7** (`255e1dcf`) : **fix du RangeError `expires_utc`** (`8432bc38`) —
-  les timestamps Chromium (microsecondes depuis 1601) dépassent
-  `Number.MAX_SAFE_INTEGER` → node:sqlite crashait l'auto-lecture dès qu'un
-  cookie était lu (Edge/Chrome fermé). Fix : `CAST(expires_utc AS TEXT)` dans la
-  requête + parsing BigInt. ⚠️ **Test du 17 août** : l'auto-lecture est bloquée
-  sur le profil Edge de l'utilisateur — **tous les cookies sont en App-Bound
-  Encryption « v20 »** (non décryptable en v10, verrou sécurité Chromium), et le
-  fallback CDP (`--remote-debugging-port` sur profil par défaut) est aussi
-  bloqué (Chromium 136+). Le helper détecte v20 et renvoie un message clair →
-  **le collage manuel reste le chemin fiable**. Auto-lecture v10 fonctionnelle
-  sur Chrome / Edge sans ABE. Release **`Latest`** avec les 3 zips v0.1.7
-  (hakuneko.exe + main.js + preload.js + manifest vérifiés). CI vert.
-- **0.1.8** (`56147aa4`) : **fallthrough Chrome** (`e276eb07`) — l'import
-  `cf_clearance` essaie désormais **Chrome** quand Edge échoue (verrouillé/v20)
-  au lieu de s'arrêter au premier échec. Doc README + texte d'aide UI :
-  l'auto-lecture v10 ne marche qu'avec Chrome ou Edge sans ABE. Release
-  **`Latest`** avec les 3 zips v0.1.8 (hakuneko.exe + main.js + preload.js +
-  manifest vérifiés). CI vert.
-- **0.1.9** (`856fe85a`) : **fix du préfixe 32 octets** (`70030e84`) — Chromium
-  130+ préfixe les valeurs de cookies d'un bloc d'intégrité de 32 octets avant
-  AES-256-GCM ; `DecryptCookie` le retirait pas → valeur injectée corrompue.
-  **Test du 17 août** : **Chrome for Testing 152** installé (portable,
-  `D:\Codex\chrome-for-testing`, profil pointé vers `%LOCALAPPDATA%\Google\Chrome\User
-  Data`) pour valider le fallthrough — **Chrome = v10** (pas d'ABE), Edge = v20.
-  Import réel **Edge v20 → Chrome v10** : « Imported cf_clearance from Chrome »,
-  valeur injectée propre. ⚠️ L'installateur officiel ChromeSetup.exe reste bloqué
-  sur un prompt UAC (admin) → utiliser Chrome for Testing. Release **`Latest`**
-  avec les 3 zips v0.1.9 (hakuneko.exe + main.js + preload.js + manifest
-  vérifiés). CI vert.
-- **0.1.10** (`9e1222de`) : **import `cf_clearance` multiplateforme** (`9ac1d1f2`)
-  — Windows/macOS/Linux (DPAPI / Keychain+PBKDF2 / `peanuts`+keyring), sans
-  dépendance externe, profils Edge/Chrome (+Chromium Linux) par OS, cookies
-  v10 AES-256-GCM (Windows) ou v10/v11 AES-128-CBC (macOS/Linux), algorithmes
-  vérifiés contre la source Chromium (IV = 16 espaces fixes pour le CBC).
-  ⚠️ `safeStorage` Electron est **incompatible** avec les blobs DPAPI Chrome
-  (prouvé en probe : il produit son propre v10 AES-GCM) → PowerShell conservé
-  sur Windows. **Bouton « Test now »** (`f7a4ce5c`) : channel
-  `CloudFlareImport::TestClearance` qui fetch la page d'accueil via
-  `session.defaultSession.fetch()` (cookies de session) et détecte le challenge
-  (marqueurs + Server/statut). Docs Cloudflare traduites en anglais (`ac2b88a1`).
-  Release **`Latest`** « ChainsmokerNeko 0.1.10 » avec les 3 zips v0.1.10
-  (hakuneko.exe + main.js + preload.js + manifest 0.1.10 vérifiés). CI vert.
-  ✅ Chemin Windows validé en réel (Edge v20 → Chrome v10, valeur injectée
-  exacte). macOS/Linux implémentés d'après la source Chromium mais non testés
-  en live (machine Windows).
-  ✅ **Validée par l'utilisateur le 17 août (app 0.1.10)** : bookmarks (91),
-  liste des chapitres (238/238) et « Download all unviewed » → 21 chapitres
-  téléchargés sur disque (`d:\Documents\bd\Box Sync\Shadows House\`).
-  Aucune régression.
-- **0.1.11** (`2284e6a9`) : **persistance `cf_clearance` entre redémarrages**
-  (`30006d41`, `CloudFlareSession` + test + câblage Main.ts) — snapshot
-  `cloudflare-clearance.json` réécrit à chaque changement de cookie, restauré au
-  boot avec expiration d'un mois. Validé en live (bundle séparé, userData vierge,
-  CDP) : set cookie → snapshot écrit → quit → relance → cookie restauré
-  (`session:false`). Release **`Latest`** avec les 3 zips v0.1.11.
-- **0.1.12** (`a7630862`) : **notification AppUpdate** (`1a0ebe47`) — poll du
-  manifest sur GitHub + `UpdateNotification.svelte` (bouton de téléchargement).
-  Bundle 3 OS committé (`d56fa332`). ⚠️ Les **assets 0.1.12 ont été rafraîchis**
-  le 17 août pour inclure le bouton **Clear Cloudflare cache** (build web
-  recopié : avant, seul main.js avait le handler, le renderer était périmé).
-- **0.1.13** (`6b0f7642`, le 17 août soir) : **bouton « Clear Cloudflare cache »**
-  committé (`061a87a5` : `CloudFlareSession.Clear` + channel
-  `CloudFlareImport::ClearCache` + `IAppWindow.ClearCloudFlareCache` + bouton
-  SettingsModal + tests 8/8) + **README bilingue** (`b12757e0` : `README.en.md`
-  + sélecteur de langue). Corps de release **bilingue FR/EN** (1ère). 3 zips
-  vérifiés (manifest 0.1.13, ClearCache présents). Release **`Latest`** sur le
-  fork.
-- **0.1.14** (`e41bd607`, le 17 août, fin de soirée) : **avertissement
-  environnement sans Electron** (`005f4fd4`, localisé 14 locales + 6 tests) +
-  **fix CI** (`eb62cf46`/`01e96d94`/`2d541f12` : non-ASCII YAML, runner en env
-  de job, extract-zip lazy) + docs (pas-à-pas CrunchyScan `0eadc738`, badges
-  release `757ad7cb`). 3 zips vérifiés (manifest 0.1.14, message présent dans
-  le bundle web). Release **`Latest`** bilingue FR/EN.
-- **0.1.15** (`d94bec92`, le 18 août) : **scan du nouveau contenu repensé** —
-  (1) **paresseux** (`d4a49222`) : `RefreshAllFlags` retiré du boot
-  (`HakuNeko.Initialze`), déplacé dans `BookmarkPlugin.RefreshFlagsIfDue()`
-  appelé par la vue Suggestions (une fois par période, timestamp localStorage) ;
-  (2) **silencieux** (`b7893dcf`) : réglage `check-new-content-silent` (défaut
-  ON, 14 locales) + drapeau `MangaScraper.RequiresVisibleBrowserWindow`
-  (true sur CrunchyScan, getter `MangaPlugin.Scraper`) → les sites à fenêtre
-  visible sont ignorés pendant le scan. ⚠️ Piège TS : un champ `readonly = false`
-  infère le littéral `false` et casse les décorateurs → typer `boolean`
-  explicitement. **Plus de fenêtre Cloudflare au lancement.** 3 zips vérifiés
-  (manifest 0.1.15 + clé silent dans le bundle). Release **`Latest`** bilingue.
-- **v2.0.0 — MAJEURE (`33cf1180`, le 18 août, matin)** : le fork devient un
-  produit autonome. Contenu : toute la suite Cloudflare (0.1.6→0.1.13), perf
-  (virtualisation, sharding + diff, Fuse worker, débounce, singleton IDB), 3 OS,
-  electron-updater, bilingue. Commits : `6d4b972d` (drapeau
-  `RequiresVisibleBrowserWindow = true` étendu aux 6 autres sites Interactive :
-  JapScan, MangaFire, MangaLink, MangaTilkisi, MangaTR, RainDropFansub — vérifiés
-  via `AddAntiScrapingDetection(FetchRedirection.Interactive)` ; + `try/finally`
-  dans `RefreshFlagsIfDue` : un site en échec mémorise quand même le scan),
-  `33cf1180` (bump 2.0.0 ×3 package.json + CHANGELOG majeure + **`ROADMAP.md`**
-  : périmètre, reporté, convention de versioning, risques). Build : 3  zips Windows v2.0.0 vérifiés (manifest 2.0.0 + hakuneko.exe). **Release 2.0.0
-  PUBLIÉE le 18 août au matin** (bilingue, `Latest`) puis complétée par le CI :
-  `create-release.yml` a été adapté (`1747d928`) pour **attacher** les bundles
-  à une release existante au lieu d'échouer (`gh release create` erre sur un
-  tag déjà publié) — run `32105187671` vert, **6 assets finaux** : 3 zips
-  win32 (ia32/x64/arm64) + 2 dmg darwin (x64/arm64) + AppImage linux-x64.
-  Prochaines étapes 2.1 possibles : câblage des connecteurs restants, installer
-  natif, thèmes, sync multi-appareils (voir `ROADMAP.md`).
-- Release précédentes conservées : 0.1.0 → 0.1.10.
-- Nightly : republiée automatiquement par `push-ci.yml` à chaque push non-docs
-  (titre « Nightly build <sha> ») — créée au push de la 0.1.10.
-- **Titres de releases uniformisés** (17 août) : les releases 0.1.6/0.1.5 (casse
-  « ChainSmokerNeko ») et 0.1.3/0.1.2/0.1.1 (préfixe `v`) ont été renommées en
-  « ChainsmokerNeko <version> » via `gh release edit <tag> --title`.
+Resume rapide — detail complet dans CHANGELOG.md et les releases GitHub.
 
-## 14. Documentation Cloudflare + nettoyage (17 août)
+- **0.1.x** (16-18 aout) : port stable 64210, perf (singleton IDB, debounce, sharding, Fuse worker), login MangaDrama, fix Cloudflare CrunchyScan (visibility/CDP/reload borne), helper import cf_clearance (DPAPI/AES-GCM/multi-OS), persistance cf_clearance, AppUpdate notification, Clear Cloudflare cache, scan paresseux/silencieux.
+- **v2.0.0** (18 aout) : fork devient produit autonome. Suite Cloudflare complete, perf, 3 OS, electron-updater, bilingue. RequiresVisibleBrowserWindow etendu a 6 sites Interactive.
+- **2.0.1-2.0.7** (18-22 aout) : fixes JapScan (cache, concurrency, Referer), Comix (Cloudflare auto-resolve), MangaFire (Cloudflare + vrf), VirtualList retire (regression), build npm 11.19, IPC rejections.
+- **2.1.x-2.2.0** (22-24 aout) : upstream sync, lint CI, bundle 7-Zip, nightly automatique.
 
-- **✅ Flux CrunchyScan validé par l'utilisateur (17 août, app 0.1.9)** : le plus
-  simple est d'ouvrir le site depuis l'app — sélecteur de site → **CrunchyScan** →
-  cliquer sur l'**URL** (ou le bouton « Open » à côté du nom) → une fenêtre s'ouvre
-  où le challenge Cloudflare se résout en interactif → le `cf_clearance` est
-  conservé dans la **session partagée** → de retour sur les mangas, listing,
-  affichage des chapitres ET téléchargement fonctionnent. C'est le flux natif
-  (`Initialize()` ouvre la même fenêtre visible) ; le helper d'import manuel
-  devient un **fallback** (IP marquée). Documenté en méthode A dans
-  `CLOUDFLARE.md` §7 + README.
+Nightly : republiee par push-ci.yml a chaque push non-docs. Titre Nightly build sha.
+Convention titre : ChainsmokerNeko version (sans prefixe v).
+## 14-15. Documentation Cloudflare + NSIS (17-18 aout)
 
-- **`CLOUDFLARE.md`** (`dcaedbb3`, réécrit en **anglais** le 17 août) : doc de statut
-  utilisateur récapitulant tout le contournement Cloudflare — mécanismes embarqués
-  (UA, session partagée, reload opt-in borné), helper d'import `cf_clearance` (auto
-  v10 DPAPI+AES-GCM+retrait préfixe 32 octets, détection v20 ABE, fallthrough
-  multi-navigateur Edge→Chrome, collage manuel, bouton « Test now »), matrice des
-  scénarios, limites connues, historique 0.1.5→0.1.12 et **méthode A pas-à-pas**
-  (sélecteur de site → URL → résolution → Update → Test now → Clear cache).
-  Liée depuis le README (section Cloudflare aussi en anglais).
-- **Nettoyage du dossier de travail** : `.tmp/` vidé (250 sondes/logs/probes +
-  `ChromeSetup.exe` 12 Mo + `chrome-win64.zip` 202 Mo + `robo/`) — **conservé :
-  `.tmp/electron-zips`** (cache 400 Mo des 3 binaires Electron, réutilisé par
-  `deploy-app.mjs`). `D:\Codex\chrome-for-testing` (428 Mo, portable Chrome de
-  test v10) supprimé — à re-télécharger depuis
-  https://googlechromelabs.github.io/chrome-for-testing/ si un re-test v10 est
-  nécessaire (l'installateur officiel ChromeSetup.exe reste bloqué par l'UAC).
-- **État GitHub (à jour 21 août)** : l'ancien dépôt **`ChainsmokerNeko-legacy` a été
-  supprimé** (décision utilisateur) — les releases 0.1.0→0.1.11, 160826 et l'ancienne
-  nightly ne sont plus accessibles. Seul **`ChainsmokerNeko`** (vrai fork) porte les
-  releases : **0.1.12**, **0.1.13**, **2.0.x** (`Latest` 2.0.6, corps bilingue FR/EN)
-  + sa `nightly` roulante. Titres uniformisés « ChainsmokerNeko <version> » (voir §13).
-- **README nettoyé (17 août, commit `70ed6409`)** : suppression de « Save all
-  images » (retiré du code), ajout de MangaDrama aux sites garantis, section
-  Cloudflare précise (import/test/clear/persistance), workflow 3 OS, et mention
-  que seuls les 4 sites curated sont testés (le reste de `_index.ts` est sans
-  garantie).
-- **PR upstream ouvertes (17 août)** depuis `Endymi0n74/ChainsmokerNeko` (le vrai
-  fork, renommé depuis `haruneko`) : **#1797** `fix(cloudflare)` (UA Electron,
-  session partagée, reload opt-in, CrunchyScan) et **#1798** `perf(ui)` (liste
-  virtualisée, sharding MediaLists, Fuse en worker, singleton IndexedDB). Toutes
-  deux `MERGEABLE` et **toujours valides après le renommage** (le head
-  `Endymi0n74:upstream/*` est inchangé). Voir les corps dans
-  `app/electron/.tmp/pr-body.md` / `pr-body-perf.md` (gitignorés).
-- **Renommage fait (17 août)** : `haruneko` → `ChainsmokerNeko` (vrai fork
-  GitHub). L'ancien dépôt `ChainsmokerNeko-legacy` (issu du renommage intermédiaire)
-  a été **supprimé le 21 août** — les releases 0.1.0→0.1.11 ne sont plus
-  téléchargeables ; tout est désormais publié sur le nouveau repo.
-- **Legacy supprimé (21 août)** : `ChainsmokerNeko-legacy` (archivé le 17 août
-  comme archive de releases) a été **supprimé définitivement** à la demande de
-  l'utilisateur — « il n'a plus lieu d'être ». Toutes ses mentions retirées des docs
-  (README FR/EN, ROADMAP, MEMORY).
-- **Liens de téléchargement → nouveau repo (17 août soir, `50004731`, ajusté 21 août)** :
-  README + CLOUDFLARE.md pointent uniquement vers `Endymi0n74/ChainsmokerNeko/releases`
-  (aucune référence legacy).
-- **WIP : VIDE (fin de soirée 17 août)** — tout est committé : bouton
-  **Clear Cloudflare cache** (`061a87a5`, release 0.1.13) et avertissement
-  **environnement sans Electron** (`005f4fd4` : `RemoteBrowserWindow.ts` lève
-  une Exception localisée + i18n 14 locales + `RemoteBrowserWindow_test.ts`,
-  vitest 2144 vert). Working tree propre ; seuls les outils `.tmp/` restent
-  non suivis (gitignorés).
-- **Script de test live réutilisable** (17 août soir, enrichi le soir même) :
-  `app/electron/.tmp/live_clearance_test.py` — cycle complet
-  (wipe userdata → launch → set cookie → snapshot → quit → relance → vérif),
-  ne tue que son propre PID (jamais les hakuneko de l'utilisateur). **Vérifie
-  aussi le contenu du snapshot** : valeur + domaine du cookie injecté au moment
-  de l'écriture, restauration issue du snapshot (valeur identique + `session:false`)
-  et persistance du fichier après relance (5 checks). Validé : PASS complet.
-  ⚠️ `.tmp/` = bac à sable gitignoré, PAS committé.
-- **Doc du réchauffage CrunchyScan pas-à-pas** (17 août soir, `0eadc738`) :
-  `CLOUDFLARE.md` §7 Méthode A détaillée — sélecteur de site → clic sur l'**URL**
-  → fenêtre réelle où Cloudflare se résout → fermer → **Update** → vérif via
-  **Test now**, rappel de la persistance (une fois par réseau/IP, pas par
-  lancement) et du **Clear Cloudflare cache** si le cookie est périmé.
-- **Liens de téléchargement vérifiés en live (17 août soir, ajusté 21 août)** :
-  URL des README/CLOUDFLARE.md → **HTTP 200** (page Releases du fork) et les 3
-  assets 0.1.13 → **206** (téléchargeables). Aucun lien mort.
-
-## 15. Installateur NSIS + état 18 août (matin)
-
-- **Installateur NSIS Windows ajouté (18 août)** : `app/electron/scripts/bundle-app-nsis.mjs`
-  (nouveau) + câblage dans `deploy-app.mjs` (win32 : zip PUIS setup par arch) +
-  `choco install nsis -y --no-progress` dans `create-release.yml` (step conditionné
-  `matrix.target == 'windows'`) et `push-ci.yml` (job bundles) + upload `bundle/*`
-  (zips + `*-setup.exe`) et nightly enrichie.
-  - Installateur **per-user** (MUI2, bilingue EN/FR, icône `app.ico` + bitmap
-    `WizModernImage.bmp` 164×314 déjà présents dans `app/res/win32/`) →
-    `%LOCALAPPDATA%\Programs\HakuNeko`, entrée Add/Remove Programs (HKCU),
-    raccourcis menu Démarrer, désinstallateur `Uninstall.exe` (silencieux `/S`).
-  - **`user-data-dir` retiré du manifest embarqué** → l'app installée utilise
-    %APPDATA%\hakuneko-electron (comme l'usage actuel), contrairement aux zips
-    portables (`userdata/` à côté de l'exe).
-  - **Validé en réel sur machine (18 août)** : build complet x64 → `makensis 3.10`
-    portable (dans `.tmp/nsis/`, téléchargé depuis SourceForge, gitignoré) →
-    install silencieux `/S` ✅ (fichiers + registre) → app installée démarre ✅
-    (arbre Electron complet) → désinstall `/S` ✅ (dossier + registre + menu
-    démarrer nettoyés, userData préservé).
-  - **2 pièges NSIS découverts** : (1) chemins absolus en `/` → « no files found »
-    (garder les `\`) ; (2) `.nsi` écrit dans %TEMP% → tous les chemins référencés
-    doivent être absolus (icône, bitmap, OutFile, File /r).
-  - L'**AppImage Linux** était déjà produit (`bundle-app-appimage.mjs`) et déjà
-    attaché par le workflow (6 assets v2.0.0). Rien à ajouter côté Linux.
-  - ⚠️ **`web/src/engine/websites/_index.ts` : validation des 16 connecteurs
-    TERMINÉE le 18 août — AUCUN ne passe, tous dé-câblés** (le câblage non
-    committé a été annulé, `_index.ts` = état upstream). Verdict par site :
-    - **Morts/parkés/détournés (14)** : coffeemanga→bunnynovel (site de novels),
-      colamanga→**app-gated** (1 chapitre teaser « COLAMANGA APP观看后续 » sur
-      les 3 mangas testés, pages DRM bloquées → non), firecomics (down),
-      manhwabtt (fermé : « permanently closed down »), mangahack→Xfolio,
-      manga-sehri (down), otsugami (down), readallcomics (521), retsu (DNS),
-      silencescan (down), tmohentai (down), webtoontrnet (down), raikiscan +
-      zinchangmanga (**domaines parkés** router.parklogic.com) — tous
-      **supprimés le 18 août** (ménage §18).
-    - **Vivants mais connecteur cassé (2)** : herosweb (site restructuré :
-      `/episodes/<hash>` au lieu de `/episode/\d+`, SPA sans les sélecteurs
-      CoreView — réécriture complète nécessaire) ; lectorknight (« Nos unimos
-      a algo más grande » = les mangas sont partis, page d'atterrissage seule).
-    - **Harnais de validation réutilisable** : `app/electron/.tmp/validate_colamanga.py`
-      (flux listing→chapitres→pages→image via CDP, API `plugin.Scraper.FetchX`),
-      lancement via bundle `.tmp/colabundle` (électron x64 + build + userdata).
-      Leçon : un HTTP 200 sur la home ne prouve rien — vérifier le contenu réel
-      (titre, structure, chapitres) et le flux complet dans l'app.
-
+- **CLOUDFLARE.md** (17 aout) : doc anglaise complete — mecanismes (UA, session shared, reload), helper import cf_clearance (auto v10, detection v20 ABE, fallthrough Edge->Chrome), methode A pas-a-pas (selector -> URL -> resolution -> Update -> Test now -> Clear cache).
+- **Flux CrunchyScan valide** (17 aout, app 0.1.9) : ouvrir site depuis app -> clic URL -> fenêtre visible -> Cloudflare se résout -> cf_clearance conserve en session partagée.
+- **Installateur NSIS** (18 aout) : per-user, MUI2 bilingue, %LOCALAPPDATA%\Programs\HakuNeko, uninstaller silencieux /S. Valide en réel (install + desinstall). 2 pieges : chemins absolus en / -> no files found ; .nsi dans %TEMP%.
+- **Nettoyage .tmp/** : 250 sondes/supprimees, Chrome for Testing supprime. Conservé : .tmp/electron-zips.
+- **ChainsmokerNeko-legacy supprime** (21 aout) : releases 0.1.0-0.1.11 inaccessibles. Tout sur le vrai fork.
 ## 16. Pourquoi les agents « plantent » (18 août — leçons des sessions)
 
 Causes observées, par fréquence, et parades :
@@ -741,136 +491,11 @@ Causes observées, par fréquence, et parades :
    ended ») : rien à faire côté agent, les fichiers sur disque survivent —
    reprendre en relisant l'état réel (git status, fichiers) avant d'agir.
 
-## 17. Session carte blanche (18 août, midi)
+## 17. Session carte blanche (18 aout, midi)
 
-- **Release 2.0.1 publiée** (Windows : 3 zips + 3 setup.exe NSIS ; CI 3-OS en
-  cours pour macOS dmg + AppImage + snap). Corps bilingue FR/EN.
-- **Fix MangaDrama (2.0.1)** `7203513b` : les chapitres achetés ne sont plus
-  marqués verrouillés — `locked = lock_type !== 'none' && is_purchased !== true`
-  + overlay DOM best-effort (grâce 5 s) sur la liste REST. Racine : le verrou
-  était déduit du seul `lock_type` et cuit dans le titre (`🔒`).
-- **Snap Linux** `bb9709e0` : produit en plus de l'AppImage (upload store opt-in
-  via `SNAPCRAFT_STORE_CREDENTIALS`), `updateBinary` tolère l'exe déjà renommé.
-- **Évolution committée (→ 2.0.2)** `339814a3` : bouton « Check for new
-  chapters now » sur la tuile Suggestions → `RefreshFlagsIfDue(force=true)`
-  déclenche le scan sans attendre la période (respecte toujours « silent »).
-  Validé tsc/eslint/svelte-check + 2152 tests.
-- **Leçon** : le build electron `build-app.mjs` + `vite build` peut être en
-  course (race) → vérifier `build/main.js` existe AVANT `deploy-app.mjs`, sinon
-  l'app démarre à 46 Mo sans fenêtre ni port CDP.
-- **Auto-download 48h = RÉEL** : bouton dans `SettingsModal.svelte`
-  (`downloadNewChapters()`, cutoff 48 h + `Chapter.PublishedAt` + filtre
-  `Tags.Language.English`) — pas seulement un flag.
-- **Lecture : position persistée par chapitre = PAS encore fait** (le lecteur
-  est une grille de miniatures + strip wide ; pas de point de reprise naturel).
-  Prochaine évolution possible : mémoriser le dernier index de page consulté en
-  mode wide et ajouter un bouton « Reprendre à la page N ».
-
-### 2.0.1 finale (18 août, après-midi) — CI vert + 10 assets
-
-- **Release 2.0.1 VALIDÉE** : 10 assets = 3 zips win + 3 setup.exe NSIS + 2 dmg
-  macOS + 1 AppImage + 1 snap Linux. Corps bilingue FR/EN.
-- **Fix snap CI** `80253229` + `5dbd6755` : les dossiers de staging snapcraft
-  (`parts/`, `stage/`, `prime/`) restaient dans `app/electron/bundle/` → le
-  step `gh release upload bundles-linux/*` échouait sur un **dossier** (run 1),
-  puis `fs.rm` (non-root) jetait **EACCES** sur `parts/gnome` (root-owned, run 2).
-  Correction : `sudo rm -rf parts stage prime` dans le `finally` de
-  `bundle-app-snap.mjs`.
-- **Validation finale** : run `create-release` `32123539017` **success** + push CI
-  `32123078992` **success** (commit `5dbd6755`). Working tree propre, tout poussé.
-- **Leçon** : `snapcraft pack --destructive-mode` tourne en sudo → tout staging
-  créé est root-owned ; ne jamais nettoyer avec `fs.rm` non-root, utiliser
-  `sudo rm -rf` (CI Linux = sudo passwordless).
-
-### 2.0.2 (18 août, fin d'après-midi) — bump + release 10 assets
-
-- **Release 2.0.2 publiée** `71ece953` (bump) + tag `2.0.2` : 10 assets
-  (3 zips + 3 setup.exe NSIS Windows, 2 dmg macOS, AppImage + snap Linux),
-  corps bilingue FR/EN, CI `create-release` vert (`32126959242`). Liens
-  téléchargement README (FR/EN) + CLOUDFLARE.md re-pointés vers 2.0.2 et
-  vérifiés HTTP 206.
-- **Contenu 2.0.2** : bouton « Vérifier les nouveaux chapitres maintenant » sur
-  la tuile Suggestions (`339814a3`, scan `force` des bookmarks) + fix snap CI
-  (staging root-owned). Rien d'autre de fonctionnel — MangaDrama/NSIS étaient
-  déjà en 2.0.1.
-- **Piège local réitéré** : `npm run build --workspace=app/electron` échoue
-  (« `node` n'est pas reconnu » via cmd.exe) dans ce shell Git Bash — utiliser
-  `node ./scripts/build-app.mjs` puis `node ../../node_modules/vite/bin/vite.js
-  build` directement, et vérifier `build/main.js` + `build/package.json`
-  (`version` attendue) avant `deploy-app.mjs`.
-- **Build Windows local** : `MAKENSIS` pointe sur le portable
-  `app/electron/.tmp/nsis/nsis-3.10/makensis.exe`, cache Electron par défaut
-  `app/electron/.tmp/electron-zips/` (déjà chaud).
-
-### 2.0.3 (18 août) — régression cadenas MangaDrama corrigée
-
-- **Bug** : en 2.0.1, un « overlay DOM » était superposé à la liste REST des
-  chapitres. Les items DOM (`collectFromDOM`) ne portent que `{ id, title }` —
-  pas de champ `locked` — donc `domLocked.get(id)` valait toujours `undefined`
-  (falsy) et **déverrouillait visuellement tous les chapitres** (y compris non
-  achetés, qui perdaient leur 🔒 + prix).
-- **Fix** `46231abd` : overlay supprimé, confiance au seul champ `is_purchased`
-  de l'API (le fetch REST tourne dans la fenêtre de session → cookies du login
-  inclus). Verrouillé = `lock_type != 'none' && is_purchased !== true`.
-  Vérifié tsc + eslint + 2152 tests verts.
-- **Leçon** : dans un `FetchWindowScript`, le corps est une template literal —
-  interdit d'écrire des backticks (`` ` ``) dans les commentaires du script
-  embarqué, ils ferment la string et cassent le parse TS (TS1005).
-- **Release 2.0.3** publiée (tag `2.0.3`, 6 assets Windows + CI 3-OS pour
-  macOS/Linux), docs README/CLOUDFLARE re-pointées vers 2.0.3.
-
-### 2.0.4 (18 août) — test de non-régression MangaDrama + garde-fou CI des versions
-
-- **Test de non-régression** `30716845` : la logique de verrouillage des
-  chapitres est extraite dans `MapMangaDramaChapter` (fonction pure,
-  `web/src/engine/websites/MangaDramaChapter.ts`), inlinée dans le
-  `FetchWindowScript` via `Function.prototype.toString()` → source de vérité
-  unique entre le connecteur et 12 tests unitaires
-  (`MangaDramaChapter_test.ts`). Couvre acheté/non acheté, le strict
-  `is_purchased === true`, le prix (singulier/pluriel, non-coin) et
-  l'auto-contenance de `toString()`.
-- **Garde-fou CI** `2f1e19dc` : `scripts/check-versions.mjs` exige que
-  `package.json`, `web/package.json` et `app/electron/package.json` partagent
-  la même version. Câblé dans `push-ci` (step avant build), `create-release`
-  (job `check` dédié, `needs: check`) et le `check` racine (hérité par le PR
-  CI). Validé en réel : runs push-ci verts `32136305424` et `32137624328`.
-- **Release 2.0.4** (bump `892b012b`, tag `2.0.4`) : 6 assets Windows publiés
-  en local, CI `create-release` déclenché (`32139991497`) pour macOS/Linux/snap.
-- **Leçon** : `npm run <script>` échoue localement (« node non reconnu » via
-  cmd.exe) alors que `node scripts/check-versions.mjs` direct fonctionne — en
-  CI (ubuntu) `npm run` est OK.
-- **Nouvel outil** `scripts/bump-version.mjs` (+ alias `npm run bump:version`) :
-  bump atomique des 3 `package.json` + entrée CHANGELOG en un seul pas — refuse
-  si les manifests sont désalignés, si la version existe déjà ou si le format
-  semver est invalide ; `--dry-run` pour prévisualiser ; édition en place
-  (CRLF préservé). Usage : `node scripts/bump-version.mjs 2.0.5 [--dry-run]`.
-
-### 2.0.5 (18 août) — release outillage : bump atomique validé de bout en bout
-
-- **Le script de bump a servi pour de vrai** : la 2.0.5 a été bumpée via
-  `node scripts/bump-version.mjs 2.0.5` (3 manifests + entrée CHANGELOG
-  insérée, placeholder remplacé ensuite) — l'outil est validé en réel.
-- **Release 2.0.5** (bump `29857ced`, tag `2.0.5`) : 6 assets Windows publiés
-  en local, CI `create-release` déclenché (`32143837179`) pour macOS/Linux/snap.
-  Contenu : uniquement l'outil de bump (aucun changement fonctionnel app).
-
-### Fin de session (18 août, soir) — état stable
-
-- **Version courante** : 2.0.5 (3 `package.json` alignés, tag `2.0.5`, release
-  complète 10 assets / 3 OS, liens HTTP 206 vérifiés).
-- **Tests du bump** : `web/test/BumpVersion_test.ts` (`42b0a3f3`) — 7 cas
-  (alignement, doublon, semver invalide, dry-run, argument manquant, happy
-  path, CRLF préservé) via sous-processus sandbox tmpdir. Suite complète :
-  **2171 tests verts**.
-- **Runs CI verts du jour** : push-ci `32141760208` (bump tool),
-  `32146877863` (test bump, inclut les 2171 tests), `32143785216`/`32143781396`
-  (bump 2.0.5) ; create-release `32139991497` (2.0.4) et `32143837179` (2.0.5)
-  — le job `Verify Manifest Versions` passe en ~11-15 s sur chaque run.
-- **Chaîne de release verrouillée** : `scripts/bump-version.mjs` (bump atomique)
-  → garde-fou `scripts/check-versions.mjs` (CI push-ci + create-release + PR)
-  → test du bump. La cause du désalignement de versions est éliminée.
-- **Working tree propre**, tout poussé sur `fork/master` (dernier `42b0a3f3`).
-
+Session de wiring massive : 17 connecteurs testes, seul PornComix valide et cable.
+16 rejectes (8 domaines morts, 2 domaines recycles, 3 sites restructures/bloques, 3 pages JS-rendered).
+Colonnes de validation : listing -> chapitres -> pages -> image via sondes CDP.
 ## Ménage connecteurs (18 août, soir) — 35 morts supprimés
 
 - Audit : 728 URLs testées → 36 morts (26 câblés + 9 orphelins + 1 faux positif `NetTruyenViet` gardé, URL dynamique).
@@ -1043,81 +668,6 @@ Causes observées, par fréquence, et parades :
   master..origin/master` → intégrer les `feat: add <site>` (fichiers + câblage si simple
   décorateurs/API) et les fixes de sites qu'on a (cherry-pick).
 
-## Lot de 4 tâches (20 août soir)
-
-- **Fix .bin JapScan** (commit `72e0bd6e`) : `isCDN` dans `FetchPages` filtrait
-  TOUTES les ressources `*.japscan.foo` (JS, wasm, …) → un `.bin` résiduel par
-  chapitre. Fix : regex d'extensions image (`\.(jpe?g|png|webp|gif|avif|bmp|tiff?)`)
-  ajoutée au filtre → seules les vraies images passent, le `.bin` disparaît.
-- **Fuse.js resserré** (commit `db7bc106`) : `findAllMatches:true` +
-  `minMatchCharLength:1` + `fieldNormWeight:0` matchaient ~21 % des 70k titres
-  en mode flou. Nouveau : `threshold:0.4`, `minMatchCharLength:2`,
-  `fieldNormWeight:0.3` → beaucoup moins de faux positifs, la sous-chaîne reste OK.
-- **Relecture persistée** (commit `543fb6fa`) : `Viewer.svelte` sauvegarde la
-  position (index d'image) par chapitre dans `localStorage` (`reading-position`,
-  plafond 500 entrées) à la fermeture/next et la restaure à l'ouverture.
-- **HerosWeb** : investigué en profondeur — le site est un **SPA Next.js/Comici**
-  (heros-web.com, séries `/series/<hex>`, épisodes `/episodes/<hex>`, images CDN
-  `cdn-public.comici.jp`). L'**upstream a déjà un template `ComiciViewer`**
-  (`templates/ComiciViewer.ts`) + `HerosWebNew.ts` câblé dans `_index.ts` qui
-  gère exactement ça (FetchWindowScript pour viewerId/memberJwt, API `book/contentsInfo`,
-  descramble). Ma réécriture custom était redondante → revertée ; l'ancien
-  `HerosWeb.ts` legacy (CoreView, site mort `viewer.heros-web.com`) reste non câblé.
-  ⚠️ Comici API en maintenance le 20 août → flux complet non testable ce jour-là.
-
-- Vérifié : tsc web 0 erreur, svelte-check 0 erreur, eslint sur les fichiers modifiés 0,
-  **2120 tests vitest verts** (5 skipped / 1 todo). Working tree propre après les 3 commits.
-
-
-- **Fix .bin JapScan v2 (commit `4a5c2a92`, 20 août soir)** : le `01.bin` était un
-  **fichier VIDE (0 octet)** — pas un problème de liste d'URLs. La 1re image collectée
-  par le reader renvoyait un blob 0 octet → `GetTypedData` ne matche aucun fingerprint
-  → `application/octet-stream` → extension `.bin` dans `MangaExporter`. Fix en 2 couches :
-  (1) script JapScan : ne collecter que les `<img>` réellement décodés
-  (`naturalWidth/Height > 0`) + ressources `transferSize > 0` ; (2) `DownloadTask.Run` :
-  **skip des blobs vides** (`data instanceof Blob && data.size === 0`) + **re-indexation
-  contiguë** du resourcemap (01, 02, … sans trou). 2120 tests verts, typecheck OK.
-  Bundle x64 rebuildé via `bash scripts/bundle-x64.sh` et réinstallé dans la copie de test
-  (userdata préservé).
-
-- **Doc JapScan ajoutée à CLOUDFLARE.md §8** (20 août soir) : pas-à-pas bilingue
-  pour JapScan (Cloudflare + puzzle anti-bot "Glisse pour remettre dans l'ordre") :
-  warm-up initial (clic URL → résoudre challenge → fermer → Update), puis résolution
-  du puzzle de temps en temps pendant l'affichage/téléchargement des chapitres.
-  Fréquence : pas à chaque action, mais tous les quelques chapitres ou après inactivité.
-
-- **Doc CrunchyScan ajoutée à CLOUDFLARE.md §7** (20 août soir) : paragraphe
-  d'introduction bilingue rappelant le workflow identique à JapScan (ouvrir le
-  site une fois depuis les plugins → résoudre Cloudflare → le cookie persiste).
-
-- **Release 2.0.7 publiée** (20 août soir) : 10 assets (3 Windows zip + 3 NSIS
-  setup + 2 macOS dmg + Linux AppImage + Linux snap). Changelog : fix .bin JapScan,
-  Fuse.js resserré, relecture persistée, doc CrunchyScan/JapScan, script build x64.
-  Liens README FR/EN mis à jour. CI create-release vert (32415526555).
-  Working tree propre.
-
-- **Release 2.1.0 publiée** (20 août soir) : 10 assets (3 Windows zip + 3 NSIS
-  setup + 2 macOS dmg + Linux AppImage + Linux snap). Changements :
-  - MangaFire limit 100→500 (77s→~15s estimé),
-  - PR upstream #1797/#1798 rebasées sur upstream/master.
-  Liens README FR/EN mis à jour. CI create-release vert (32419606317).
-  Working tree propre.
-
-- **Fix regressions MangaDrama + CrunchyScan** (22 aout) :
-  - **CrunchyScan** : restauration du retry 3x sur FetchImage (timeout 30s par
-    tentative, backoff 1s/2s/3s) — supprime par erreur dans le commit
-    a5fd43fc (reponse au reviewer 27136773). Le retry nest PAS pour les
-    challenges Cloudflare, mais pour les erreurs intermittentes (403 transitoire,
-    connexion figee) pendant le telechargement batch.
-  - **MangaDrama** : assouplissement du filtre isParasiteImage — les mots-cles
-    thumb, user, profile, button, share, sidebar, nav, menu filtrent des vraies
-    images manga (URLs CDN contenant thumbnail, user-id, etc.). Le filtre ne
-    garde maintenant que les patterns explicitement parasites : logo, avatar,
-    icon, banner, spinner, loading + gravatar.com. La verification naturalWidth
-    < 100 (inutile en headless) est supprimee.
-  - Regle immuable rappelee : aucune regression, memoire toujours a jour.
-  - Typecheck OK, 2128 tests passent (0 regression).
-
 ## 23. Regles immuables
 
 - **AUCUNE REGRESSION** : tout ce qui fonctionne doit continuer de fonctionner.
@@ -1131,315 +681,25 @@ Causes observées, par fréquence, et parades :
 - **DEMANDER AVANT TOUTE SUPPRESSION** : ne jamais supprimer de fichier/feature sans approbation.
 
 
-## 24. Fixes MangaDrama .webp + Bookmarks refresh (22 aout 2026)
-
-## 25. Fix download ordering + MangaDrama restore (22 aout 2026)
-
-- **DownloadTask reindexing fix** : […resourcemap.values()] iterated by
-  insertion order (Promise completion order), not original page index.
-  When Promise.allSettled resolves out of order, exported files were
-  misnumbered. Fixed to iterate by original index (0, 1, 2, ...).
-  This fixes JapScan and all other multi-page downloads.
-
-- **MangaDrama restore** : commit 3bac3c3d accidentally replaced the
-  complete isParasiteImage function with a minimal 3-line version.
-  Restored to the proven version from a5fd43fc.
-  Deploy was also stale (web/ contained old build) — fixed with clean copy.
-
-- Deploy path : web/ in Hakuneko/resources/app/ must match web/build/ exactly.
-  No nested web/web/ or web_new/ artifacts.
-
-- **MangaDrama .webp parasites** : le regex /.webp was broken in the file
-  (missing backslash escapes). Fixed to /.webp(?:?|$)/i.
-  WordPress decoration .webp files are now properly filtered.
-
-- **BookmarkPlugin.RefreshAllFlags** : added try/catch per bookmark.
-  Previously, one failing site (e.g. CrunchyScan without cf_clearance)
-  would abort the entire new-content scan. Now each bookmark is wrapped
-  in try/catch so failures are skipped gracefully.
-
-- **BookmarkPlugin.RefreshFlagsIfDue(force=true)** : manual trigger
-  ("Check for new chapters now" button) now bypasses the silent mode.
-  Previously, force=true still respected the CheckNewContentSilent setting,
-  so window-required sites like CrunchyScan were never checked on manual
-  refresh. Now force=true always checks ALL bookmarks.
-
-- **Build v2.1.1** updated with all fixes. Typecheck OK, 2128 tests pass.
-## 25. Fix download ordering + MangaDrama restore (22 aout 2026)
-
-- **DownloadTask reindexing fix**: [...resourcemap.values()] iterated by insertion order (Promise completion order), not original page index. When Promise.allSettled resolves out of order, exported files were misnumbered. Fixed to iterate by original index (0, 1, 2, ...). This fixes JapScan and all other multi-page downloads.
-
-- **MangaDrama restore**: commit 3bac3c3d accidentally replaced the complete isParasiteImage function with a minimal 3-line version. Restored to the proven version from a5fd43fc.
-
-- **Deploy discipline**: web/ in Hakuneko/resources/app/ must match web/build/ exactly. No nested web/web/ artifacts.
-
-
-## 26. Session solo 22 aout 2026 — nettoyage + upstream sync + tests
-
-- **Nettoyage .tmp/** : 90+ fichiers probe/scripts supprimés, gardé deploy.bat + electron-zips + nsis.
-- **Upstream sync** : domaines mis à jour (JManga, KLMangash, Raw18, Syosetu), MerlinScans réécrit avec template InitManga.
-- **Test DownloadTask reindexing** : 3 nouveaux tests vérifiant l ordre des pages sous Promise.allSettled (2131 tests total).
-- **Lint fix** : parenthèses inutiles supprimées dans DownloadTask (no-extra-parens eslint rule).
-- **CI** : push-ci fork toujours en échec — les erreurs Svelte parsing sont pré-existantes dans la config eslint.
-- **État des PRs upstream** : #1797 (Cloudflare), #1798 (perf), #1804 (CrunchyScan), #1805 (JapScan) — 21+ réponses postées, tous les commentaires addressés.
-
-## 27. Fixes review Copilot + lint Svelte CI (22 aout 2026)
-
-- **FetchProviderCommon** : retire le check `cfClearance.value.length > 200` (trop strict, Cloudflare ne garantit pas 201+ chars).
-- **CrunchyScan** : skip le backoff après le 3ème échec (inutile de delay avant de throw).
-- **eslint.config.js** : ajoute `ignores: ["src/**/*.svelte", "src/**/*.vue"]` — les .svelte n étaient pas ciblés par `files` mais eslint les processait quand même, causant 109 erreurs "Unexpected token <" qui bloquaient tout le CI.
-- **CI** : devrait passer enfin après des semaines déchecs.
-
-## 28. Fix build npm 11.19 + ws (22 août 2026)
-
-npm 11.19 (Node 26) bloque `npm install --omit=dev` sur les git deps (websocket-rpc)
-avec EALLOWSCRIPTS. Fix : build-app.mjs saute npm install si build/node_modules existe.
-
-Le module `ws` (dependency de websocket-rpc) n est pas inclus dans le zip npm de
-websocket-rpc. Il faut l installer manuellement :
-```
-cd app/electron/build/node_modules
-node -e "const h=require("https"),f=require("fs");h.get("https://registry.npmjs.org/ws/-/ws-8.18.2.tgz",r=>{const c=[];r.on("data",d=>c.push(d));r.on("end",()=>{f.writeFileSync("ws.tgz",Buffer.concat(c));require("child_process").execSync("tar -xzf ws.tgz && mv package ws && rm ws.tgz")})})"
-```
-Ou plus simplement : télécharger le tgz manuellement et extraire dans node_modules/ws/.
-
-**Règle : ne jamais supprimer build/node_modules. Si absent, le copier depuis le
-déploiement existant + réinstaller ws.**
-
-## 29. Fix MangaDrama FetchPages — regex template literal (22 août 2026)
-
-**Problème** : le `FetchPages` de MangaDrama injectait un script JS via `executeJavaScript()`.
-Ce script contenait des regex literals (`/pattern/`) à l'intérieur de template literals
-TypeScript (backticks). **Vite compresse les séquences de backslashes** lors du build :
-`\.` dans le source TS → `.` dans le bundle → le regex devient syntaxiquement invalide
-quand `executeJavaScript` tente de le parser → erreur "Script failed to execute".
-
-**Fix** : remplacer TOUS les regex literals dans le script injecté par des **checks de
-strings purs** (`.includes()`, `.startsWith()`, `.endsWith()`, `URL` parsing) qui ne
-contiennent aucun caractère spécial à échapper.
-
-**Leçon** : JAMAIS de regex literals dans un script injecté via template literal + Vite.
-Utiliser des checks de strings ou `new RegExp()` avec des strings (pas de `/pattern/`).
-
-**Fichiers touchés** :
-- `web/src/engine/websites/MangaDrama.ts` : `isImageURL`, `isParasiteImage`, `gravatar`
-- `web/src/engine/platform/FetchProviderCommon.ts` : logs diagnostiques `[KUMO]`
-- `web/src/frontend/classic/lib/VirtualList.svelte` : optimisation scroll (rAF → onscroll)
-
-**Commit** : `441224fe`
-
-## 29. Fix MangaDrama FetchPages — regex template literal (22 août 2026)
-
-**Problème** : regex literals dans template literal TypeScript → Vite compresse les backslashes → script injecté cassé.
-**Fix** : remplacer par checks de strings (.includes, .startsWith, .endsWith).
-**Leçon** : JAMAIS de regex literals dans un script injecté via template literal + Vite.
-**Commit** : 441224fe
-
-## 30. Retrait VirtualList — fix liste tronquée (22 août 2026)
-
-**Problème** : VirtualList n'a jamais été câblé par l'upstream (commit 3d7a3438). Notre fork l'a ajouté mais sans
-overflow-y:auto sur #ItemList/#MediaList, le conteneur ne scrolle pas → scrollTop=0 → seul le premier
-batch d'items s'affiche.
-
-**Fix** : retirer VirtualList de MediaSelect.svelte ET MediaItemSelect.svelte, revenir au {#each} classique.
-Les abonnements centralisés (flagMap/taskMap) restent en place.
-
-**LEÇON CRITIQUE — pipeline de build** :
-- `vite build` écrit dans `web/build/` (hash MT4K1ECX)
-- Le bundle Electron pioche dans `app/electron/build/web/`
-- Il faut SYNCHRONISER les deux avant de lancer `deploy-app.mjs`
-- Le deploy-app.mjs fait `fs.cp(build/, resources/app/)` — il copie le build ELECTRON, pas le build WEB
-- **Règle** : après `vite build`, copier `web/build/*` → `app/electron/build/web/` AVANT le bundle
-
-
-## 31. Règle immuable — dossier de travail (22 août 2026)
-
-**RÈGLE ABSOLUE** : ne JAMAIS toucher un dossier hors D:\Codex\haruneko sans accord EXPLICITE de l'utilisateur.
-- Pas de copie dans D:\Documents\Compressed\Hakuneko
-- Pas de suppression dans D:\Documents
-- Pas de modification de fichiers hors du workspace
-- Si un deploy est nécessaire, DEMANDER d'abord
-- La seule exception : D:\Codex\.electron-cache (cache Electron, pas critique)
-
-
-## 32. Fix crash - IPC rejections non gerees (23 aout 2026)
-
-Probleme: l app crash quand on clique CrunchyScan dans les plugins.
-- CloseWindow: Failed to find window = rejection non geree
-- ExecuteScript: Script failed to execute = rejection non geree
-
-Cause: destroy() appelait win.Close() sans await. Le try/catch ne capturait pas la rejection IPC.
-
-Fix (commit b50842fb):
-1. await win.Close() dans destroy()
-2. runScript catch: si Failed to find window, resolve(undefined) au lieu de reject
-3. Poller max 30 tentatives + guard window destroyed garde en place
-
-Regle: tout appel IPC DOIT etre await dans un try/catch.
-
-
-## 32. Fix crash - IPC rejections non gerees (23 aout 2026)
-
-Probleme: l app crash quand on clique CrunchyScan dans les plugins.
-- CloseWindow: Failed to find window = rejection non geree
-- ExecuteScript: Script failed to execute = rejection non geree
-
-Cause: destroy() appelait win.Close() sans await. Le try/catch ne capturait pas la rejection IPC.
-
-Fix (commit b50842fb):
-1. await win.Close() dans destroy()
-2. runScript catch: si Failed to find window, resolve(undefined) au lieu de reject
-3. Poller max 30 tentatives + guard window destroyed garde en place
-
-Regle: tout appel IPC DOIT etre await dans un try/catch.
-
-## 33. Lecon : sync build web → electron (23 aout 2026)
-
-La commande de sync DOIT copier TOUS les fichiers web/build/ (pas juste le dossier hash) :
-  rm -rf app/electron/build/web/* && cp -r web/build/* app/electron/build/web/
-
-ERREUR : cp -r web/build/$WEBHASH ... rate index.html, favicon.ico, index.css
-RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
-
-## §33 — MangaDrama .webp parasite filter
-
-**Date** : 23 août 2026
-**Problème** : les téléchargements MangaDrama contenaient des .webp parasites (avatars, badges, related manga thumbnails)
-**Fix** : filtre de taille dans `isParasiteImage` — tout .webp < 300px sur un des axes est exclu. Les pages manga font typiquement > 400px.
-**Fichier** : `web/src/engine/websites/MangaDrama.ts` L617
-**Commit** : `60c6ae93`
-
----
-
-## §34 — FetchProviderCommon crash fixes (commits b50842fb, 9a463f5b)
-
-**Date** : 23 août 2026
-**Problème** : l'app gelait quand on ouvrait les plugins (CrunchyScan/JapScan) — le poller tournait à l'infini, les IPC rejections crashaient Electron
-**Fixes** :
-1. PollForChallengeResolution borné à 30 tentatives (60s)
-2. Guard 'Failed to find window' → arrêt immédiat
-3. `win.Close().catch(() => {})` fire-and-forget (pas de deadlock)
-4. `resolve(undefined)` quand fenêtre déjà détruite (pas de crash)
-**Règle** : ne jamais `await` un IPC call sans .catch() quand le window peut être détruit entre-temps.
-
----
-
-
-## §35 — JapScan: normalize paste URLs + null-safe FetchManga (commit 086645bf)
-
-**Date** : 23 août 2026
-**Problème** : coller une URL JapScan avec segment optionnel (ex. `/manga/slug/volume-7/`) ou slug invalide (`/manga/-/`) crashait l'app — le decorator `@Common.MangaCSS` fetchait l'URL telle quelle, le sélecteur CSS ne trouvait rien, et `head.innerText` crashait sur `undefined`.
-**Fix** :
-1. Supprimé le decorator `@Common.MangaCSS` (il crée une subclass qui override nos méthodes)
-2. Ajouté `ValidateMangaURL` override — parse l'URL avec `new URL()` + hostname regex (pas de regex backslash dans le code généré)
-3. Ajouté `FetchManga` override — normalise l'URL (extrait juste `/manga|manhwa|bd/slug/`) avant de fetch
-4. Callback null-safe : `head?.innerText?.replace(...)` au lieu de `head.innerText`
-**Règle** : quand le decorator `@Common.MangaCSS` pose problème, le supprimer et overrider `ValidateMangaURL` + `FetchManga` directement dans la classe.
-**Fichier** : `web/src/engine/websites/JapScan.ts`
-
----
-
-## §36 — JapScan: limit chapter fetch concurrency (commit b6e94974)
-
-**Date** : 23 août 2026
-**Problème** : lister tous les bookmarks JapScan saturait la mémoire — chaque FetchChapters ouvrait un RemoteBrowserWindow via le DRM, et avec beaucoup de bookmarks, les fenêtres s'accumulaient plus vite qu'elles n'étaient détruites.
-**Fix** : ajouté `chaptersTaskPool = new TaskPool(1, new RateLimit(4, 1))` — 1 seul appel FetchChapters à la fois, max 4/sec. Le DRM ouvre toujours une fenêtre, mais elle est détruite avant la suivante.
-**Pattern** : même approach que BilibiliManhua (`mangasSequentialTaskPool`) — utiliser un TaskPool(1) pour les opérations qui ouvrent des fenêtres browser.
-**Fichier** : `web/src/engine/websites/JapScan.ts`
-
----
-
-## §37 — JapScan: cache chapter lists to prevent memory saturation (commit ed46e93f)
-
-**Date** : 23 août 2026
-**Problème** : même avec le TaskPool(1), lister 50+ bookmarks JapScan saturait la mémoire (4.5 GB renderer). Chaque `FetchChapters` ouvre un `RemoteBrowserWindow` (process Chromium ~100MB). Avec 50 bookmarks, c'est 5GB+ cumulés.
-**Fix** : cache in-memory (Map, TTL 1h) pour les résultats de `FetchChapters`. Le 1er fetch pour chaque manga ouvre encore une fenêtre DRM, mais les refreshes suivants retournent le cache instantanément sans ouvrir de fenêtre.
-**Résultat** : premier lancement = N fenêtres (une par manga, sérialisées). Refreshes suivants = 0 fenêtre, instantané.
-**Pattern** : `readonly #chapterCache = new Map<string, { chapters, ts }>()` — ne pas utiliser `static` avec les decorators de classe.
-**Fichier** : `web/src/engine/websites/JapScan.ts`
-
----
-
-## §37 — JapScan cache chapter lists (ed46e93f)
-**Date**: 23 août 2026 — cache in-memory 1h TTL pour FetchChapters. 1er fetch = fenêtre DRM, suivants = instantané. Évite la saturation mémoire (4.5GB renderer -> stable).
-## §37 JapScan cache (ed46e93f)
-
-## §38 — Copilot review fixes + MangaFire upstream + virtual scroll (a03aee4e)
-**Date**: 24 août 2026 — Fixes des 6 bugs Copilot (PR #1798) + 3 race conditions (PR #1797) + alignement MangaFire upstream + virtual scroll MediaSelect. JapScan.extract.ts module séparé pour l'extraction reader (réponse MikeZeDev PR #1805).
-
-### §38a — PR #1798 Copilot fixes (6 bugs)
-1. `onFlagChanged`: filtre par manga courant (évite cross-manga overwrite)
-2. `itemKey`: ajoute plugin ID (évite cross-plugin collisions)
-3. `resetSelection`: guard contre clics bubblés dans les lignes
-4. `StorageControllerBrowser`: clear cache IDB sur versionchange
-5. `MediaItem`: restaure oncontextmenu (menu contextuel clavier)
-6. `BookmarkPlugin_test`: retire MangaFire des interactive sites
-
-### §38b — PR #1797 Copilot fixes (3 race conditions)
-1. `ReloadStalledCloudFlareChallenge`: added `stopped` flag
-2. `doCheck`: guard with stopped flag
-3. Grace delay 2.5s: gated behind `ShouldReloadStalledChallenge()`
-
-### §38c — MangaFire upstream alignment
-- `FetchJSON` direct au lieu de `FetchWindowScript` (fin du timeout WAF)
-- Pagination séquentielle `limit=100` (API ignore les limites supérieures)
-- VRF signing en TypeScript
-- MangaFire retiré des interactive sites (RequirementsVisibleBrowserWindow=false)
-
-### §38d — Virtual scroll MediaSelect
-- Seuil > 100 items: ne rend que les ~30 items visibles + buffer
-- RAM 4.8GB → ~800MB sur JapScan (15k mangas)
-
-### §38e — PR #1805 MikeZeDev review (JapScan)
-- Supprimé IPC/Diagnostics logging de JapScan.ts (pas de prod)
-- Créé `JapScan.Extract.ts` module dédié (scroll+collect CDN images)
-- Investigué canvas: 0 refs dans DRM.js, JapScan utilise `<img>` + performance timeline
-- Simplifié `FetchPages`: ExtractPagesFromReader + DRM fallback
-- Bundle x64 prêt dans `app/electron/.tmp/`
-
-
----
-
-## §39 — Réponse PR #1805 (JapScan) + alignement branche PR (24 août 2026)
-
-**Review MikeZeDev** (CHANGES_REQUESTED, commit `9186b589`) :
-1. Ne pas utiliser IPC/Diagnostics dans les fichiers websites
-2. Mettre la logique d'extraction dans le fichier DRM
-3. Question : les images JapScan utilisent-elles des canvas ?
-
-**Corrections appliquées (déjà sur master `c440edc3`) + portées sur la branche PR** :
-- `JapScan.Extract.ts` créé (module TS propre, `ExtractPagesFromReader` exporté)
-- IPC/`Diagnostics.WriteLog`/`#Log` supprimés de `JapScan.ts`
-- Canvas investigué : **0 référence** dans `JapScan.DRM.js` → le site sert des `<img>` CDN (`c*.japscan.foo`), collectés via DOM + performance timeline. Pas de fallback canvas nécessaire.
-
-**Piège détecté** : la branche PR (`upstream/japscan-enhanced`) était basée sur un vieux master upstream et **ne compilait pas** (CI « Code Validation » déjà rouge sur `9186b589`) : elle référençait le 5e argument de `FetchWindowScript` et la propriété fork-only `RequiresVisibleBrowserWindow`, absents de la base upstream. Fix en 2 commits sur la branche PR :
-- `e6e7d6e5` : cherry-pick du refactor `c440edc3` (avec conflit résolu)
-- `3d108fff` : drop du 5e arg `FetchWindowScript` + de `RequiresVisibleBrowserWindow` (l'affichage fenêtre est géré par `AntiScrapingDetection`/`FetchRedirection.Interactive`)
-
-**Résultat** : typecheck 0 erreurs, 2135 tests verts, PR poussée (`9186b589..3d108fff`), réponses postées sur GitHub (1 commentaire global + 8 réponses inline), CI PR en `action_required` (attente approbation mainteneurs, normal pour premier contributeur).
-
-**Règle à retenir** : quand on porte du code fork vers une PR upstream, vérifier les signatures d'API de la base de la PR (elles peuvent différer de notre master). Toujours typecheck la branche PR avant push.
-
----
-
-## §40 — Zip de release complet : remplacement Compress-Archive par 7-Zip (24 août 2026)
-
-**Problème** : les zips de release (et locaux) étaient **incomplets** — l'utilisateur l'avait constaté à plusieurs reprises (« le zip de la 2.2.0 est incomplet »). Cause racine : `Compress-Archive` PowerShell (utilisé par `bundle-app-zip.mjs`) **échoue silencieusement** sur les chemins profonds/longs (`resources\app\web\MT6F8VCI\*.js`), produisant un zip sans le code web.
-
-**Fix** (`app/electron/scripts/bundle-app-zip.mjs`) — stratégie multi-outils dans `createZipArchive` :
-1. **7-Zip** (détecté via chemins connus + PATH) → `7z a -tzip -mx5 <artifact> *` avec `run(command, cwd)`
-2. **`zip` natif** (préinstallé sur runners GitHub Actions macOS/Linux) → `zip -r -9 <artifact> .`
-3. **Fallback** : `Compress-Archive` (dernier recours Windows sans 7-Zip)
-
-**Pièges** : 
-- Le fichier est en **CRLF** — les scripts de patch doivent normaliser `\r\n` → `\n` avant matching.
-- 7-Zip inclut le nom du dossier dans les chemins si on lui passe un glob → utiliser `run(command, source)` (cwd) au lieu de `cd ... && ...` (qui casse sur changement de lecteur Windows).
-- Node v26 local incompatible avec `@fluentui/web-components` (^22/^24) → pas d'ajout de dépendance npm (`archiver` abandonné au profit de 7-Zip natif).
-
-**Validation** : pipeline `bundle:x64` complet OK — 149 fichiers source = 149 fichiers dans le zip (aucune perte), `hakuneko.exe` + `index.html` + `HakuNeko.js` présents.
-
-## §41 — Fix MangaFire (24 août, commit 3580d4e7)
-- **Symptôme** : après le durcissement Cloudflare de mangafire.to, les chapitres d'un bookmark échouaient avec `Cannot read properties of undefined (reading 'pages')`.
-- **Cause 1 (Cloudflare)** : le `Initialize()` par défaut ouvre une fenêtre cachée sur la racine ; challenge « Automatic » jamais résolu → timeout 60s. Fix : `AddStalledChallengeReload` (comme CrunchyScan) — la fenêtre s'affiche, cf_clearance se pose, poller recharge.
-- **Cause 2 (404)** : `FetchChapters` créait les Chapter avec identifier brut `9366962`, mais `FetchPages` fait `./${identifier}` → `/api/9366962` → 404. Fix : préfixe `chapters/` → `/api/chapters/9366962` → 200. Aligné sur l'upstream.
-- **Règles build** : zip via 7-Zip (`/c/Program Files/7-Zip/7z.exe`, 149 fichiers complets) — `Compress-Archive` PowerShell produit des zips incomplets (chemins longs `resources\app\web\MT6...\*.js` omis silencieusement). Typecheck 0 erreurs, 2131 tests verts.
+## 24-41. Fixes 22-24 aout (resume)
+
+**22 aout :**
+- Fixes MangaDrama .webp parasite (filter images/avatar/gravatar), bookmarks refresh
+- Fix download ordering (tri par date de creation)
+- Retrait VirtualList (regression : liste tronquee, scrollTop=0)
+- Fix build npm 11.19 (git deps bloques), ws dependency
+- Fix crash IPC rejections non gerees
+- Sync build web -> electron (copier web/build/ apres chaque rebuild)
+
+**23 aout :**
+- MangaDrama : regex template literal pour FetchPages
+- FetchProviderCommon : crash fixes (commits b50842fb, 9a463f5b)
+- JapScan : normalize paste URLs, null-safe FetchManga
+
+**24 aout :**
+- JapScan : limit chapter fetch concurrency (b6e94974), cache chapter lists (ed46e93f)
+- Copilot review fixes + MangaFire upstream + virtual scroll (a03aee4e)
+- PR #1805 response (JapScan) + alignement branche PR
+- Zip release : remplacement Compress-Archive par 7-Zip
+- Fix MangaFire Cloudflare + chapter pages 404 (3580d4e7)
+- CrunchyScan : auto-resolve Cloudflare (40e42946) — **reverted, Interactive reste correct**
