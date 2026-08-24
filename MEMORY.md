@@ -1397,3 +1397,25 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 - Simplifié `FetchPages`: ExtractPagesFromReader + DRM fallback
 - Bundle x64 prêt dans `app/electron/.tmp/`
 
+
+---
+
+## §39 — Réponse PR #1805 (JapScan) + alignement branche PR (24 août 2026)
+
+**Review MikeZeDev** (CHANGES_REQUESTED, commit `9186b589`) :
+1. Ne pas utiliser IPC/Diagnostics dans les fichiers websites
+2. Mettre la logique d'extraction dans le fichier DRM
+3. Question : les images JapScan utilisent-elles des canvas ?
+
+**Corrections appliquées (déjà sur master `c440edc3`) + portées sur la branche PR** :
+- `JapScan.Extract.ts` créé (module TS propre, `ExtractPagesFromReader` exporté)
+- IPC/`Diagnostics.WriteLog`/`#Log` supprimés de `JapScan.ts`
+- Canvas investigué : **0 référence** dans `JapScan.DRM.js` → le site sert des `<img>` CDN (`c*.japscan.foo`), collectés via DOM + performance timeline. Pas de fallback canvas nécessaire.
+
+**Piège détecté** : la branche PR (`upstream/japscan-enhanced`) était basée sur un vieux master upstream et **ne compilait pas** (CI « Code Validation » déjà rouge sur `9186b589`) : elle référençait le 5e argument de `FetchWindowScript` et la propriété fork-only `RequiresVisibleBrowserWindow`, absents de la base upstream. Fix en 2 commits sur la branche PR :
+- `e6e7d6e5` : cherry-pick du refactor `c440edc3` (avec conflit résolu)
+- `3d108fff` : drop du 5e arg `FetchWindowScript` + de `RequiresVisibleBrowserWindow` (l'affichage fenêtre est géré par `AntiScrapingDetection`/`FetchRedirection.Interactive`)
+
+**Résultat** : typecheck 0 erreurs, 2135 tests verts, PR poussée (`9186b589..3d108fff`), réponses postées sur GitHub (1 commentaire global + 8 réponses inline), CI PR en `action_required` (attente approbation mainteneurs, normal pour premier contributeur).
+
+**Règle à retenir** : quand on porte du code fork vers une PR upstream, vérifier les signatures d'API de la base de la PR (elles peuvent différer de notre master). Toujours typecheck la branche PR avant push.
