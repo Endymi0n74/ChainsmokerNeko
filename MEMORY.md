@@ -1437,3 +1437,9 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 - Node v26 local incompatible avec `@fluentui/web-components` (^22/^24) → pas d'ajout de dépendance npm (`archiver` abandonné au profit de 7-Zip natif).
 
 **Validation** : pipeline `bundle:x64` complet OK — 149 fichiers source = 149 fichiers dans le zip (aucune perte), `hakuneko.exe` + `index.html` + `HakuNeko.js` présents.
+
+## §41 — Fix MangaFire (24 août, commit 3580d4e7)
+- **Symptôme** : après le durcissement Cloudflare de mangafire.to, les chapitres d'un bookmark échouaient avec `Cannot read properties of undefined (reading 'pages')`.
+- **Cause 1 (Cloudflare)** : le `Initialize()` par défaut ouvre une fenêtre cachée sur la racine ; challenge « Automatic » jamais résolu → timeout 60s. Fix : `AddStalledChallengeReload` (comme CrunchyScan) — la fenêtre s'affiche, cf_clearance se pose, poller recharge.
+- **Cause 2 (404)** : `FetchChapters` créait les Chapter avec identifier brut `9366962`, mais `FetchPages` fait `./${identifier}` → `/api/9366962` → 404. Fix : préfixe `chapters/` → `/api/chapters/9366962` → 200. Aligné sur l'upstream.
+- **Règles build** : zip via 7-Zip (`/c/Program Files/7-Zip/7z.exe`, 149 fichiers complets) — `Compress-Archive` PowerShell produit des zips incomplets (chemins longs `resources\app\web\MT6...\*.js` omis silencieusement). Typecheck 0 erreurs, 2131 tests verts.
