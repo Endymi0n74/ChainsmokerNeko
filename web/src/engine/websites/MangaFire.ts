@@ -10,6 +10,7 @@ import {
     type MangaPlugin
 } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
+import { AddStalledChallengeReload } from '../platform/ChallengeReload';
 
 const chapterLanguageMap = new Map([
     ['en', Tags.Language.English],
@@ -66,6 +67,8 @@ const STAGES = STAGE_DATA.map(({ tableB64, keyB64, iv }) => ({
     key: GetBytesFromBase64(keyB64),
     iv: iv,
 }));
+
+AddStalledChallengeReload(/^https:\/\/(?:www\.)?mangafire\.to/);
 
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
@@ -125,7 +128,7 @@ export default class extends DecoratableMangaScraper {
         return (items ?? []).map(({ id, number, name, language, type, createdAt }) => {
             const tag = chapterLanguageMap.get(language);
             return new Chapter(
-                this, manga, id,
+                this, manga, `chapters/${id}`,
                 [`Ch. ${number}`, name, type && `(${type})`, `(${language})`].joinTitleSegments(),
                 ...tag ? [tag] : [],
                 createdAt ? new Date(createdAt * 1000) : undefined
