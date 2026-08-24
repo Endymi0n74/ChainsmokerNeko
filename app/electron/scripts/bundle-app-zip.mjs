@@ -58,6 +58,46 @@ async function createZipArchive(blinkDeploymentTemporaryDirectory, blinkDeployme
     try {
         await fs.unlink(artifact);
     } catch(error) {/**/}
-    const command = `powershell -Command "Compress-Archive -Path '${blinkDeploymentTemporaryDirectory}\\*' -DestinationPath '${artifact}' -Force"`;
+    const source = path.resolve(blinkDeploymentTemporaryDirectory);
+    // Windows PowerShell Compress-Archive silently fails on deep/long paths
+    // (resources/app/web/...), producing incomplete zips. Prefer 7-Zip or the
+    // native `zip` CLI (preinstalled on macOS/Linux runners) instead.
+    const sevenZip = await findExecutable(['7z', '7za', '7zz'], [
+        'C:/Program Files/7-Zip/7z.exe',
+        'C:/Program Files (x86)/7-Zip/7z.exe',
+    ]);
+    if (sevenZip) {
+        // 7-Zip includes the folder basename in entry paths when given a glob;
+        // pass cwd so entries land at the archive root.
+        const command = `"${sevenZip}" a -tzip -mx5 "${artifact}" *`;
+        await run(command, source);
+        return;
+    }
+    if (process.platform !== 'win32') {
+        // Native zip CLI is preinstalled on GitHub Actions macOS/Ubuntu runners.
+        const command = `zip -r -9 "${artifact}" .`;
+        await run(command, source);
+        return;
+    }
+    // Last resort (Windows without 7-Zip): PowerShell Compress-Archive.
+    const command = `powershell -Command "Compress-Archive -Path '${source}\*' -DestinationPath '${artifact}' -Force"`;
     await run(command);
+}
+
+async function findExecutable(names, fallbackPaths) {
+    for (const candidate of fallbackPaths) {
+        try {
+            await fs.access(candidate);
+            return candidate;
+        } catch {/**/}
+    }
+    const { execSync } = await import('node:child_process');
+    for (const name of names) {
+        try {
+            const probe = process.platform === 'win32' ? `where ${name}` : `which ${name}`;
+            execSync(probe, { stdio: 'ignore' });
+            return name;
+        } catch {/**/}
+    }
+    return null;
 }

@@ -1419,3 +1419,21 @@ RESULTAT : app affiche le taskbar sans fenêtre (rien à charger)
 **Résultat** : typecheck 0 erreurs, 2135 tests verts, PR poussée (`9186b589..3d108fff`), réponses postées sur GitHub (1 commentaire global + 8 réponses inline), CI PR en `action_required` (attente approbation mainteneurs, normal pour premier contributeur).
 
 **Règle à retenir** : quand on porte du code fork vers une PR upstream, vérifier les signatures d'API de la base de la PR (elles peuvent différer de notre master). Toujours typecheck la branche PR avant push.
+
+---
+
+## §40 — Zip de release complet : remplacement Compress-Archive par 7-Zip (24 août 2026)
+
+**Problème** : les zips de release (et locaux) étaient **incomplets** — l'utilisateur l'avait constaté à plusieurs reprises (« le zip de la 2.2.0 est incomplet »). Cause racine : `Compress-Archive` PowerShell (utilisé par `bundle-app-zip.mjs`) **échoue silencieusement** sur les chemins profonds/longs (`resources\app\web\MT6F8VCI\*.js`), produisant un zip sans le code web.
+
+**Fix** (`app/electron/scripts/bundle-app-zip.mjs`) — stratégie multi-outils dans `createZipArchive` :
+1. **7-Zip** (détecté via chemins connus + PATH) → `7z a -tzip -mx5 <artifact> *` avec `run(command, cwd)`
+2. **`zip` natif** (préinstallé sur runners GitHub Actions macOS/Linux) → `zip -r -9 <artifact> .`
+3. **Fallback** : `Compress-Archive` (dernier recours Windows sans 7-Zip)
+
+**Pièges** : 
+- Le fichier est en **CRLF** — les scripts de patch doivent normaliser `\r\n` → `\n` avant matching.
+- 7-Zip inclut le nom du dossier dans les chemins si on lui passe un glob → utiliser `run(command, source)` (cwd) au lieu de `cd ... && ...` (qui casse sur changement de lecteur Windows).
+- Node v26 local incompatible avec `@fluentui/web-components` (^22/^24) → pas d'ajout de dépendance npm (`archiver` abandonné au profit de 7-Zip natif).
+
+**Validation** : pipeline `bundle:x64` complet OK — 149 fichiers source = 149 fichiers dans le zip (aucune perte), `hakuneko.exe` + `index.html` + `HakuNeko.js` présents.
