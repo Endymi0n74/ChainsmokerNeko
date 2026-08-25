@@ -360,6 +360,7 @@ export { default as MangaLover } from './MangaLover';
 export { default as MangaMana } from './MangaMana';
 export { default as MangaMillion } from './MangaMillion';
 export { default as MangaMoins } from './MangaMoins';
+export { default as MangaNova } from './MangaNova';
 export { default as MangaNato } from './MangaNato';
 export { default as MangaNight } from './MangaNight';
 export { default as MangaNo } from './MangaNo';
