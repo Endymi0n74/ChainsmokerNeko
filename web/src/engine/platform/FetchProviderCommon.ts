@@ -3,7 +3,7 @@ import { Exception, InternalError } from '../Error';
 import { EngineResourceKey as R } from '../../i18n/ILocale';
 import { CreateRemoteBrowserWindow } from './RemoteBrowserWindow';
 import { CheckAntiScrapingDetection, FetchRedirection } from './AntiScrapingDetection';
-import { ShouldReloadStalledChallenge } from './ChallengeReload';
+import { ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from './ChallengeReload';
 import type { FeatureFlags } from '../FeatureFlags';
 import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
 
@@ -220,7 +220,7 @@ export abstract class FetchProvider {
     private async ReloadStalledCloudFlareChallenge(
         win: ReturnType<typeof CreateRemoteBrowserWindow>,
         url: string,
-        budget: { remaining: number },
+        budget: { remaining: number; lastReloadedClearance: string; reloadInFlight: boolean },
         invocations: { name: string; info: string }[]
     ): Promise<() => void> {
         const maxReloads = 3;
@@ -246,7 +246,7 @@ export abstract class FetchProvider {
         `;
 
         const doCheck = async () => {
-            if (stopped || budget.remaining <= 0) return;
+            if (stopped || budget.remaining <= 0 || budget.reloadInFlight) return;
             try {
                 const result = await win.ExecuteScript<{
                     isChallenge: boolean;
@@ -258,13 +258,22 @@ export abstract class FetchProvider {
                     // Read the cookie through the debugger (CDP) instead — same session, httpOnly visible.
                     const cookies = await win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] });
                     const cfClearance = cookies?.cookies?.find(cookie => cookie.name === 'cf_clearance');
-                    if (budget.remaining > 0 && cfClearance && cfClearance.value) {
+                    // Do not reload repeatedly with the same clearance. A stale or
+                    // IP-bound cookie can keep the page on the challenge forever; reloading
+                    // it on every DOMReady creates the visible loop reported on CrunchyScan.
+                    if (budget.remaining > 0 && cfClearance?.value && cfClearance.value !== budget.lastReloadedClearance) {
                         budget.remaining--;
+                        budget.lastReloadedClearance = cfClearance.value;
+                        budget.reloadInFlight = true;
                         invocations.push({
                             name: 'ReloadStalledCloudFlareChallenge',
                             info: `Reload #${maxReloads - budget.remaining} (managed challenge, no widget, cf_clearance=${cfClearance.value.length})`
                         });
-                        await win.ExecuteScript('window.location.reload()');
+                        try {
+                            await win.ExecuteScript('window.location.reload()');
+                        } finally {
+                            budget.reloadInFlight = false;
+                        }
                     }
                 }
             } catch {
@@ -338,6 +347,65 @@ export abstract class FetchProvider {
         pollerId = await SetTimeout(poll, 2000);
     }
 
+    private async FetchWindowPreloadScriptUpstream<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000): Promise<T> {
+        const invocations: {
+            name: string;
+            info: string;
+        }[] = [];
+
+        const win = CreateRemoteBrowserWindow();
+
+        const destroy = async () => {
+            try {
+                if (this.featureFlags.VerboseFetchWindow.Value) {
+                    console.log('FetchWindow()::invocations', invocations);
+                } else {
+                    win.Close();
+                }
+            } catch (error) {
+                console.warn(error);
+            }
+        };
+
+        return new Promise<T>(async (resolve, reject) => {
+            let cancellation = await SetTimeout(async () => {
+                await destroy();
+                reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
+            }, timeout);
+
+            win.DOMReady.Subscribe(async () => {
+                invocations.push({ name: 'DOMReady', info: `Window: ${win}` });
+                try {
+                    const redirect = await CheckAntiScrapingDetection(win, request.url);
+                    invocations.push({ name: 'performRedirectionOrFinalize()', info: `Mode: ${FetchRedirection[ redirect ]}` });
+                    switch (redirect) {
+                        case FetchRedirection.Interactive:
+                            ClearTimeout(cancellation);
+                            cancellation = await SetTimeout(() => {
+                                destroy();
+                                reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
+                            }, 150_000);
+                            await win.Show();
+                            break;
+                        case FetchRedirection.Automatic:
+                            break;
+                        default:
+                            ClearTimeout(cancellation);
+                            await Delay(delay);
+                            const result = await win.ExecuteScript<T>(script);
+                            await destroy();
+                            resolve(result);
+                    }
+                } catch {
+                    await destroy();
+                }
+            });
+
+            invocations.push({ name: 'Open', info: `Request URL: ${request.url}` });
+            await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+        });
+    }
+
     /**
      * Open the given {@link request} in a new browser window and inject the given {@link script}.
      * @param request - ...
@@ -358,6 +426,9 @@ export abstract class FetchProvider {
      * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
      */
     public async FetchWindowPreloadScript<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000, show = false): Promise<T> {
+        if (!ShouldUseForkChallengeHandling(request.url)) {
+            return this.FetchWindowPreloadScriptUpstream(request, preload, script, delay, timeout);
+        }
 
         const invocations: {
             name: string;
@@ -372,7 +443,14 @@ export abstract class FetchProvider {
         });
 
         const stopPollers: (() => void)[] = [];
-        const reloadBudget = { remaining: 3 };
+        // CrunchyScan's managed challenge can issue a fresh but unusable clearance on
+        // every reload. Allow one automatic retry only, then leave the window stable for
+        // a manual intervention instead of showing a visible challenge loop.
+        const reloadBudget = {
+            remaining: /crunchyscan\.org/i.test(request.url) ? 1 : 3,
+            lastReloadedClearance: '',
+            reloadInFlight: false,
+        };
 
         const destroy = async () => {
             try {
@@ -430,6 +508,13 @@ export abstract class FetchProvider {
 
             win.DOMReady.Subscribe(async () => {
                 invocations.push({ name: 'DOMReady', info: `Window: ${win}` });
+                // A navigation creates a new DOMReady while the previous challenge poller may
+                // still be waiting. Keep only the poller for the current document; otherwise
+                // several reload timers race and make CrunchyScan appear to loop forever.
+                for (const stop of stopPollers) {
+                    stop();
+                }
+                stopPollers.length = 0;
 
                 let redirect: FetchRedirection;
 
@@ -457,27 +542,39 @@ export abstract class FetchProvider {
                 `;
 
                 let cloudflare: { isChallenge: boolean; hasRealWidget: boolean } | undefined;
-                for (let attempt = 0; attempt < 20 && cloudflare === undefined; attempt++) {
+                // The grace delay above protects Cloudflare's proof phase. Do not keep
+                // probing for 20 seconds after it: CrunchyScan needs its visible window
+                // before the caller's listing timeout expires.
+                for (let attempt = 0; attempt < 4 && cloudflare === undefined; attempt++) {
                     try {
                         cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
                     } catch {
-                        await Delay(1000);
+                        if (attempt < 3) await Delay(500);
                     }
                 }
 
-                if (cloudflare?.isChallenge) {
+                // Site-specific anti-scraping detections are authoritative: they know the challenge
+                // mechanics of their own site (e.g. CrunchyScan's Turnstile lives in a subframe and
+                // never shows a widget in the parent DOM, JapScan's #jc-overlay puzzle, MangaLink's
+                // reCAPTCHA form). Run them BEFORE the generic DOM heuristic, otherwise a subframe
+                // challenge would be misclassified as Automatic and the interactive window (which is
+                // what actually issues the session cookie) would never open.
+                try {
+                    redirect = await CheckAntiScrapingDetection(win, request.url);
+                } catch (error) {
+                    // The obfuscated anti-scraping detections can throw on pages whose DOM they do
+                    // not expect (e.g. `removeChild` on a node missing after the reader hydrates).
+                    // A failing detection must not block scraping: treat it as "no challenge".
+                    console.warn('CheckAntiScrapingDetection failed, assuming no challenge:', error);
+                    redirect = FetchRedirection.None;
+                }
+
+                // No site-specific detection fired: fall back to the generic Cloudflare DOM heuristic
+                // so challenges on sites without a custom detection (MangaFire, Comix, …) still
+                // auto-resolve in the background without flashing a window.
+                if (redirect === FetchRedirection.None && cloudflare?.isChallenge) {
                     redirect = cloudflare.hasRealWidget ? FetchRedirection.Interactive : FetchRedirection.Automatic;
                     invocations.push({ name: 'CloudflareDetected', info: cloudflare.hasRealWidget ? 'Interactive (real widget)' : 'Automatic (managed, wait for auto-resolve)' });
-                } else {
-                    try {
-                        redirect = await CheckAntiScrapingDetection(win, request.url);
-                    } catch (error) {
-                        // The obfuscated anti-scraping detections can throw on pages whose DOM they do
-                        // not expect (e.g. `removeChild` on a node missing after the reader hydrates).
-                        // A failing detection must not block scraping: treat it as "no challenge".
-                        console.warn('CheckAntiScrapingDetection failed, assuming no challenge:', error);
-                        redirect = FetchRedirection.None;
-                    }
                 }
 
                 console.warn("[KUMO] redirect:", FetchRedirection[redirect], "url:", request?.url);
@@ -509,14 +606,31 @@ export abstract class FetchProvider {
                         this.PollForChallengeResolution(win, request.url, cloudflareDetectionScript, runScript, () => settled, stopPollers, invocations);
                         break;
                     case FetchRedirection.Automatic:
-                        // Managed challenge without a real widget. The `cf_clearance` cookie is only
-                        // issued while the window is actually visible (probe-verified: a hidden window
-                        // never receives it), so for sites that opted into the stalled-challenge reload
-                        // (e.g. crunchyscan.org) we show the window to let the cookie settle, then the
-                        // poller reloads once it is present. All other sites keep the fully-hidden
-                        // background wait to avoid flashing a window.
+                        // CrunchyScan's managed challenge only issues its clearance cookie
+                        // while the remote window is visible. Keep this visibility scoped to
+                        // the explicit stalled-reload opt-in; other fork-handled sites remain
+                        // fully backgrounded.
                         if (stalledReloadEnabled) {
                             await win.Show();
+                            void this.PollForChallengeResolution(
+                                win,
+                                request.url,
+                                cloudflareDetectionScript,
+                                runScript,
+                                () => settled,
+                                stopPollers,
+                                invocations,
+                            );
+                        } else if (ShouldUseForkChallengeHandling(request.url)) {
+                            void this.PollForChallengeResolution(
+                                win,
+                                request.url,
+                                cloudflareDetectionScript,
+                                runScript,
+                                () => settled,
+                                stopPollers,
+                                invocations,
+                            );
                         }
                         break;
                     default:
