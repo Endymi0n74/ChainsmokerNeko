@@ -20,9 +20,12 @@ AddAntiScrapingDetection(async invoke => {
                 || /vérification de sécurité|verify you(?:'re| are)? human|vérifiez que vous êtes humain|checking if the site connection is secure/i.test(text);
         })()
     `);
+    // CrunchyScan's current Turnstile is mounted in a subframe and is not reliably
+    // visible from the parent DOM. Treating the text-only shell as Automatic leaves
+    // the plugin waiting forever; an Interactive result opens the same validation
+    // window that successfully primes the shared Cloudflare session.
     return challenged ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?crunchyscan\.org/);
-
 AddStalledChallengeReload(/^https:\/\/(?:www\.)?crunchyscan\.org/);
 
 function CleanTitle(text: string) {
@@ -42,6 +45,7 @@ function MangaLinkExtractor(head: HTMLHeadingElement, uri: URL) {
 export default class extends DecoratableMangaScraper {
 
     readonly #drm = new DRMProvider();
+    private initializePromise?: Promise<void>;
 
     public override readonly RequiresVisibleBrowserWindow = true;
 
@@ -50,8 +54,11 @@ export default class extends DecoratableMangaScraper {
         this.imageTaskPool.RateLimit = new RateLimit(2, 1);
     }
 
-    public override async Initialize(): Promise<void> {
-        await FetchWindowScript(new Request(this.URI.href), '');
+    public override Initialize(): Promise<void> {
+        // Multiple UI actions can initialize the same plugin concurrently. Share one
+        // challenge promise so CrunchyScan never opens several Cloudflare windows at once.
+        this.initializePromise ??= FetchWindowScript<void>(new Request(this.URI.href), '');
+        return this.initializePromise;
     }
 
     public override get Icon(): string {
