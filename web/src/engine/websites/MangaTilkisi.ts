@@ -4,11 +4,13 @@ import { DecoratableMangaScraper } from '../providers/MangaPlugin';
 import * as Madara from './decorators/WordPressMadara';
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
+import { AddForkChallengeHandling } from '../platform/ChallengeReload';
 
 AddAntiScrapingDetection(async (invoke) => {
     const result = await invoke<boolean>(`document.querySelector('button#insan-dogrulama-btn, a.dogrulama-btn')`);
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/www.tilkiscans\.com/);
+AddForkChallengeHandling(/^https:\/\/www.tilkiscans\.com/);
 
 @Madara.MangaCSS(/^{origin}\/seri\/[^/]+\/$/, 'ol.breadcrumb li:last-of-type a')
 @Madara.MangasMultiPageAJAX()

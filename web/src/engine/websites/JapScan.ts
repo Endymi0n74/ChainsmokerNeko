@@ -3,6 +3,7 @@ import icon from './JapScan.webp';
 import { DecoratableMangaScraper, type Manga, Chapter, Page, type MangaPlugin } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
+import { AddForkChallengeHandling } from '../platform/ChallengeReload';
 import { ExtractPagesFromReader } from './JapScan.Extract';
 import { DRMProvider } from './JapScan.DRM';
 import { TaskPool, Priority } from '../taskpool/TaskPool';
@@ -15,6 +16,7 @@ AddAntiScrapingDetection(async invoke => {
     const result = await invoke<boolean>(`!!document.querySelector('#jc-overlay') || (window.__captcha && window.__captcha.needed === true) || false;`);
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
+AddForkChallengeHandling(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
 
 @Common.ImageAjax(true)
 export default class extends DecoratableMangaScraper {

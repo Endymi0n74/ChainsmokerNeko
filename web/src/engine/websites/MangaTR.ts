@@ -3,6 +3,7 @@ import icon from './MangaTR.webp';
 import { FetchHTML, FetchRegex, FetchWindowPreloadScript, FetchWindowScript } from '../platform/FetchProvider';
 import { Chapter, DecoratableMangaScraper, Manga, type MangaPlugin, Page } from '../providers/MangaPlugin';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
+import { AddForkChallengeHandling } from '../platform/ChallengeReload';
 import type { Priority } from '../taskpool/DeferredTask';
 import DeScramble from '../transformers/ImageDescrambler';
 import { RandomText } from '../Random';
@@ -26,6 +27,7 @@ AddAntiScrapingDetection(async (invoke) => {
     const result = await invoke<boolean>(`document.title === 'Bot Koruması' && document.querySelector('canvas#sliderCanvas') != undefined`);
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/manga-tr\.com/);
+AddForkChallengeHandling(/^https:\/\/manga-tr\.com/);
 
 export default class extends DecoratableMangaScraper {
 

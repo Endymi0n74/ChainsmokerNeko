@@ -5,11 +5,13 @@ import * as Madara from './decorators/WordPressMadara';
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
 import { FetchWindowScript } from '../platform/FetchProvider';
+import { AddForkChallengeHandling } from '../platform/ChallengeReload';
 
 AddAntiScrapingDetection(async (invoke) => {
     const result = await invoke<boolean>(`document.querySelector('form#lsrecaptcha-form[action*="/.lsrecap/recaptcha?"]') && true || false`);
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/link-manga\.net/);
+AddForkChallengeHandling(/^https:\/\/link-manga\.net/);
 
 @Madara.MangaCSS(/^{origin}\/manga\/[^/]+\/$/)
 @Madara.MangasMultiPageAJAX()
