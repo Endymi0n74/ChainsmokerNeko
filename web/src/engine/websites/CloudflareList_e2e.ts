@@ -17,7 +17,7 @@ type ChapterFlowResult = {
 type FlowArgs = {
     id: string;
     mangaURL: string;
-    chapterID: string;
+    chapterID?: string;
 };
 
 async function ListMangas(pluginID: string): Promise<ListingResult> {
@@ -57,9 +57,9 @@ async function FetchChapterFlow(args: FlowArgs): Promise<ChapterFlowResult> {
             }
             await manga.Update();
             const chapters = manga.Entries.Value;
-            const chapter = chapters.find(child => child.Identifier === a.chapterID);
+            const chapter = a.chapterID ? chapters.find(child => child.Identifier === a.chapterID) : chapters[ 0 ];
             if(!chapter) {
-                return { error: `Chapter not found: ${a.chapterID} (${chapters.length} available)` };
+                return { error: `Chapter not found: ${a.chapterID ?? 'first available'} (${chapters.length} available)` };
             }
             await chapter.Update();
             const pages = chapter.Entries.Value;
@@ -103,7 +103,8 @@ describe('Cloudflare-protected websites', () => {
             // NOTE: 'pvzy-vagabondd' (Vagabond) has been removed from MangaFire (404 "Not found" page) —
             // keep this URL pointing at an active title (verified 2026-08-16: 132 chapters).
             mangaURL: 'https://mangafire.to/title/gl3-gun-x-clover',
-            chapterID: '156',
+            // Chapter identifiers can change when MangaFire republishes its catalog; use the first live chapter.
+            chapterID: undefined,
         },
         {
             id: 'comix',
