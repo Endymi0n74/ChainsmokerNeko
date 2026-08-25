@@ -32,10 +32,40 @@ export class FetchProvider {
         }
     }
 
-    private async UpdateCookieHeader(url: string, headers: Record<string, string>) {
-        // TODO: Skip cookie assignment in browser window e.g., when `sec-fetch-dest: empty`?
+    /**
+     * Sentinel value a connector can set in the `Cookie` header to request that no
+     * session cookies are injected for this request. Some servers (e.g. scan-manga)
+     * serve a reduced page without the chapter list whenever their own session
+     * cookie (`sessionT`) is present, so the plain-HTML content is only available
+     * from a cookie-less request.
+     */
+    private static readonly NoSessionCookiesSentinel = '__hkn_no_session_cookies__';
+
+    private async UpdateCookieHeader(url: string, headers: Record<string, string>, details: OnBeforeSendHeadersListenerDetails) {
         const normalizedCookieHeaderName = (this.fetchApiSupportedPrefix + 'Cookie').toLowerCase();
         const originalCookieHeaderName = Object.keys(headers).find(header => header.toLowerCase() === normalizedCookieHeaderName) ?? normalizedCookieHeaderName;
+        // A connector explicitly opted out of session-cookie injection: drop the
+        // placeholder and leave the request cookie-less.
+        if (headers[originalCookieHeaderName] === FetchProvider.NoSessionCookiesSentinel) {
+            delete headers[originalCookieHeaderName];
+            // The browser's own network stack may also attach a `Cookie` header for
+            // this URL from the shared session; remove it too so the request truly
+            // leaves without any cookies.
+            for (const key of Object.keys(headers)) {
+                if (key.toLowerCase() === 'cookie') {
+                    delete headers[key];
+                }
+            }
+            return;
+        }
+        // Only merge the session cookies into requests originating from the app's own
+        // renderer (its Fetch API). Requests from remote browser windows — navigations
+        // as well as subresources — already carry the shared session cookies natively,
+        // and injecting the merged set into e.g. ScanManga's reader API POST makes the
+        // anti-bot endpoint reject the request (HTTP 500).
+        if (typeof details?.webContentsId === 'number' && details.webContentsId !== this.webContents.id) {
+            return;
+        }
         const headerCookies = headers[originalCookieHeaderName]?.split(';').filter(cookie => cookie.includes('=')).map(cookie => cookie.trim()) ?? [];
         // FIX: remove partitionKey filter so partitioned cookies (e.g. cf_clearance) are included
         const browserCookies = await this.webContents.session.cookies.get({ url });
@@ -51,7 +81,7 @@ export class FetchProvider {
 
     private async ModifyRequestHeaders(details: OnBeforeSendHeadersListenerDetails): Promise<BeforeSendResponse> {
         const uri = new URL(details.url);
-        await this.UpdateCookieHeader(uri.href, details.requestHeaders);
+        await this.UpdateCookieHeader(uri.href, details.requestHeaders, details);
         const updatedHeaders: typeof details.requestHeaders = {
             //origin: uri.origin,
             //referer: uri.href,
