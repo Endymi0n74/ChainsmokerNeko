@@ -1,7 +1,67 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 24 août 2026 — nightly v2.2.0 (093d2746), MangaMoins restauré, CrunchyScan Interactive.
+> Dernière mise à jour : 25 août 2026 — ScanManga réparé (cookies + API lecteur) et validé e2e 5/5 ; non-régression CloudflareList + MangaNova vérifiée ; build x64 locale reconstruite (23:06), sans commit ni push.
+
+> 🩹 **SCANMANGA (25 août, fix complet — build 23:06) :** le site a changé ses API.
+> Trois causes cumulées, toutes corrigées :
+> 1. **Liste des chapitres vide** : le serveur ne sert le bloc chapitres qu'aux requêtes SANS
+>    cookies — son propre cookie `sessionT` déclenche une page réduite. Fix : sentinel
+>    `Cookie: __hkn_no_session_cookies__` consommé dans `app/electron/src/ipc/FetchProvider.ts`
+>    (`NoSessionCookiesSentinel`) — la requête part sans aucun cookie (placeholder + header natif
+>    supprimés). `ScanManga.FetchChapters` l'utilise.
+> 2. **API lecteur changée** : l'ancien `/api/lel/<idc>.json` → 404. Nouveau : POST
+>    `https://bqj.scan-manga.com/lel/<idc>.json`, headers `source` + `Token: yf`, body
+>    `{ a: sme, b: sml, c: btoa(JSON.stringify({ gpu, connection })) }` (fingerprint WebGL +
+>    effectiveType). Réponse : `base64(gzip(reverse(base64(json))))`, le payload inversé commence
+>    par l'hex inversé d'`idc` (à retirer). Images sur `data2.scan-manga.com` (Cloudflare).
+>    Pagescript réécrit dans `ScanManga.ts` (attente des globals `idc/sme/sml/pako` + enveloppe
+>    JSON tolérée + validation).
+> 3. **HTTP 500 sur l'API bqj dans l'app** : l'intercepteur de l'app injectait les cookies de
+>    session (dont `sessionT`) dans TOUTES les requêtes de la session, y compris les XHR des
+>    fenêtres distantes → l'API anti-bot rejetait. Fix GLOBAL dans `FetchProvider.ts` :
+>    l'injection/merge des cookies n'est appliquée qu'aux requêtes du renderer de l'app
+>    (`details.webContentsId === this.webContents.id`) ; les fenêtres distantes gardent leurs
+>    cookies natifs (session partagée) + le sentinel reste honoré partout. `FetchPages` passe
+>    aussi le sentinel pour charger la page chapitre en version complète.
+> **Tests :** ScanManga e2e **5/5 vert** (plugin, manga, chapitre 1,2 s, page, blob 658 994 o
+> image/jpeg stable ×2). **Non-régression :** CloudflareList_e2e (mangafire/comix/mangadrama
+> listing + flux chapitre→pages→image mangafire/comix) + MangaNova 7/7 — tout vert. Aucun log
+> debug restant, lint OK.
+> ⚠️ À noter : `MangaIndex_NotSupported` sur ScanManga est STRUCTUREL (`@Common.MangasNotSupported()`
+> — pas d'index ; usage bookmark / Copy & Paste). Pas un bug.
+> Build x64 : `app/electron/.tmp/hakuneko-electron-v2.2.1-win32-x64/hakuneko.exe` (lancée),
+> zip `app/electron/bundle/hakuneko-electron-v2.2.1-win32-x64.zip` SHA-256
+> `984399b75d697ae019fd4e12333beff3640e02f0fcf2764c5eb17cf2f1a7eefa`. Rien n'est committé ni poussé.
+
+> ⚠️ **ÉTAT CRUNCHYSCAN (25 août, fix classification — build 21:24) :** le timeout
+> `FetchWindow_TimeoutError` au chargement des chapitres (erreur « Plugin failed to load items » sur
+> Shadows House) avait une cause racine précise dans `FetchProviderCommon.ts` : le contrôle DOM
+> générique (widget Cloudflare réellement rendu) s'exécutait AVANT `CheckAntiScrapingDetection` et
+> écrassait la détection Interactive de CrunchyScan. Or le Turnstile de CrunchyScan vit dans un
+> **sous-frame** (jamais visible dans le DOM parent) → `hasRealWidget=false` → classé `Automatic` →
+> fenêtre interactive jamais ouverte → le `cf_clearance` n'était émis qu'après validation manuelle
+> via le plugin → timeout 60 s (MangaPlugin.Initialize() non nonce'd quand la liste vient du cache).
+> **Fix (21:10, non committé) :** les détections spécifiques site (`CheckAntiScrapingDetection`) sont
+> désormais évaluées en PREMIER (autoritatives) ; l'heuristique DOM widget n'est appliquée qu'en repli
+> quand aucune détection ne se déclenche (`FetchRedirection.None`). MangaFire/Comix (aucune détection,
+> seulement `AddStalledChallengeReload`) gardent leur auto-résolution en arrière-plan → pas de
+> régression. Typecheck web OK, e2e Manga Nova 7/7 vert.
+> Build x64 de test reconstruite le 25 août à 21:24 dans `app/electron/.tmp/hakuneko-electron-v2.2.1-win32-x64/` et lancée via `hakuneko.exe`. Zip : `app/electron/bundle/hakuneko-electron-v2.2.1-win32-x64.zip`, SHA-256 `b858a9858be5b7f6f1061ffd32243171d0fb0d57f406dcf10b9fd504fd1cd998`. Le e2e CrunchyScan reste bloqué depuis l'IP de test (Cloudflare ne résout pas sans interaction humaine) — la validation utilisateur sur cette build est LE critère. Aucun commit ni push.
+> **✅ VALIDÉ PAR L'UTILISATEUR (25 août, build 21:24)** : CrunchyScan remarche — listing,
+> chapitres et pages fonctionnent à nouveau. Une validation manuelle via le plugin reste nécessaire
+> une fois (challenge Turnstile interactif sur IP fixe — comportement attendu, cf. flux validé du
+> 17 août) ; la session `cf_clearance` est ensuite partagée et réutilisée. Aucune régression
+> Manga Nova (7/7 e2e) ni MangaFire/Comix.
+>
+> **Retest après Manga Nova (25 août) :** typecheck web/Electron et ESLint OK ; Manga Nova e2e
+> **7/7 OK** (catalogue, fiche, chapitres, 93 pages et image). `CloudflareList_e2e` a validé
+> Comix, MangaDrama et les flux chapitre -> pages -> image MangaFire/Comix ; le listing MangaFire
+> a expiré après 180 s sur le challenge réseau. Les fixtures historiques MangaFire/Comix ont des
+> attentes externes obsolètes (chapitre et taille CDN variables), sans invalider le flux robuste.
+> Bundle x64 local : `app/electron/bundle/hakuneko-electron-v2.2.1-win32-x64.zip`, SHA-256
+> `a1459b2b989f59ec80047677bf8d3536c083e080cfcb2996052772f9ecfa4808`. Le logo `MangaNova.webp`
+> est intégré dans le bundle. Aucun commit ni push.
 
 > ⏱️ **CONVENTION MAINTENANCE (17 août) : rafraîchir ce fichier au moins toutes
 > les 2 h pendant une session active** — état git/releases, WIP en cours, décisions
@@ -146,10 +206,22 @@ app/electron/build|bundle/     → build Electron (généré)
     connexion figée bloquait le download indéfiniment. Typecheck + eslint OK.
   - **⚠️ Régression du 15 août (corrigée)** : un contrôle « interactif » basé sur
     l'input caché `cf-turnstile-response` (toujours présent dans le HTML challenge)
-    désactivait TOUT reload → les 3 sites restaient figés. Le contrôle actuel ne
-    détecte qu'un widget **réellement rendu** (iframe/checkbox) → le reload est
-    rétabli pour les challenges « managés » sans widget. **✅ Corrigé et committé**.
+    désactivait TOUT reload → les 3 sites restaient figés. Le contrôle détecte désormais
+    uniquement un widget **réellement rendu** (iframe/checkbox). Depuis le 25 août, CrunchyScan
+    n'utilise plus le reload stalled : le challenge texte sans widget est sondé silencieusement
+    et l'extraction reprend uniquement si Cloudflare quitte réellement la page challenge.
+    **✅ Validation manuelle utilisateur verte le 25 août**.
 - **MangaMoins** : connector restauré (24 août) — `@Common.ImageAjax()` pour FixImage + icon + e2e. Câblé dans `_index.ts`.
+- **Manga Nova** : connecteur ajouté localement le 25 août. Catalogue `/catalogue`, fiches
+  `/manga/<slug>`, chapitres `/lecture-en-ligne/<slug>/chapitre/<n>` et images du lecteur
+  rendus via `FetchWindowScript`, téléchargement avec `@Common.ImageAjax()`. Fixture validée
+  sur `Mechanical Buddy Universe`, chapitre 1 : **listing ✅, manga ✅, chapitres ✅,
+  pages ✅, première image WebP ✅**. Typecheck web/Electron, ESLint, build web/Electron,
+  svelte-check et régression MangaFire/Comix pages → image ✅. Câblé dans `_index.ts`.
+  **Correctif du 25 août :** le lecteur Next.js ne rend initialement que quelques images lazy ; les URLs
+  complètes sont dans le payload RSC `images` du chapitre. `FetchPages` extrait désormais le bloc
+  CDN du chapitre courant et ignore les previews des autres chapitres. Fixture renforcée à **93 pages**.
+  **Aucun commit ni push : ajout et correctif conservés dans le working tree.**
 - 17 autres sites ajoutés (commit `96741258`) — **audités le 16 août** : seul **PornComix** a été
   câblé dans `_index.ts` (e2e complet OK). Les 16 autres restent **non câblés** car invalides
   (vérifié par tests e2e + sondes) : 8 domaines morts (`ERR_NAME_NOT_RESOLVED`/SSL :
