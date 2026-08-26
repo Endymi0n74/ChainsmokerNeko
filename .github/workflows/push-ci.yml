@@ -2,11 +2,10 @@ name: Push (CI)
 
 on:
   push:
-    # Doc-only commits don't need the full build + bundles + nightly pipeline.
     paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - 'MEMORY.md'
+      - "*.md"
+      - "docs/**"
+      - "MEMORY.md"
   workflow_dispatch:
 
 permissions:
@@ -77,7 +76,7 @@ jobs:
     needs: ci
     runs-on: windows-latest
     steps:
-      - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
@@ -85,7 +84,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.0.0
-      - name: Cache Electron Distributions
+      - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/electron-zips
@@ -95,7 +94,7 @@ jobs:
         with:
           name: electron-build
           path: app/electron/build
-      - name: Install NSIS (Windows installer)
+      - name: Install NSIS
         shell: pwsh
         run: choco install nsis -y --no-progress
       - name: Create Windows Bundles
@@ -115,7 +114,7 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
@@ -123,7 +122,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.0.0
-      - name: Cache Electron Distributions
+      - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/electron-zips
@@ -159,7 +158,7 @@ jobs:
     needs: ci
     runs-on: macos-latest
     steps:
-      - name: Checkout ${{ github.repository }} @ ${{ github.ref }}
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
@@ -167,7 +166,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.0.0
-      - name: Cache Electron Distributions
+      - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/electron-zips
@@ -199,7 +198,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish rolling 'nightly' release
+    name: Publish rolling nightly release
     needs: [bundles-windows, bundles-linux, bundles-macos]
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
@@ -221,18 +220,9 @@ jobs:
         with:
           name: macos-bundles
           path: bundle
-      - name: Publish 'nightly' release
+      - name: Publish nightly release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete --repo ${{ github.repository }} nightly --yes --cleanup-tag 2>/dev/null || true
-          cat > /tmp/release-notes.md << 'NOTES_EOF'
-          Automated build from commit ${{ github.sha }}.
-          
-          **Windows** - Portable zip (x64)
-          **Linux** - AppImage + .deb (x64)
-          **macOS** - DMG (x64 + Apple Silicon)
-          
-          *Developed with vibe coding, assisted by **Codebuff (Buffy)** - robot: Generated with Codebuff, Co-Authored-By: Codebuff <noreply@codebuff.com>*
-          NOTES_EOF
-          gh release create --repo ${{ github.repository }} nightly --title "Nightly build ${{ github.sha }}" --latest=false --notes-file /tmp/release-notes.md bundle/*
+          gh release create --repo ${{ github.repository }} nightly --title "Nightly build ${{ github.sha }}" --latest=false --generate-notes bundle/*
