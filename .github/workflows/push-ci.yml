@@ -208,14 +208,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete --repo ${{ github.repository }} nightly --yes --cleanup-tag 2>/dev/null || true
-          NOTES="Automated build from commit ${{ github.sha }}."
-          NOTES+=$'\n\n**Windows** — Portable zip (x64)\n'
-          NOTES+=$'**Linux** — AppImage + .deb (x64)\n'
-          NOTES+=$'**macOS** — DMG (x64 + Apple Silicon)\n'
-          NOTES+=$'\n---\n\n*Développé en vibe coding avec l'\''assistance de **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>*\n'
-          NOTES+=$'*Developed with vibe coding, assisted by **Codebuff (Buffy)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>*'
           gh release create --repo ${{ github.repository }} nightly \
             --title "Nightly build ${{ github.sha }}" \
             --latest=false \
-            --notes "$NOTES" \
+            --notes "Automated build from commit ${{ github.sha }}.
+
+**Windows** - Portable zip (x64)
+**Linux** - AppImage + .deb (x64)
+**macOS** - DMG (x64 + Apple Silicon)
+
+---
+
+*Developed with vibe coding, assisted by **Codebuff (Buffy)** - robot: Generated with Codebuff, Co-Authored-By: Codebuff <noreply@codebuff.com>*" \
             bundle/*
