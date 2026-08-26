@@ -64,7 +64,12 @@ async function cleanup(blinkDeploymentTemporaryDirectory) {
 
 async function createDiskImage(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
     const poster = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.png');
-    const osascript = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.scpt');
+    const osascriptSrc = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.scpt');
+    // Create a temporary copy of the script with placeholders replaced
+    const osascript = path.join(blinkDeploymentTemporaryDirectory, '.setup.scpt');
+    let script = await fs.readFile(osascriptSrc, 'utf8');
+    script = script.replace(/__VOL__/g, product).replace(/__APP__/g, product + '.app');
+    await fs.writeFile(osascript, script, 'utf8');
     await fs.cp(poster, path.join(blinkDeploymentTemporaryDirectory, '.images', 'setup.png'));
     await run(`hdiutil create -volname '${product}' -srcfolder '${blinkDeploymentTemporaryDirectory}' -fs 'HFS+' -fsargs '-c c=64,a=16,e=16' -format 'UDRW' '${blinkDeploymentTemporaryDirectory}'`);
     await run(`hdiutil attach -readwrite -noverify -noautoopen '${blinkDeploymentTemporaryDirectory}.dmg'`);
