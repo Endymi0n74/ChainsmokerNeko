@@ -1,10 +1,10 @@
-# Feuille de route — ChainsmokerNeko
+# Feuille de route — chain-smoker
 
 > Document de vision. Dernière mise à jour : 26 août 2026 (v3.0.0).
 
 ## Pourquoi une v2.0.0 ?
 
-ChainsmokerNeko a commencé comme un fork d'HakuNeko. Depuis, il a divergé au
+chain-smoker a commencé comme un fork d'HakuNeko. Depuis, il a divergé au
 point de devenir un produit à part entière : sa propre suite de contournement
 Cloudflare, ses optimisations de performance massives, sa distribution 3 OS et
 ses releases bilingues. La **v2.0.0** acte ce passage : ce n'est plus « un fork
@@ -54,7 +54,7 @@ projet**, avec une promesse de non-régression.
 - Téléchargement automatique des nouveaux chapitres (< 48 h) des bookmarks,
   anglais uniquement.
 - Releases **bilingues FR/EN** + badges + changelog.
-- Dépôt renommé **ChainsmokerNeko** (l'ancien dépôt a été supprimé).
+- Dépôt renommé **chain-smoker** (l'ancien dépôt a été supprimé).
 
 ## Reporté (2.0.x et au-delà)
 

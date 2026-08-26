@@ -1,4 +1,4 @@
-# Mémoire du projet — ChainsmokerNeko (fork Haruneko)
+# Mémoire du projet — chain-smoker (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
 > Dernière mise à jour : 26 août 2026 (v3.0.0 — tous fixes committés, CI 3 plateformes vert).
@@ -11,16 +11,16 @@ Fork personnel de **Haruneko** (successeur de HakuNeko) : application desktop de
 scraping de mangas. **Web app** (TypeScript, Svelte + quelques composants Vue)
 dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
-- **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
+- **Repo** : [Endymi0n74/chain-smoker](https://github.com/Endymi0n74/chain-smoker)
 - **Upstream** : `manga-download/haruneko`
 - **Version** : 3.0.0 (26 août 2026)
-- **Release** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.0) — Windows x64 zip + nightly 3 plateformes
+- **Release** : [GitHub Releases](https://github.com/Endymi0n74/chain-smoker/releases/tag/3.0.0) — Windows x64 zip + nightly 3 plateformes
 
 ## 2. Chemins & remotes
 
 - **Racine locale** : `D:\Codex\haruneko`
   - ⚠️ CWD outils = `D:\Codex` → tous les chemins prefixés `haruneko/`, commandes `cd haruneko`
-- **Remotes** : `origin` = upstream, `fork` = Endymi0n74/ChainsmokerNeko
+- **Remotes** : `origin` = upstream, `fork` = Endymi0n74/chain-smoker
 - `.tmp/` = gitignoré (sondes, builds de test, electron cache)
 
 ## 3. Architecture
@@ -177,7 +177,7 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - **Aucune suppression** sans approbation utilisateur (fichiers, branches, releases, tags)
 - **Aucune régression** : tester l'existant AVANT de déclarer terminé
 - **Versioning**: bumper dans les 3 `package.json` + CHANGELOG pour tout fix fonctionnel
-- **Release**: "ChainsmokerNeko <version>" (sans v), FR+EN, zip 3 plateformes
+- **Release**: "chain-smoker <version>" (sans v), FR+EN, zip 3 plateformes
 - **Pas de userdata** dans les bundles distribués
 - **MEMORY.md**: rafraîchir ≥ 2x/heure en session active
 
