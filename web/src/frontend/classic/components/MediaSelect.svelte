@@ -307,7 +307,7 @@
                 />
             </div>
         {/await}
-        {#if filteredmedias.length > VIRTUAL_THRESHOLD}
+        {#if filteredmedias.length > VIRTUAL_THRESHOLD && !currentPlugin?.IsSameAs(HakuNeko.BookmarkPlugin)}
             {@const start = Math.max(0, Math.floor(scrollTop / VIRTUAL_ITEM_HEIGHT) - VIRTUAL_BUFFER)}
             {@const end = Math.min(filteredmedias.length, Math.ceil((scrollTop + medialistrefHeight) / VIRTUAL_ITEM_HEIGHT) + VIRTUAL_BUFFER)}
             <div style="height:{start * VIRTUAL_ITEM_HEIGHT}px" aria-hidden="true"></div>
