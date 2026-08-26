@@ -198,7 +198,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish rolling nightly release
+    name: Publish release
     needs: [bundles-windows, bundles-linux, bundles-macos]
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
@@ -220,9 +220,12 @@ jobs:
         with:
           name: macos-bundles
           path: bundle
-      - name: Publish nightly release
+      - name: Read version from package.json
+        id: version
+        run: echo "tag=$(node -p 'require(\"./app/electron/package.json\").version')" >> "$GITHUB_OUTPUT"
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete --repo ${{ github.repository }} nightly --yes --cleanup-tag 2>/dev/null || true
-          gh release create --repo ${{ github.repository }} nightly --title "ChainsmokerNeko nightly ${{ github.sha }}" --latest=false --generate-notes bundle/*
+          gh release delete --repo ${{ github.repository }} "${{ steps.version.outputs.tag }}" --yes --cleanup-tag 2>/dev/null || true
+          gh release create --repo ${{ github.repository }} "${{ steps.version.outputs.tag }}" --title "ChainSmokerNeko ${{ steps.version.outputs.tag }}" --generate-notes bundle/*
