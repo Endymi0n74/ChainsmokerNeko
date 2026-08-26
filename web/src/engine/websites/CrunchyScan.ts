@@ -46,6 +46,8 @@ export default class extends DecoratableMangaScraper {
 
     readonly #drm = new DRMProvider();
     private initializePromise?: Promise<void>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private drmCache = new Map<string, Promise<any>>();
 
     public override readonly RequiresVisibleBrowserWindow = true;
 
@@ -66,7 +68,20 @@ export default class extends DecoratableMangaScraper {
     }
 
     public async FetchPages(chapter: Chapter): Promise<Page[]> {
-        const data = await this.#drm.CreateImageLinks(new URL(chapter.Identifier, this.URI));
+        // The DRM internally opens its own browser window via FetchWindowScript;
+        // cache the result per chapter URL to avoid re-opening windows for
+        // repeated fetches of the same chapter.
+        const chapterUrl = new URL(chapter.Identifier, this.URI);
+        const cacheKey = chapterUrl.href;
+        let promise = this.drmCache.get(cacheKey);
+        if (!promise) {
+            promise = this.#drm.CreateImageLinks(chapterUrl).catch(err => {
+                this.drmCache.delete(cacheKey);
+                throw err;
+            });
+            this.drmCache.set(cacheKey, promise);
+        }
+        const data = await promise;
         return data.map(image => new Page(this, chapter, new URL(image.url, this.URI), { Referer: image.referer }));
     }
 
