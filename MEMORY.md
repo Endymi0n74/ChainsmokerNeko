@@ -1,7 +1,19 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 25 août 2026 — ScanManga réparé (cookies + API lecteur) et validé e2e 5/5 ; non-régression CloudflareList + MangaNova vérifiée ; build x64 locale reconstruite (23:06), sans commit ni push.
+> Dernière mise à jour : 26 août 2026 — CrunchyScan: cache DRM + Init garantie; ScanManga réparé.
+
+> 🩹 **CRUNCHYSCAN (26 août — fix fenêtres multiples) :**
+> Chaque appel à `FetchPages` ouvrait une NOUVELLE fenêtre browser via le DRM (`FetchWindowScript`),
+> déclenchant à chaque fois la détection Cloudflare → Interactive → popup. Fix :
+> 1. **Cache DRM par URL chapitre** (`drmCache` Map dans CrunchyScan.ts) : une même URL de
+>     chapitre ne déclenche qu'une seule fenêtre ; les appels suivants réutilisent le résultat.
+> 2. **`Initialize()` garanti avant tout `FetchWindowScript`** du DRM : le cookie `cf_clearance`
+>     est primé avant que le DRM n'ouvre sa fenêtre, évitant les challenges redondants.
+> 3. **Cache invalidé sur erreur** : si le DRM échoue, l'entrée est retirée pour permettre un
+>     retry.
+> ⚠️ Bookmark VirtualList : les bookmarks ne s'affichent pas tous sans chercher — bug connu,
+> investigateur séparé.
 
 > 🩹 **SCANMANGA (25 août, fix complet — build 23:06) :** le site a changé ses API.
 > Trois causes cumulées, toutes corrigées :
