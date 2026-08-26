@@ -205,21 +205,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download Windows Bundle Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-bundles
-          path: bundle
-      - name: Download Linux Bundle Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-bundles
-          path: bundle
-      - name: Download macOS Bundle Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-bundles
-          path: bundle
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -229,13 +214,30 @@ jobs:
         run: |
           TAG=$(node -p "require('./app/electron/package.json').version")
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Download Windows Bundle Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-bundles
+          path: release-bundles
+      - name: Download Linux Bundle Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-bundles
+          path: release-bundles
+      - name: Download macOS Bundle Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-bundles
+          path: release-bundles
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          echo "Publishing release $TAG with bundles:"
-          find bundle -type f -name '*.*' | sort || true
+          echo "Publishing ChainsmokerNeko $TAG"
+          ls -la release-bundles/ || true
           gh release delete --repo ${{ github.repository }} "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          mapfile -d '' FILES < <(find bundle -type f -print0 | sort -z)
-          gh release create --repo ${{ github.repository }} "$TAG" --title "ChainsmokerNeko $TAG" --generate-notes "${FILES[@]}"
+          gh release create --repo ${{ github.repository }} "$TAG" \
+            --title "ChainsmokerNeko $TAG" \
+            --generate-notes \
+            release-bundles/*
