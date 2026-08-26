@@ -90,7 +90,8 @@ export async function bundle(appSourceDirectory, appResourcesDirectory, deployme
     ].join('\n'), { mode: 0o755 });
 
     // 7. Build the .deb
-    const artifact = path.join(deploymentOutputDirectory, `${pkgConfig.name}_${pkgConfig.version}_amd64.deb`);
+    const suffix = process.platform === 'linux' ? ' (untested)' : '';
+    const artifact = path.join(deploymentOutputDirectory, `${pkgConfig.name}_${pkgConfig.version}_amd64${suffix}.deb`);
     await fs.rm(artifact, { force: true });
     await run(`dpkg-deb --build '${pkgDir}' '${artifact}'`);
     console.log('Created:', path.basename(artifact));

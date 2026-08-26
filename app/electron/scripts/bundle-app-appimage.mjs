@@ -73,7 +73,8 @@ async function createAppImage(deploymentTemporaryDirectory, deploymentOutputDire
         await download(AppImageToolURL, tool);
         await fs.chmod(tool, 0o755);
     }
-    const artifact = path.join(deploymentOutputDirectory, path.basename(deploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + '.AppImage');
+    const suffix = process.platform === 'linux' ? ' (untested)' : '';
+    const artifact = path.join(deploymentOutputDirectory, path.basename(deploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + suffix + '.AppImage');
     await fs.rm(artifact, { force: true });
     await run(`ARCH=x86_64 '${tool}' --appimage-extract-and-run '${deploymentTemporaryDirectory}' '${artifact}'`);
 }

@@ -74,7 +74,8 @@ async function createDiskImage(blinkApplicationResourcesDirectory, blinkDeployme
     await wait(5000);
     await run(`hdiutil detach '/Volumes/${product}'`);
     await wait(5000);
-    const artifact = path.join(blinkDeploymentOutputDirectory, path.basename(blinkDeploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + '.dmg');
+    const suffix = process.platform === 'darwin' ? ' (untested)' : '';
+    const artifact = path.join(blinkDeploymentOutputDirectory, path.basename(blinkDeploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + suffix + '.dmg');
     try {
         await fs.unlink(artifact);
     } catch(error) {/**/}
