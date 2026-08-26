@@ -31,14 +31,11 @@ async function bundleApp(appSourceDirectory, deploymentTemporaryDirectory) {
     const target = path.join(deploymentTemporaryDirectory, 'resources', 'app');
     await fs.rm(target, { force: true, recursive: true });
     await fs.cp(appSourceDirectory, target, { recursive: true });
-    // Installed app uses the default userData location (%APPDATA%) instead of the
-    // portable `userdata` folder next to the executable.
+    // Ensure no portable userdata override leaks into the installed app.
     const pkgfile = path.join(target, 'package.json');
     const pkg = JSON.parse(await fs.readFile(pkgfile));
     delete pkg['user-data-dir'];
     await fs.writeFile(pkgfile, JSON.stringify(pkg, null, 4));
-    // The portable pass may have created an empty `userdata` folder — not wanted here.
-    await fs.rm(path.join(deploymentTemporaryDirectory, 'userdata'), { force: true, recursive: true });
 }
 
 async function ensureBinaryName(deploymentTemporaryDirectory) {

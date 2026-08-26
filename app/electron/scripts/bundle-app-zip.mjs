@@ -7,7 +7,6 @@ const pkgConfig = JSON.parse(await fs.readFile(pkgFile));
 
 export async function bundle(blinkApplicationSourceDirectory, blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
     await bundleApp(blinkApplicationSourceDirectory, blinkDeploymentTemporaryDirectory);
-    await makePortable(blinkDeploymentTemporaryDirectory);
     await updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory);
     await createZipArchive(blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory);
 }
@@ -16,15 +15,6 @@ async function bundleApp(blinkApplicationSourceDirectory, blinkDeploymentTempora
     const target = path.join(blinkDeploymentTemporaryDirectory, 'resources', 'app');
     await fs.rm(target, { force: true, recursive: true });
     await fs.cp(blinkApplicationSourceDirectory, target, { recursive: true });
-}
-
-async function makePortable(blinkDeploymentTemporaryDirectory) {
-    const userdata = path.join(blinkDeploymentTemporaryDirectory, 'userdata');
-    await fs.mkdir(userdata, { recursive: true });
-    const pkgfile = path.join(blinkDeploymentTemporaryDirectory, 'resources', 'app', 'package.json');
-    const pkg = JSON.parse(await fs.readFile(pkgfile));
-    pkg['user-data-dir'] = 'userdata';
-    await fs.writeFile(pkgfile, JSON.stringify(pkg, null, 4));
 }
 
 async function updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory) {
