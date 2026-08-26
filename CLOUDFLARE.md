@@ -1,6 +1,6 @@
 # Cloudflare bypass — status & how-to
 
-> Status documented on 19 August 2026 — versions **0.1.5 → 2.0.6**.
+> Status documented on 26 August 2026 — versions **0.1.5 → 3.0.0**.
 
 This document explains how **ChainsmokerNeko** handles Cloudflare challenges
 (the "Just a moment…" page that blocks some sites), and in particular how to

@@ -1,6 +1,6 @@
 # Feuille de route — ChainsmokerNeko
 
-> Document de vision. Dernière mise à jour : 18 août 2026 (préparation de la v2.0.0).
+> Document de vision. Dernière mise à jour : 26 août 2026 (v3.0.0).
 
 ## Pourquoi une v2.0.0 ?
 

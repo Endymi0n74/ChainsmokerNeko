@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 26 août 2026 — CrunchyScan: cache DRM + Init garantie; ScanManga réparé.
+> Dernière mise à jour : 26 août 2026 — v3.0.0 publiée : ScanManga, CrunchyScan, MangaNova, VirtualList fix, Cloudflare classification, 17 connecteurs câblés.
 
 > 🩹 **CRUNCHYSCAN (26 août — fix fenêtres multiples) :**
 > Chaque appel à `FetchPages` ouvrait une NOUVELLE fenêtre browser via le DRM (`FetchWindowScript`),
@@ -12,8 +12,8 @@
 >     est primé avant que le DRM n'ouvre sa fenêtre, évitant les challenges redondants.
 > 3. **Cache invalidé sur erreur** : si le DRM échoue, l'entrée est retirée pour permettre un
 >     retry.
-> ⚠️ Bookmark VirtualList : les bookmarks ne s'affichent pas tous sans chercher — bug connu,
-> investigateur séparé.
+> ✅ Bookmark VirtualList : corrigé — virtual scroll désactivé pour le plugin Bookmarks.
+> Committé et validé.
 
 > 🩹 **SCANMANGA (25 août, fix complet — build 23:06) :** le site a changé ses API.
 > Trois causes cumulées, toutes corrigées :
@@ -441,7 +441,7 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
   reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release  GitHub
-  `Latest` (3 zips + corps bilingue FR/EN). *Version actuelle : 2.2.0*
+  `Latest` (3 zips + corps bilingue FR/EN).  *Version actuelle : 3.0.0*
   (publiée le 18 août). Prochain bump (2.2.1) dès le prochain correctif
   fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).

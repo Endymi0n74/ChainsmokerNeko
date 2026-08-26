@@ -3,6 +3,48 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.0] - 2026-08-26
+
+> **Majeure.** Correction de non-régression, nouveaux connecteurs, fix Cloudflare avancé,
+> virtual scroll bookmarks et cleanup complet du repo.
+
+### Ajouté
+
+- **Connecteur MangaNova** : listing, chapitres, pages (93 pages testées), logo WebP.
+- **17 connecteurs câblés** dans `_index.ts` : Alphapolis, JapScan, MangaLi, MangaLink,
+  MangaTR, MangaTilkisi, MangaTube, RainDropFansub, TruyenQQ — opt-in fork challenge
+  handling pour la détection Cloudflare personnalisée.
+- **Test de régression e2e MangaNova** : 7 tests (catalogue, chapitres, pages, image).
+- **Test de régression e2e ScanManga** : 5 tests (chapter, pages, image).
+- **Test de régression e2e Cloudflare** : flux complet manga → chapitres → pages → image
+  pour MangaFire, Comix, MangaDrama.
+- **Fix VirtualList bookmarks** : le composant VirtualList ne s'active plus quand le
+  plugin Bookmarks est sélectionné — les bookmarks s'affichent tous sans scroll forcé.
+
+### Fix
+
+- **ScanManga — sentinel cookies** : le serveur ne sert les chapitres qu'aux requêtes
+  sans cookies. Nouveau sentinel `Cookie: __hkn_no_session_cookies__` consommé dans
+  `FetchProvider` Electron.
+- **ScanManga — API lecteur** : nouveau endpoint `bqj.scan-manga.com/lel/<idc>.json`
+  avec token `yf`, fingerprint WebGL/connection, décodage gzip. Pagescript réécrit.
+- **ScanManga — injection cookies** : les cookies de session ne sont plus injectés dans
+  les requêtes des fenêtres distantes (elles gardent leurs cookies natifs).
+- **CrunchyScan — cache DRM** : les résultats du DRM sont cachés par URL de chapitre,
+  empêchant les fenêtres multiples.
+- **Classification Cloudflare** : les détections de site (AddAntiScrapingDetection) sont
+  testées en priorité avant l'heuristique DOM générique (ChallengeReload).
+- **CDP timeout** : `protocolTimeout` augmenté à 300s sur le `connect()` puppeteer de
+  la fixture e2e, absorber les lenteurs réseau sur les gros listings (mangafire).
+
+### Modifié
+
+- **Injection cookies restreinte** : dans `FetchProvider`, l'injection des cookies de
+  session fusionnés n'est appliquée qu'aux requêtes du renderer de l'app, pas aux
+  fenêtres distantes.
+- **Opt-in fork challenge** : 8 sites à détection custom (Alphapolis, JapScan, etc.)
+  utilisent le fork challenge handling.
+
 ## [2.2.0] - 2026-08-22
 
 ### Retiré
