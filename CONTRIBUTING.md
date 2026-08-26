@@ -1,4 +1,4 @@
-# Contribuer à chain-smoker
+# Contribuer à ChainsmokerNeko
 
 Merci de vouloir contribuer ! 🚬🐱
 

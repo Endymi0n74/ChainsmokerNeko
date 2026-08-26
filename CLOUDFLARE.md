@@ -2,7 +2,7 @@
 
 > Status documented on 26 August 2026 — versions **0.1.5 → 3.0.0**.
 
-This document explains how **chain-smoker** handles Cloudflare challenges
+This document explains how **ChainsmokerNeko** handles Cloudflare challenges
 (the "Just a moment…" page that blocks some sites), and in particular how to
 reuse the `cf_clearance` cookie your real browser has already obtained.
 
@@ -10,7 +10,7 @@ reuse the `cf_clearance` cookie your real browser has already obtained.
 for 3 OS** — Windows portable zips + NSIS installers (ia32/x64/arm64), macOS
 dmg (Intel/Apple Silicon), Linux AppImage and snap (x64) — all listed in the
 README and on the fork's
-[Releases page](https://github.com/Endymi0n74/chain-smoker/releases); the
+[Releases page](https://github.com/Endymi0n74/ChainsmokerNeko/releases); the
 `nightly` build is the latest `master`, `Latest` is the newest stable version.
 
 ---

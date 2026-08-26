@@ -1,6 +1,6 @@
 # Changelog
 
-Toutes les modifications notables de **chain-smoker** sont documentées dans ce fichier.
+Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [3.0.0] - 2026-08-26
@@ -202,7 +202,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [2.0.0] - 2026-08-18
 
-> **Majeure.** chain-smoker n'est plus un simple fork d'HakuNeko : cette
+> **Majeure.** ChainsmokerNeko n'est plus un simple fork d'HakuNeko : cette
 > version acte le passage au produit autonome — suite complète de contournement
 > Cloudflare, optimisations de performance massives, distribution 3 OS et
 > releases bilingues.
@@ -320,7 +320,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 ### Ajouté
 
 - **Notification de mise à jour** : au lancement, l'app vérifie la dernière
-  release GitHub du fork (`Endymi0n74/chain-smoker` via le champ `repository`
+  release GitHub du fork (`Endymi0n74/ChainsmokerNeko` via le champ `repository`
   du manifest) et affiche un toast non bloquant « Update available — vX.Y.Z »
   avec un lien de téléchargement vers la release. Vérification silencieuse en
   cas d'échec (hors-ligne, rate-limit, panne réseau) — jamais d'erreur bloquante.
