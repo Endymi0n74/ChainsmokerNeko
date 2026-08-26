@@ -42,19 +42,24 @@ async function createSnapImage(blinkDeploymentTemporaryDirectory, blinkDeploymen
     } catch { }
     const yaml = await createSnapcraftYaml(blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory);
     try {
-        await run('sudo snapcraft pack --destructive-mode', blinkDeploymentOutputDirectory);
-        await run(`sudo mv ${pkgConfig.name}*.snap ${snapfile}`, blinkDeploymentOutputDirectory);
-        // Publish to the Snap Store only when credentials are provided; the CI
-        // workflow builds the .snap as a GitHub release asset without them.
-        if (process.env.SNAPCRAFT_STORE_CREDENTIALS) {
-            await run('snapcraft upload *.snap --release=edge', blinkDeploymentOutputDirectory);
+        try {
+            await run('sudo snapcraft pack --destructive-mode', blinkDeploymentOutputDirectory);
+            await run(`sudo mv ${pkgConfig.name}*.snap ${snapfile}`, blinkDeploymentOutputDirectory);
+            // Publish to the Snap Store only when credentials are provided; the CI
+            // workflow builds the .snap as a GitHub release asset without them.
+            if (process.env.SNAPCRAFT_STORE_CREDENTIALS) {
+                await run('snapcraft upload *.snap --release=edge', blinkDeploymentOutputDirectory);
+            }
+        } catch (err) {
+            // snapcraft may not be installed on CI runners; skip gracefully.
+            console.warn('Skipping snap build:', err.message);
         }
     } finally {
-        fs.unlink(yaml);
+        await fs.unlink(yaml).catch(() => {});
         // snapcraft leaves staging directories behind (root-owned, since the pack
         // step runs under sudo); they must not end up in the bundle folder
         // (gh release upload globs it and fails on directories).
-        await run('sudo rm -rf parts stage prime', blinkDeploymentOutputDirectory);
+        await run('sudo rm -rf parts stage prime', blinkDeploymentOutputDirectory).catch(() => {});
     }
 }
 
