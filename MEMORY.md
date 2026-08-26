@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte écrit pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 26 août 2026 — v3.0.0 publiée : ScanManga, CrunchyScan, MangaNova, VirtualList fix, Cloudflare classification, 17 connecteurs câblés.
+> Dernière mise à jour : 26 août 2026 — v3.0.0 publiée : ScanManga, CrunchyScan, MangaNova, VirtualList fix, Cloudflare classification, CI 3 plateformes (Windows/Linux/macOS).
 
 > 🩹 **CRUNCHYSCAN (26 août — fix fenêtres multiples) :**
 > Chaque appel à `FetchPages` ouvrait une NOUVELLE fenêtre browser via le DRM (`FetchWindowScript`),
@@ -384,13 +384,15 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   1. **`ci`** (ubuntu) : typecheck web/electron/nw + eslint + svelte-check + vue-tsc
      + build web/electron (cache npm + binaire Electron), puis **upload de l'artefact
      `electron-build`** ;
-  2. **`bundles`** (`needs: ci`) : **réutilise le build via artefact** (plus de
-     `npm ci` ni de rebuild — les deps prod commander/websocket-rpc sont du JS pur,
-     build portable) → bundles **3 OS** via `deploy-app.mjs` : Windows
-     (ia32/x64/arm64), macOS (dmg) et Linux (AppImage) — rewrite du 17 août
-     (commit `d56fa332`) ;
-  3. **`release`** (ubuntu, `needs: bundles`, master uniquement) : publie la release
-     roulante `nightly` (`--latest=false`).
+  2. **`bundles-windows`** (`needs: ci`) : **réutilise le build via artefact** (plus de
+     `npm ci` ni de rebuild) → bundle x64 via `deploy-app.mjs` (zip + NSIS) ;
+  3. **`bundles-linux`** (`needs: ci`) : même artefact → bundle x64 Linux
+     (AppImage + deb) via `deploy-app.mjs` (Ubuntu, pas besoin de snapcraft pour AppImage/deb) ;
+  4. **`bundles-macos`** (`needs: ci`) : même artefact → DMG x64 + arm64
+     via `deploy-app.mjs` (macOS, iconutil + hdiutil natifs) ;
+  5. **`release`** (ubuntu, `needs: [bundles-windows, bundles-linux, bundles-macos]`,
+     master uniquement) : télécharge les 3 artefacts → publie la release
+     roulante `nightly` (`--latest=false`) avec zips Windows/AppImage/deb/DMG.
   - `paths-ignore` : les commits purement docs (`*.md`, `docs/**`, `MEMORY.md`)
     ne déclenchent plus le pipeline (commit `6256153a`).
   - **Cache electron-zips** : `${{ runner.temp }}/electron-zips`, clé
@@ -440,10 +442,10 @@ cd haruneko/app/electron && node scripts/deploy-app.mjs
   des autres agents.
 - **Versioning / releases** : à chaque **correctif fonctionnel** (pas les commits
   docs/tests seuls), bumper la version dans les 3 `package.json` + section CHANGELOG,
-  reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release  GitHub
-  `Latest` (3 zips + corps bilingue FR/EN).  *Version actuelle : 3.0.0*
-  (publiée le 18 août). Prochain bump (2.2.1) dès le prochain correctif
-  fonctionnel. ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
+  reconstruire les 3 bundles (`deploy-app.mjs`), et publier une release GitHub
+  `Latest` (3 OS : zip Windows x64, AppImage + deb Linux x64, DMG macOS x64/arm64 +
+  corps bilingue FR/EN). *Version actuelle : 3.0.0* (publiée le 26 août).
+  ⚠️ Convention de titre de release : **« ChainsmokerNeko <version> »**
   (casse exacte, sans préfixe `v`).
 
 ## 10. État du 16 août (historique — tous committés/poussés)
