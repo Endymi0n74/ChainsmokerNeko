@@ -212,12 +212,8 @@ jobs:
             --title "Nightly build ${{ github.sha }}" \
             --latest=false \
             --notes "Automated build from commit ${{ github.sha }}.
-
-**Windows** - Portable zip (x64)
-**Linux** - AppImage + .deb (x64)
-**macOS** - DMG (x64 + Apple Silicon)
-
----
-
-*Developed with vibe coding, assisted by **Codebuff (Buffy)** - robot: Generated with Codebuff, Co-Authored-By: Codebuff <noreply@codebuff.com>*" \
+          
+          **Windows** - Portable zip (x64)
+          **Linux** - AppImage + .deb (x64)
+          **macOS** - DMG (x64 + Apple Silicon)"
             bundle/*
