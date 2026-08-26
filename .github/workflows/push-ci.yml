@@ -234,5 +234,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
+          echo "Publishing release $TAG with bundles:"
+          find bundle -type f -name '*.*' | sort || true
           gh release delete --repo ${{ github.repository }} "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create --repo ${{ github.repository }} "$TAG" --title "ChainSmokerNeko $TAG" --generate-notes bundle/*
+          gh release create --repo ${{ github.repository }} "$TAG" --title "ChainsmokerNeko $TAG" --generate-notes bundle/*
