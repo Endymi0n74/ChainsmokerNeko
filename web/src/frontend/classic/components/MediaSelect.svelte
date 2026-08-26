@@ -292,7 +292,7 @@
     <div id="MediaFilter">
         <Search id="MediaFilterSearch" size="sm" bind:value={mediaNameFilter} />
     </div>
-    <div id="MediaList" class="list" bind:this={medialistref} bind:clientHeight={medialistrefHeight} on:scroll={onMediaListScroll}>
+    <div id="MediaList" class="list" class:no-scroll={currentPlugin?.IsSameAs(HakuNeko.BookmarkPlugin)} bind:this={medialistref} bind:clientHeight={medialistrefHeight} on:scroll={onMediaListScroll}>
         {#await loadPlugin}
             <div class="loading center">
                 <div><Loading withOverlay={false} /></div>
@@ -398,6 +398,9 @@
         overflow-y: auto;
         background-color: var(--cds-field-01);
         user-select: none;
+    }
+    #MediaList.no-scroll {
+        overflow-y: visible;
     }
     #MediaList .loading {
         width: 100%;
