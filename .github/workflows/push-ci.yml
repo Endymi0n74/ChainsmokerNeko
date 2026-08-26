@@ -237,4 +237,5 @@ jobs:
           echo "Publishing release $TAG with bundles:"
           find bundle -type f -name '*.*' | sort || true
           gh release delete --repo ${{ github.repository }} "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create --repo ${{ github.repository }} "$TAG" --title "ChainsmokerNeko $TAG" --generate-notes bundle/*
+          mapfile -d '' FILES < <(find bundle -type f -print0 | sort -z)
+          gh release create --repo ${{ github.repository }} "$TAG" --title "ChainsmokerNeko $TAG" --generate-notes "${FILES[@]}"
