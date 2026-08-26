@@ -1,8 +1,8 @@
 {
-    "name": "hakuneko-electron",
-    "productName": "hakuneko",
+    "name": "chain-smoker",
+    "productName": "ChainsmokerNeko",
     "version": "3.0.0",
-    "title": "HakuNeko",
+    "title": "ChainsmokerNeko",
     "description": "Manga, Anime & Novel Downloader (Electron based desktop client)",
     "repository": "Endymi0n74/ChainsmokerNeko",
     "type": "module",
