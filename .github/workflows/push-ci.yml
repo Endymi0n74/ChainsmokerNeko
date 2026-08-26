@@ -226,12 +226,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete --repo ${{ github.repository }} nightly --yes --cleanup-tag 2>/dev/null || true
-          gh release create --repo ${{ github.repository }} nightly \
-            --title "Nightly build ${{ github.sha }}" \
-            --latest=false \
-            --notes "Automated build from commit ${{ github.sha }}.
+          cat > /tmp/release-notes.md << 'NOTES_EOF'
+          Automated build from commit ${{ github.sha }}.
           
           **Windows** - Portable zip (x64)
           **Linux** - AppImage + .deb (x64)
-          **macOS** - DMG (x64 + Apple Silicon)"
-            bundle/*
+          **macOS** - DMG (x64 + Apple Silicon)
+          
+          *Developed with vibe coding, assisted by **Codebuff (Buffy)** - robot: Generated with Codebuff, Co-Authored-By: Codebuff <noreply@codebuff.com>*
+          NOTES_EOF
+          gh release create --repo ${{ github.repository }} nightly --title "Nightly build ${{ github.sha }}" --latest=false --notes-file /tmp/release-notes.md bundle/*
