@@ -44,7 +44,7 @@ async function updateBinary(blinkApplicationResourcesDirectory, blinkDeploymentT
 }
 
 async function createZipArchive(blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
-    const artifact = path.join(blinkDeploymentOutputDirectory, path.basename(blinkDeploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + '.zip');
+    const artifact = path.resolve(blinkDeploymentOutputDirectory, path.basename(blinkDeploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + '.zip');
     try {
         await fs.unlink(artifact);
     } catch(error) {/**/}
