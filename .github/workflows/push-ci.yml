@@ -102,11 +102,15 @@ jobs:
         env:
           HAKUNEKO_ELECTRON_CACHE: ${{ runner.temp }}/electron-zips
         run: node ./scripts/deploy-app.mjs
+      - name: List Bundle Files
+        working-directory: app/electron
+        shell: bash
+        run: echo "=== Bundle contents ===" && ls -la bundle/ && echo "=== File count ===" && find bundle -type f | wc -l
       - name: Upload Bundle Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-bundles
-          path: app/electron/bundle/*
+          path: app/electron/bundle/
           if-no-files-found: error
 
   bundles-linux:
@@ -150,7 +154,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-bundles
-          path: app/electron/bundle/*
+          path: app/electron/bundle/
           if-no-files-found: error
 
   bundles-macos:
@@ -194,7 +198,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-bundles
-          path: app/electron/bundle/*
+          path: app/electron/bundle/
           if-no-files-found: error
 
   release:
@@ -214,28 +218,24 @@ jobs:
         run: |
           TAG=$(node -p "require('./app/electron/package.json').version")
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-      - name: Download Windows Bundle Artifacts
+      - name: Download All Bundle Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: windows-bundles
+          pattern: "*-bundles"
           path: release-bundles
-      - name: Download Linux Bundle Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-bundles
-          path: release-bundles
-      - name: Download macOS Bundle Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-bundles
-          path: release-bundles
+          merge-multiple: true
+      - name: List Release Files
+        run: |
+          echo "=== Release bundles ==="
+          ls -la release-bundles/
+          echo "=== Total files ==="
+          find release-bundles -type f | wc -l
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           echo "Publishing ChainsmokerNeko $TAG"
-          ls -la release-bundles/ || true
           gh release delete --repo ${{ github.repository }} "$TAG" --yes --cleanup-tag 2>/dev/null || true
           gh release create --repo ${{ github.repository }} "$TAG" \
             --title "ChainsmokerNeko $TAG" \
