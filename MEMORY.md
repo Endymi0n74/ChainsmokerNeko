@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 26 août 2026 (v3.0.0 — tous fixes committés, CI 3 plateformes vert).
+> Dernière mise à jour : 27 août 2026 (v3.0.0 — zip fix, release 10 artefacts, CI 3 plateformes vert).
 
 ---
 
@@ -14,7 +14,7 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
 - **Version** : 3.0.0 (26 août 2026)
-- **Release** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.0) — Windows x64 zip + nightly 3 plateformes
+- **Release** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.0) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
 
 ## 2. Chemins & remotes
 
@@ -127,11 +127,11 @@ Pipeline **5 jobs en cascade** à chaque push non-docs sur `master`:
 | bundles-windows | ubuntu | zip x64 + NSIS (3 arches) via deploy-app.mjs |
 | bundles-linux | ubuntu | AppImage + .deb x64 (snap skip si absent) |
 | bundles-macos | macos-13 | DMG x64 + arm64 (iconutil + hdiutil) |
-| release | ubuntu | publie `nightly` avec tous les artefacts |
+| release | ubuntu | publie "ChainsmokerNeko <version>" avec tous les artefacts |
 
 - **Cache**: `${{ runner.temp }}/electron-zips` (clé par OS + `package.json` hash)
-- **Artefacts**: zip x64, NSIS x64/ia32/arm64, AppImage, .deb, DMG x64/arm64
-- **Release nightly**: `--latest=false`, titre "Nightly build sha"
+- **Artefacts** : 3 zip Windows (x64/ia32/arm64), 3 NSIS (x64/ia32/arm64), AppImage, .deb, 2 DMG (x64/arm64) — 10 fichiers
+- **Release** : "ChainsmokerNeko <version>" (release nommée, pas nightly), `--latest=false`, `--generate-notes`
 - ⚠️ Pas d'unicode dans commentaires YAML GitHub
 - ⚠️ Pas `${{ runner.* }}` dans bloc `env:` de job
 
@@ -177,7 +177,7 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - **Aucune suppression** sans approbation utilisateur (fichiers, branches, releases, tags)
 - **Aucune régression** : tester l'existant AVANT de déclarer terminé
 - **Versioning**: bumper dans les 3 `package.json` + CHANGELOG pour tout fix fonctionnel
-- **Release**: "ChainsmokerNeko <version>" (sans v), FR+EN, zip 3 plateformes
+- **Release**: "ChainsmokerNeko <version>" (sans v), FR+EN, zip 3 plateformes, 10 artefacts
 - **Pas de userdata** dans les bundles distribués
 - **MEMORY.md**: rafraîchir ≥ 2x/heure en session active
 
@@ -191,6 +191,12 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - Sonde = `electron.exe app/electron/.tmp/xxx.cjs`, PID identifiable via `tasklist | grep electron`
 
 ## 11. Leçons techniques
+### CI/CD
+- `path.join()` vs `path.resolve()` dans les scripts de bundle : quand 7z reçoit un `cwd` alternatif, `path.join()` crée un chemin relatif à ce cwd au lieu du répertoire cible. `path.resolve()` résout depuis le process cwd, ce qui est correct.
+- `merge-multiple: true` requis sur `download-artifact` pour fusionner les artefacts dans un seul dossier (sinon sous-dossiers par artifact → glob `release-bundles/*` ne les trouve pas).
+- `checkout` doit être AVANT les `download-artifact` (sinon le checkout écrase les artefacts téléchargés).
+- Les espaces dans les noms de fichiers cassent le glob bash `bundle/*` → utiliser `find` + `mapfile` pour lister explicitement.
+- Le snap build nécessite `snapcraft` (absent du runner Ubuntu) → skip avec `command -v snapcraft || exit 0`.
 
 ### Agent/tool
 1. Bascules de modèle Freebuff → relire MEMORY.md en début de session
