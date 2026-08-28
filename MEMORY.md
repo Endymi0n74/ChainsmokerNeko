@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 27 août 2026 (v3.0.0 — zip fix, release 10 artefacts, CI 3 plateformes vert).
+> Dernière mise à jour : 28 août 2026 (v3.0.1 — fix mémoire CrunchyScan, build order fix — zip fix, release 10 artefacts, CI 3 plateformes vert).
 
 ---
 
@@ -198,6 +198,10 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - Les espaces dans les noms de fichiers cassent le glob bash `bundle/*` → utiliser `find` + `mapfile` pour lister explicitement.
 - Le snap build nécessite `snapcraft` (absent du runner Ubuntu) → skip avec `command -v snapcraft || exit 0`.
 
+- `build-app.mjs` fait `purge(dirBuild)` → efface `main.js` et `preload.js` de Vite. **Ordre obligatoire** : `build-app.mjs` D'ABORD (copie web/build + package.json), puis `vite build` APRÈS (crée main.js + preload.js).
+
+- `PatternLinkGenerator` est infini (`for (let page = start; true; page++)`). `isMissingLastItemFrom` compare le dernier élément entre pages — si le site retourne des items différents à chaque page (pas de pagination triée), la comparaison ne matche jamais → **loop infini → 3+ Go de RAM**. Fix : ajouter `maxPages` au decorator `MangasMultiPageCSS` (défaut 0 = infini) + throttle + break si page vide.
+
 ### Agent/tool
 1. Bascules de modèle Freebuff → relire MEMORY.md en début de session
 2. `str_replace`/`write_file` peuvent échouer sur fichiers modifiés → re-lire
@@ -217,6 +221,9 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - Détections spécifiques > heuristique DOM
 - Cache DRM par URL chapitre = 1 seule fenêtre popup max
 - IP peut être marquée par Cloudflare → validation humaine requise
+- Le `ReloadStalledCloudFlareChallenge` ne doit tourner QUE pour le mode `Automatic`. En mode `Interactive`, un reload reset le Turnstile et crée un loop visible (fenêtre qui clignote). Le reload est maintenant déclenché uniquement dans le case `Automatic` du switch.
+- Le CDP cookie check dans `PollForChallengeResolution` détecte la résolution via `cf_clearance` quand le Turnstile vit dans un subframe (DOM parent ne voit jamais le widget).
+
 
 ### ScanManga
 - Cookie `sessionT` déclenche page réduite → sentinel `__hkn_no_session_cookies__`

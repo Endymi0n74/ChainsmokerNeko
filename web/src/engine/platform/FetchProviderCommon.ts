@@ -318,6 +318,7 @@ export abstract class FetchProvider {
         stopPollers.push(stop);
 
         let pollAttempts = 0;
+        let lastClearance = '';
         const MAX_POLL_ATTEMPTS = 30;
         const poll = async () => {
             if (isSettled()) return;
@@ -330,6 +331,19 @@ export abstract class FetchProvider {
                 const cloudflare = await win.ExecuteScript<{ isChallenge: boolean }>(cloudflareDetectionScript);
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
                 cleared = cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
+                // Subframe Turnstile: DOM parent never sees the widget cleared.
+                // Detect resolution via cf_clearance cookie change through CDP.
+                if (!cleared) {
+                    try {
+                        const cookies = await win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>("Network.getCookies", { urls: [ url ] });
+                        const cf = cookies?.cookies?.find(c => c.name === "cf_clearance");
+                        if (cf?.value && cf.value.length > 200 && cf.value !== lastClearance) {
+                            lastClearance = cf.value;
+                            cleared = true;
+                            invocations.push({ name: "CfClearanceDetected", info: "cf_clearance cookie changed via CDP, challenge resolved" });
+                        }
+                    } catch { /* CDP not available, fall back to DOM check */ }
+                }
             } catch (error) {
                 if (error?.message?.includes("Failed to find window") || pollAttempts > 5) {
                     console.warn("[KUMO] PollForChallengeResolution: stopping poller for", url, error?.message);
@@ -583,9 +597,6 @@ export abstract class FetchProvider {
                 // Start poller only for sites that opted into the stalled-challenge reload
                 // (reloading other sites' challenges — e.g. MangaFire's custom WAF — loops forever)
                 const stalledReloadEnabled = ShouldReloadStalledChallenge(request.url);
-                if (stalledReloadEnabled && reloadBudget.remaining > 0) {
-                    stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations));
-                }
 
                 switch (redirect) {
                     case FetchRedirection.Interactive:
@@ -610,6 +621,9 @@ export abstract class FetchProvider {
                         // while the remote window is visible. Keep this visibility scoped to
                         // the explicit stalled-reload opt-in; other fork-handled sites remain
                         // fully backgrounded.
+                        if (stalledReloadEnabled && reloadBudget.remaining > 0) {
+                            stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations));
+                        }
                         if (stalledReloadEnabled) {
                             await win.Show();
                             void this.PollForChallengeResolution(
