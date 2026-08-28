@@ -636,6 +636,7 @@ export abstract class FetchProvider {
                                 invocations,
                             );
                         } else if (ShouldUseForkChallengeHandling(request.url)) {
+                            await win.Show();
                             void this.PollForChallengeResolution(
                                 win,
                                 request.url,
