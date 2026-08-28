@@ -222,6 +222,7 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - Cache DRM par URL chapitre = 1 seule fenêtre popup max
 - IP peut être marquée par Cloudflare → validation humaine requise
 - Le `ReloadStalledCloudFlareChallenge` ne doit tourner QUE pour le mode `Automatic`. En mode `Interactive`, un reload reset le Turnstile et crée un loop visible (fenêtre qui clignote). Le reload est maintenant déclenché uniquement dans le case `Automatic` du switch.
+- En mode `Automatic` + `ShouldUseForkChallengeHandling`, il faut `win.Show()` pour que le challenge Cloudflare puisse se résoudre. Sans ça, le challenge tourne en background sans fenêtre → timeout → loop. JapScan et CrunchyScan ont besoin de cette fenêtre.
 - Le CDP cookie check dans `PollForChallengeResolution` détecte la résolution via `cf_clearance` quand le Turnstile vit dans un subframe (DOM parent ne voit jamais le widget).
 
 
