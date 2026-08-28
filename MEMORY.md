@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 28 août 2026 (v3.0.1 — fix mémoire CrunchyScan, build order fix — zip fix, release 10 artefacts, CI 3 plateformes vert).
+> Dernière mise à jour : 28 août 2026 (v3.0.1 — revert hadWidget, JapScan DRM+scroll merge, poll delay 4s..
 
 ---
 
@@ -13,8 +13,8 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version** : 3.0.0 (26 août 2026)
-- **Release** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.0) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
+- **Version** : 3.0.1 (28 août 2026)
+- **Release** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.1) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
 
 ## 2. Chemins & remotes
 
@@ -53,7 +53,7 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 | MangaDrama | `MangaDrama.ts` | ✅ validé | Paywall débloqué |
 | CrunchyScan | `CrunchyScan.ts` | ✅ validé | DRM + cache par URL chapitre (fix fenêtres multiples) |
 | MangaNova | `MangaNova.ts` | ✅ validé | Next.js RSC extraction, 93 pages fixture |
-| JapScan | `JapScan.ts` | ✅ validé | Puzzle + Referer chapitre, CreateImageLinks DRM |
+| JapScan | `JapScan.ts` | ✅ validé | DRM+scroll merge (156+ pages), poll delay 4s |
 | ScanManga | `ScanManga.ts` | ✅ validé | Sentinel cookies + API bqj |
 | PornComix | `PornComix.ts` | ✅ validé | e2e complet |
 | MangaMoins | `MangaMoins.ts` | ✅ validé | @Common.ImageAjax |
@@ -71,6 +71,11 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 - API `vrf` avec cipher STAGE_DATA; `GetHID(identifier)` = préfixe avant 1er tiret slug
 - **Fix captcha** (`e85a1d6a`): UA default conservé (segment `Electron` non strippé)
 
+### WidgetGone / hadWidget
+- `widgetGone = isChallenge && !hasRealWidget` fonctionne pour MangaFire (Turnstile disparaît après résolution)
+- Le garde `hadWidget` (tracker si widget déjà vu) cassait CrunchyScan : challenge managé sans widget → `hadWidget` jamais true → jamais résolu
+- Revert : retour au `widgetGone` simple + délai initial poll augmenté à 4s
+- Délai 4s laisse le temps au Turnstile de charger avant le premier check
 ### CrunchyScan
 - Détection `Interactive` (`AddAntiScrapingDetection` sur `crunchyscan.org`)
 - **Fix fenêtres multiples** (`ac6064a0`): cache DRM `drmCache` par URL chapitre
@@ -83,6 +88,11 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 - **Fix injection cookies**: `details.webContentsId === this.webContents.id` (renderer uniquement)
 - **Tests**: 5/5 vert (plugin, manga, chapitre, page, image blob)
 
+### JapScan
+- Puzzle interactif (#jc-overlay) + Cloudflare Turnstile interactif
+- **Fix pages manquantes** : FetchPages lance DRM + scroll en parallègle, fusionne et déduplique les résultats
+- Scroll limit 80→500 steps, stable detection 20 steps, timeout 300s
+- Cloudflare résolu via plugin navigateur (Interactive mode)
 ### MangaNova
 - Catalogue `/catalogue`, fiches `/manga/<slug>`, chapitres `/lecture-en-ligne/<slug>/chapitre/<n>`
 - Images du lecteur extraits via payload RSC `images` du chapitre courant
@@ -102,7 +112,7 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 ### Classification (`FetchProviderCommon.ts`)
 - **Détections spécifiques** (CheckAntiScrapingDetection) évaluées EN PREMIER (autoritatives)
 - Widget DOM réel uniquement en repli si `FetchRedirection.None`
-- `Interactive` → `win.Show()` + poll 2s jusqu'à résolution
+- `Interactive` → `win.Show()` + poll 4s jusqu'à résolution
 - `Automatic` → reload auto (pas de popup)
 - Cache `cf_clearance` >200 chars requis
 
