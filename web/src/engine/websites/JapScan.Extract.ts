@@ -29,11 +29,22 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
             collect();
             return new Promise(resolve => {
                 let steps = 0;
+                let lastCount = 0;
+                let stableRounds = 0;
+                const MAX_STEPS = 500;
+                const STABLE_LIMIT = 20;
                 const step = () => {
                     collect();
-                    try { window.scrollBy(0, window.innerHeight || 800); } catch (e) {}
+                    try { window.scrollBy(0, Math.min(window.innerHeight || 800, 600)); } catch (e) {}
                     const atBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 30);
-                    if (atBottom || ++steps >= 80) {
+                    const currentCount = seen.size;
+                    if (currentCount === lastCount) {
+                        stableRounds++;
+                    } else {
+                        stableRounds = 0;
+                        lastCount = currentCount;
+                    }
+                    if (atBottom || stableRounds >= STABLE_LIMIT || ++steps >= MAX_STEPS) {
                         collect();
                         resolve(Array.from(seen));
                     } else {
@@ -45,7 +56,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
         })()
     `;
     try {
-        const pages = await FetchWindowScript<string[]>(new Request(referer), script, 1000, 150000, true);
+        const pages = await FetchWindowScript<string[]>(new Request(referer), script, 1000, 300_000, true);
         return (pages ?? []).filter((link, index, all) => all.indexOf(link) === index);
     } catch {
         return [];
