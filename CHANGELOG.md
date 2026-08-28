@@ -3,6 +3,18 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.1] - 2026-08-28
+
+### Fix
+
+- **Cloudflare PollForChallengeResolution** : revert du garde hadWidget qui bloquait
+  les challenges manages (CrunchyScan). Retour au widgetGone original qui fonctionne
+  pour tous les sites. Delai initial du poll augmente de 2s a 4s pour laisser le
+  Turnstile se charger.
+- **JapScan - pages manquantes** : les gros chapitres (150+ images) perdaient des pages
+  car le scroll sarretait trop tot. Extraction DRM + scroll lancees en parallele,
+  resultats fusionnes et deduplicates. Limite scroll augmente de 80 a 500 steps,
+  detection de stabilite ajoutee (20 steps sans nouvelles images), timeout porte a 300s.
 ## [3.0.0] - 2026-08-26
 
 > **Majeure.** Correction de non-régression, nouveaux connecteurs, fix Cloudflare avancé,
