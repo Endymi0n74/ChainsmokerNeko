@@ -318,6 +318,7 @@ export abstract class FetchProvider {
         stopPollers.push(stop);
 
         let pollAttempts = 0;
+        let lastClearance = '';
         const MAX_POLL_ATTEMPTS = 30;
         const poll = async () => {
             if (isSettled()) return;
@@ -335,6 +336,24 @@ export abstract class FetchProvider {
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
                 // Turnstile widget gone = CF solved. Site detection resolved = site own challenge solved.
                 cleared = widgetGone || (cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None);
+                // Subframe / interactive Turnstile: DOM parent may never see the widget cleared.
+                // Detect resolution via cf_clearance cookie change through CDP, with a short
+                // timeout so we never block the loading screen if the debugger is not ready.
+                if (!cleared) {
+                    try {
+                        const cdpTimeout = 5_000;
+                        const cdpResult = await Promise.race([
+                            win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] }),
+                            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('CDP getCookies timeout')), cdpTimeout)),
+                        ]);
+                        const cf = cdpResult?.cookies?.find(c => c.name === 'cf_clearance');
+                        if (cf?.value && cf.value.length > 200 && cf.value !== lastClearance) {
+                            lastClearance = cf.value;
+                            cleared = true;
+                            invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
+                        }
+                    } catch { /* CDP not available or timed out, fall back to DOM check */ }
+                }
             } catch (error) {
                 if (error?.message?.includes("Failed to find window") || pollAttempts > 5) {
                     console.warn("[KUMO] PollForChallengeResolution: stopping poller for", url, error?.message);

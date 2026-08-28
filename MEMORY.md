@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 28 août 2026 (v3.0.1 — revert hadWidget, JapScan DRM+scroll merge, poll delay 4s..
+> Dernière mise à jour : 28 août 2026 (v3.0.1+fix — CDP cookie check restauré, JapScan challenge résolu)
 
 ---
 
@@ -71,11 +71,13 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 - API `vrf` avec cipher STAGE_DATA; `GetHID(identifier)` = préfixe avant 1er tiret slug
 - **Fix captcha** (`e85a1d6a`): UA default conservé (segment `Electron` non strippé)
 
-### WidgetGone / hadWidget
+### WidgetGone / hadWidget / CDP Cookie Check
 - `widgetGone = isChallenge && !hasRealWidget` fonctionne pour MangaFire (Turnstile disparaît après résolution)
 - Le garde `hadWidget` (tracker si widget déjà vu) cassait CrunchyScan : challenge managé sans widget → `hadWidget` jamais true → jamais résolu
 - Revert : retour au `widgetGone` simple + délai initial poll augmenté à 4s
 - Délai 4s laisse le temps au Turnstile de charger avant le premier check
+- **Fix v3.0.1+**: le revert hadWidget a aussi supprimé le CDP cookie check (`Network.getCookies` → `cf_clearance`). Sans ce fallback, JapScan était bloqué car le Turnstile interactif reste dans le DOM après résolution (`hasRealWidget=true` → `widgetGone=false`). Restauration du CDP check avec timeout 5s (`Promise.race`) pour ne pas bloquer le loading screen
+- Parenthesization fix: `widgetGone || (CF gone && antiScraping None)` — widgetGone seul peut contourner la détection site
 ### CrunchyScan
 - Détection `Interactive` (`AddAntiScrapingDetection` sur `crunchyscan.org`)
 - **Fix fenêtres multiples** (`ac6064a0`): cache DRM `drmCache` par URL chapitre
