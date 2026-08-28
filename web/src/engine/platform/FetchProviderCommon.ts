@@ -318,7 +318,6 @@ export abstract class FetchProvider {
         stopPollers.push(stop);
 
         let pollAttempts = 0;
-        let lastClearance = '';
         const MAX_POLL_ATTEMPTS = 30;
         const poll = async () => {
             if (isSettled()) return;
@@ -328,22 +327,14 @@ export abstract class FetchProvider {
             }
             let cleared = false;
             try {
-                const cloudflare = await win.ExecuteScript<{ isChallenge: boolean }>(cloudflareDetectionScript);
+                const cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
+                // A Turnstile widget disappearing from the DOM means the challenge was solved,
+                // even if residual challenge text remains in the body (e.g. MangaFire).
+                const widgetGone = cloudflare?.isChallenge && !cloudflare?.hasRealWidget;
+                // Always run site-specific detection (JapScan overlay, CrunchyScan subframe, etc.)
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
-                cleared = cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
-                // Subframe Turnstile: DOM parent never sees the widget cleared.
-                // Detect resolution via cf_clearance cookie change through CDP.
-                if (!cleared) {
-                    try {
-                        const cookies = await win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>("Network.getCookies", { urls: [ url ] });
-                        const cf = cookies?.cookies?.find(c => c.name === "cf_clearance");
-                        if (cf?.value && cf.value.length > 200 && cf.value !== lastClearance) {
-                            lastClearance = cf.value;
-                            cleared = true;
-                            invocations.push({ name: "CfClearanceDetected", info: "cf_clearance cookie changed via CDP, challenge resolved" });
-                        }
-                    } catch { /* CDP not available, fall back to DOM check */ }
-                }
+                // Turnstile widget gone = CF solved. Site detection resolved = site own challenge solved.
+                cleared = widgetGone || (cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None);
             } catch (error) {
                 if (error?.message?.includes("Failed to find window") || pollAttempts > 5) {
                     console.warn("[KUMO] PollForChallengeResolution: stopping poller for", url, error?.message);
@@ -358,7 +349,7 @@ export abstract class FetchProvider {
             if (isSettled()) return;
             pollerId = await SetTimeout(poll, 2000);
         };
-        pollerId = await SetTimeout(poll, 2000);
+        pollerId = await SetTimeout(poll, 4000);
     }
 
     private async FetchWindowPreloadScriptUpstream<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000): Promise<T> {
@@ -597,6 +588,9 @@ export abstract class FetchProvider {
                 // Start poller only for sites that opted into the stalled-challenge reload
                 // (reloading other sites' challenges — e.g. MangaFire's custom WAF — loops forever)
                 const stalledReloadEnabled = ShouldReloadStalledChallenge(request.url);
+                if (stalledReloadEnabled && reloadBudget.remaining > 0) {
+                    stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations));
+                }
 
                 switch (redirect) {
                     case FetchRedirection.Interactive:
@@ -621,9 +615,6 @@ export abstract class FetchProvider {
                         // while the remote window is visible. Keep this visibility scoped to
                         // the explicit stalled-reload opt-in; other fork-handled sites remain
                         // fully backgrounded.
-                        if (stalledReloadEnabled && reloadBudget.remaining > 0) {
-                            stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations));
-                        }
                         if (stalledReloadEnabled) {
                             await win.Show();
                             void this.PollForChallengeResolution(
