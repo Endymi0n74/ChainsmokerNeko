@@ -46,6 +46,13 @@ const manifest = {
     'repository': pkgConfig.repository ?? null,
     dependencies: pkgConfig.dependencies
 };
+// npm 11+ requires allowScripts keys to match dependency names exactly.
+if (manifest.dependencies) {
+    manifest.allowScripts = {};
+    for (const [name, spec] of Object.entries(manifest.dependencies)) {
+        manifest.allowScripts[name] = true;
+    }
+}
 
 await fs.writeFile(targetFile, JSON.stringify(manifest, null, 4));
 try{await fs.access(path.resolve(dirBuild,"node_modules"));console.log("[build-app] node_modules exists, skipping install");}catch{await run("npm install --omit=dev", dirBuild);}
