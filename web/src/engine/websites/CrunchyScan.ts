@@ -46,7 +46,6 @@ export default class extends DecoratableMangaScraper {
 
     readonly #drm = new DRMProvider();
     private initializePromise?: Promise<void>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private drmCache = new Map<string, Promise<any>>();
 
     public override readonly RequiresVisibleBrowserWindow = true;

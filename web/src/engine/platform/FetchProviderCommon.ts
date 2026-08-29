@@ -335,7 +335,7 @@ export abstract class FetchProvider {
                 // Always run site-specific detection (JapScan overlay, CrunchyScan subframe, etc.)
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
                 // Turnstile widget gone = CF solved. Site detection resolved = site own challenge solved.
-                cleared = widgetGone || (cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None);
+                cleared = widgetGone || cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
                 // Subframe / interactive Turnstile: DOM parent may never see the widget cleared.
                 // Detect resolution via cf_clearance cookie change through CDP, with a short
                 // timeout so we never block the loading screen if the debugger is not ready.

@@ -303,7 +303,7 @@ export async function FetchMangasMultiPageCSS<E extends HTMLElement>(this: Manga
         await reducer;
         reducer = throttle > 0 ? Delay(throttle) : Promise.resolve();
         const mangas = await FetchMangasSinglePageCSS.call(this, provider, uri.href, query, extract);
-        if (mangas.length === 0 || (maxPages > 0 && ++pageCount >= maxPages)) {
+        if (mangas.length === 0 || maxPages > 0 && ++pageCount >= maxPages) {
             break;
         }
         if (generate.isExhaustive || mangaList.isMissingLastItemFrom(mangas)) {
