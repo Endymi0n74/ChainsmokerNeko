@@ -34,6 +34,7 @@
     import { FlagType } from '../../../engine/ItemflagManager';
     import type { EntryFlagEventData } from '../../../engine/ItemflagManager';
     import type { DownloadTask, Status } from '../../../engine/DownloadTask';
+    import type { Chapter } from '../../../engine/providers/MangaPlugin';
     import { resizeBar } from '../lib/actions';
     import { Key as GlobalKey } from '../../../engine/SettingsGlobal';
     import type { Directory } from '../../../engine/SettingsManager';
@@ -407,6 +408,22 @@
         items.forEach(item => window.HakuNeko.DownloadManager.Enqueue(item as StoreableMediaContainer<MediaItem>));
     }
     /**
+     * Merges the selected chapters into a single volume file ("collection / omnibus"
+     * export) using the configured export format (CBZ/EPUB/PDF).
+     *
+     * @param items - The chapters to merge into one volume.
+     */
+    async function downloadCollection(items: MediaContainer<MediaItem>[]) {
+        try {
+            await HakuNeko.SettingsManager.OpenScope().Get<Directory>(GlobalKey.MediaDirectory).EnsureAccess();
+        } catch(error) {
+            alert(error?.message ?? error);
+            return;
+        }
+        await window.HakuNeko.DownloadManager.EnqueueCollection(items as Chapter[], 'Omnibus');
+    }
+
+    /**
      * Enqueues all items that have not been viewed or are not currently being viewed.
      *
      * @param items - The media items to filter and enqueue.
@@ -443,6 +460,10 @@
                 labelText="Download {selectedItems.length} selecteds"
                 shortcutText="⌘S"
                 onclick={() => downloadItems(selectedItems.toReversed())}
+            />
+            <ContextMenuOption
+                labelText="Download as volume (omnibus)"
+                onclick={() => downloadCollection(selectedItems.toReversed())}
             />
         {/if}
         <ContextMenuOption
@@ -574,7 +595,7 @@
     {#if items?.length > 0}
         <div id="DownloadButtons">
             {#if selectedItems.length > 0}
-                <MenuButton labelText="Download" size="sm" intrinsicAlign="end">
+                <MenuButton labelText="Download ({selectedItems.length})" size="sm" intrinsicAlign="end">
                     {#if selectedItems.length === 1}
                         <MenuItem on:click={() => downloadItems(selectedItems)}>Selected (1)</MenuItem>
                     {:else }
@@ -584,6 +605,7 @@
                         on:click={() => downloadUnviewedItems(filteredItems.toReversed())}
                     >All unviewed</MenuItem>
                     <MenuItem on:click={() => downloadItems(filteredItems.toReversed())}>All</MenuItem>
+
                 </MenuButton>
             {:else}
                 <Button

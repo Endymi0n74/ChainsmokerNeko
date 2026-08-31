@@ -38,6 +38,7 @@ export class DownloadTask {
         this.progress.Value = this.Media.Entries.Value.length > 0 ? processed / this.Media.Entries.Value.length : 0.0;
     }
 
+
     private get IsRunning(): boolean {
         return this.status.Value === Status.Downloading || this.status.Value === Status.Processing;
     }
@@ -112,4 +113,24 @@ export class DownloadTask {
     private DisabledAbort(/*_reason?: string*/) { /* NO-OP */ }
 
     public Abort = this.DisabledAbort;
+
+    /**
+     * State accessors for subclasses (e.g. the collection/omnibus task), which
+     * must not touch the private observables directly.
+     */
+    protected ResetErrors(): void {
+        this.errors.Value = [];
+    }
+
+    protected SetStatus(status: Status): void {
+        this.status.Value = status;
+    }
+
+    protected SetProgress(progress: number): void {
+        this.progress.Value = progress;
+    }
+
+    protected PushError(error: Error): void {
+        this.errors.Push(error);
+    }
 }

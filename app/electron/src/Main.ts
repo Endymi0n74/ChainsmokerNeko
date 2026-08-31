@@ -11,6 +11,7 @@ import { BloatGuard } from './ipc/BloatGuard';
 import { RemoteBrowserWindowController } from './ipc/RemoteBrowserWindow';
 import { CloudFlareImport } from './ipc/CloudFlareImport';
 import { CloudFlareSession } from './ipc/CloudFlareSession';
+import { CloudFlareRenewal } from './ipc/CloudFlareRenewal';
 import { AppUpdate } from './ipc/AppUpdate';
 import Diagnostics from './ipc/Diagnostics';
 import { RPCServer } from '../../src/rpc/Server';
@@ -197,6 +198,9 @@ async function OpenWindow(): Promise<void> {
         // Restore cf_clearance cookies persisted by the previous session so Cloudflare-
         // protected sites are already warm on the first listing after a restart.
         await CloudFlareSession.Install();
+        // Periodically re-validate the restored clearances in the background and
+        // silently re-warm the ones Cloudflare has revoked (no window flashes).
+        CloudFlareRenewal.Install();
         const win = await CreateApplicationWindow();
 
         let rawUrl = argv.origin ?? manifest.url ?? 'about:blank';

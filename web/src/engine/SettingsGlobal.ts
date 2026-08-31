@@ -12,6 +12,8 @@ export const enum Key {
     MediaDirectory = 'media-directory',
     UseWebsiteSubDirectory = 'website-subdirectory',
     MangaExportFormat = 'manga-export-format',
+    PDFTheme = 'pdf-theme',
+    PDFDoublePage = 'pdf-double-page',
     DescramblingFormat = 'descrambling-format',
     DescramblingQuality = 'descrambling-quality',
     UserAgent = 'UserAgent',
@@ -68,6 +70,21 @@ export async function Initialize(settingsManager: SettingsManager, frontends: IF
             { key: MangaExportFormat.CBZ, label: R.Settings_Global_MangaExportFormat_ComicBookArchive },
             { key: MangaExportFormat.EPUB, label: R.Settings_Global_MangaExportFormat_ElectronicPublication },
             { key: MangaExportFormat.PDF, label: R.Settings_Global_MangaExportFormat_PortableDocumentFormat },
+        ),
+        new Choice(
+            Key.PDFTheme,
+            R.Settings_Global_PDFTheme,
+            R.Settings_Global_PDFThemeInfo,
+            'white',
+            { key: 'white', label: R.Settings_Global_PDFTheme_White },
+            { key: 'sepia', label: R.Settings_Global_PDFTheme_Sepia },
+            { key: 'dark', label: R.Settings_Global_PDFTheme_Dark },
+        ),
+        new Check(
+            Key.PDFDoublePage,
+            R.Settings_Global_PDFDoublePage,
+            R.Settings_Global_PDFDoublePageInfo,
+            false
         ),
         new Choice(
             Key.DescramblingFormat,

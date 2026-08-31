@@ -1,4 +1,6 @@
 import { DownloadTask, Status } from './DownloadTask';
+import { CollectionDownloadTask } from './CollectionDownloadTask';
+import type { Chapter } from './providers/MangaPlugin';
 import { ObservableArray, type IObservable } from './Observable';
 import type { StoreableMediaContainer, MediaItem } from './providers/MediaPlugin';
 import type { StorageController } from './StorageController';
@@ -39,6 +41,22 @@ export class DownloadManager {
                 .filter(container => this.queue.Value.none(task => task.Media.IsSameAs(container)))
                 .map(container => new DownloadTask(container, this.storageController));
             this.queue.Push(...tasks);
+        });
+        this.Process();
+    }
+
+    /**
+     * Add a "collection / omnibus" task to the download queue: every page of the
+     * given {@link chapters} is downloaded and merged into a single volume file.
+     * Only chapters that are not already part of a queued task are added.
+     */
+    public async EnqueueCollection(chapters: Chapter[], volumeTitle = 'Omnibus'): Promise<void> {
+        if (chapters.length === 0) {
+            return;
+        }
+        await this.InvokeQueueTransaction(() => {
+            const task = new CollectionDownloadTask(chapters, volumeTitle, this.storageController);
+            this.queue.Push(task);
         });
         this.Process();
     }

@@ -222,7 +222,11 @@ export class Chapter extends StoreableMediaContainer<Page> {
 
         // TODO: Find more appropriate way to inject the storage dependency
         const registry = CreateChapterExportRegistry(this.Parent?.Parent['storageController']);
-        await registry[settings.Get<Choice>(Key.MangaExportFormat).Value].Export(resources, output, this.Title, this.Parent?.Title);
+        const exporterOptions = {
+            theme: settings.Get<Choice>(Key.PDFTheme).Value,
+            doublePage: settings.Get<Check>(Key.PDFDoublePage).Value,
+        };
+        await registry[settings.Get<Choice>(Key.MangaExportFormat).Value].Export(resources, output, this.Title, this.Parent?.Title, exporterOptions);
     }
 }
 

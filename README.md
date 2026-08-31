@@ -12,7 +12,12 @@
 
 ## 📸 Aperçu
 
-<!-- TODO: ajouter 1-2 captures d'écran ici -->
+![Accueil](docs/screenshots/home.png)
+![Plugins](docs/screenshots/plugins.png)
+![Paramètres](docs/screenshots/settings-general.png)
+
+> Les captures sont régénérées avec `node scripts/take-screenshots.mjs` (lance
+> l'app Electron sur un serveur `vite preview` local).
 
 ## 📄 Licence
 

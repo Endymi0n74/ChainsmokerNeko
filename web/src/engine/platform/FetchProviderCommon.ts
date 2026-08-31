@@ -7,6 +7,55 @@ import { ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from './
 import type { FeatureFlags } from '../FeatureFlags';
 import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
 
+/**
+ * Exponential backoff helper for challenge polling: `base * 2^attempt`, capped.
+ */
+function BackoffDelay(attempt: number, base = 2000, cap = 10_000): number {
+    return Math.min(base * 2 ** attempt, cap);
+}
+
+/**
+ * Selectors covering the real interactive widgets across Cloudflare Turnstile
+ * variants, reCAPTCHA and hCaptcha (the iframe/checkbox is the interactive
+ * widget; hidden response inputs are always present and must NOT match).
+ */
+const ChallengeWidgetSelectors = [
+    // Turnstile (various site-key/wrapper layouts)
+    '.cf-turnstile iframe',
+    'iframe[src*="challenges.cloudflare.com/turnstile"]',
+    'iframe[src*="challenges.cloudflare.com"]',
+    '#challenge-stage iframe',
+    '#challenge-stage input[type="checkbox"]',
+    '.challenge-form [type="checkbox"]',
+    '#turnstile-wrapper iframe',
+    '[data-turnstile-sitekey] iframe',
+    'div[class*="turnstile"] iframe',
+    'input[type="checkbox"][name="turnstile"]',
+    // reCAPTCHA v2
+    '.g-recaptcha iframe',
+    'iframe[src*="recaptcha"]',
+    '#recaptcha iframe',
+    '[data-sitekey] iframe',
+    // hCaptcha
+    '.h-captcha iframe',
+    'iframe[src*="hcaptcha"]',
+].join(', ');
+
+/**
+ * DOM/body markers that identify a Cloudflare challenge interstitial page.
+ */
+const ChallengePageSelectors = [
+    '.cf-turnstile',
+    '#challenge-stage',
+    '.challenge-form',
+    '#turnstile-wrapper',
+    '[data-turnstile-sitekey]',
+    '.g-recaptcha',
+    '#recaptcha',
+    '.h-captcha',
+    '[name="cf-turnstile-response"]',
+].join(', ');
+
 export abstract class FetchProvider {
 
     private featureFlags: FeatureFlags;
@@ -229,15 +278,15 @@ export abstract class FetchProvider {
 
         const checkScript = `
             (() => {
-                const hasRealWidget = !!document.querySelector(
-                    '.cf-turnstile iframe, iframe[src*="challenges.cloudflare.com"], #challenge-stage input[type="checkbox"], .challenge-form [type="checkbox"]'
-                );
+                const hasRealWidget = !!document.querySelector('${ChallengeWidgetSelectors}');
                 const title = (document.title || '').toLowerCase();
                 const bodyText = (document.body?.innerText || '').toLowerCase();
                 const isChallenge = title.includes('just a moment')
                     || title.includes('un instant')
                     || bodyText.includes('checking your browser')
-                    || bodyText.includes('un instant');
+                    || bodyText.includes('verify you are human')
+                    || bodyText.includes('attention required')
+                    || !!document.querySelector('${ChallengePageSelectors}');
                 return {
                     isChallenge,
                     hasRealWidget
@@ -282,10 +331,14 @@ export abstract class FetchProvider {
         };
 
         let timeoutId: number;
+        let scheduleAttempt = 0;
         const schedule = async () => {
             await doCheck();
             if (!stopped && budget.remaining > 0) {
-                timeoutId = await SetTimeout(schedule, interval);
+                // Back off exponentially (5s → 10s → 20s → … capped at 1 min) instead of
+                // hammering the window on a fixed 5s interval, so a slow managed challenge
+                // is given time to resolve without spinning the CPU.
+                timeoutId = await SetTimeout(schedule, BackoffDelay(scheduleAttempt++, interval, 60_000));
             }
         };
         timeoutId = await SetTimeout(schedule, interval);
@@ -319,7 +372,7 @@ export abstract class FetchProvider {
 
         let pollAttempts = 0;
         let lastClearance = '';
-        const MAX_POLL_ATTEMPTS = 30;
+        const MAX_POLL_ATTEMPTS = 40;
         const poll = async () => {
             if (isSettled()) return;
             if (++pollAttempts > MAX_POLL_ATTEMPTS) {
@@ -331,28 +384,39 @@ export abstract class FetchProvider {
                 const cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
                 // A Turnstile widget disappearing from the DOM means the challenge was solved,
                 // even if residual challenge text remains in the body (e.g. MangaFire).
-                const widgetGone = cloudflare?.isChallenge && !cloudflare?.hasRealWidget;
+                // Do not treat a challenge with no detectable widget as solved immediately:
+                // CrunchyScan renders Turnstile in a child frame, while JapScan may render its
+                // own overlay asynchronously. The cookie check below is the authoritative signal.
+                const widgetGone = cloudflare?.isChallenge && !cloudflare?.hasRealWidget && !/crunchyscan\.org|japscan\./i.test(url);
                 // Always run site-specific detection (JapScan overlay, CrunchyScan subframe, etc.)
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
                 // Turnstile widget gone = CF solved. Site detection resolved = site own challenge solved.
-                cleared = widgetGone || cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
+                cleared = widgetGone || (cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None);
                 // Subframe / interactive Turnstile: DOM parent may never see the widget cleared.
                 // Detect resolution via cf_clearance cookie change through CDP, with a short
                 // timeout so we never block the loading screen if the debugger is not ready.
                 if (!cleared) {
-                    try {
-                        const cdpTimeout = 5_000;
-                        const cdpResult = await Promise.race([
-                            win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] }),
-                            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('CDP getCookies timeout')), cdpTimeout)),
-                        ]);
-                        const cf = cdpResult?.cookies?.find(c => c.name === 'cf_clearance');
-                        if (cf?.value && cf.value.length > 200 && cf.value !== lastClearance) {
-                            lastClearance = cf.value;
-                            cleared = true;
-                            invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
+                    // Retry the CDP cookie read with backoff: the debugger is often not
+                    // ready right after the window opens, and a transient failure must not
+                    // cost the whole poll cycle.
+                    for (let attempt = 0; attempt < 3 && !cleared; attempt++) {
+                        try {
+                            const cdpTimeout = 5_000;
+                            const cdpResult = await Promise.race([
+                                win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] }),
+                                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('CDP getCookies timeout')), cdpTimeout)),
+                            ]);
+                            const cf = cdpResult?.cookies?.find(c => c.name === 'cf_clearance');
+                            if (cf?.value && cf.value.length > 200 && cf.value !== lastClearance) {
+                                lastClearance = cf.value;
+                                cleared = true;
+                                invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
+                            }
+                        } catch { /* CDP not available yet — back off and retry */ }
+                        if (!cleared && attempt < 2) {
+                            await Delay(BackoffDelay(attempt, 500, 2_000));
                         }
-                    } catch { /* CDP not available or timed out, fall back to DOM check */ }
+                    }
                 }
             } catch (error) {
                 if (error?.message?.includes("Failed to find window") || pollAttempts > 5) {
@@ -366,7 +430,7 @@ export abstract class FetchProvider {
                 return;
             }
             if (isSettled()) return;
-            pollerId = await SetTimeout(poll, 2000);
+            pollerId = await SetTimeout(poll, BackoffDelay(pollAttempts, 2000, 10_000));
         };
         pollerId = await SetTimeout(poll, 4000);
     }
@@ -559,8 +623,10 @@ export abstract class FetchProvider {
                             || title.includes('un instant')
                             || body.includes('checking your browser')
                             || body.includes('verify you are human')
-                            || !!document.querySelector('.cf-turnstile, #challenge-stage, .challenge-form');
-                        const hasRealWidget = !!document.querySelector('.cf-turnstile iframe, iframe[src*="challenges.cloudflare.com"], #challenge-stage input[type="checkbox"], .challenge-form [type="checkbox"]');
+                            || body.includes('attention required')
+                            || body.includes('cf-chl-')
+                            || !!document.querySelector('${ChallengePageSelectors}');
+                        const hasRealWidget = !!document.querySelector('${ChallengeWidgetSelectors}');
                         return { isChallenge, hasRealWidget };
                     })()
                 `;
@@ -568,12 +634,13 @@ export abstract class FetchProvider {
                 let cloudflare: { isChallenge: boolean; hasRealWidget: boolean } | undefined;
                 // The grace delay above protects Cloudflare's proof phase. Do not keep
                 // probing for 20 seconds after it: CrunchyScan needs its visible window
-                // before the caller's listing timeout expires.
+                // before the caller's listing timeout expires. Retry transient navigation
+                // races with exponential backoff instead of a fixed delay.
                 for (let attempt = 0; attempt < 4 && cloudflare === undefined; attempt++) {
                     try {
                         cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
                     } catch {
-                        if (attempt < 3) await Delay(500);
+                        if (attempt < 3) await Delay(BackoffDelay(attempt, 500, 2_000));
                     }
                 }
 

@@ -12,7 +12,12 @@
 
 ## 📸 Screenshots
 
-<!-- TODO: add 1-2 screenshots here -->
+![Home](docs/screenshots/home.png)
+![Plugins](docs/screenshots/plugins.png)
+![Settings](docs/screenshots/settings-general.png)
+
+> Screenshots are regenerated with `node scripts/take-screenshots.mjs` (launches
+> the Electron app against a local `vite preview` server).
 
 ## ✨ What this fork adds
 

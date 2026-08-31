@@ -88,24 +88,16 @@ export default class extends DecoratableMangaScraper {
         const referer = new URL(chapter.Identifier, this.URI).href;
         const chapterURL = new URL(chapter.Identifier, this.URI);
 
-        // Run both extraction methods in parallel, then merge and deduplicate.
-        // The scroll-based reader extraction may miss lazy-loaded images on large chapters;
-        // the DRM hook fetches the authoritative page list from the site API.
-        const [scrollPages, drmPages] = await Promise.allSettled([
-            ExtractPagesFromReader(referer),
-            this.#drm.CreateImageLinks(chapterURL).catch(() => [] as string[]),
-        ]);
-        const scroll = scrollPages.status === "fulfilled" ? scrollPages.value : [];
-        const drm = drmPages.status === "fulfilled" ? drmPages.value : [];
-        // DRM pages are authoritative; scroll pages fill any gaps (e.g. different CDN host)
-        const seen = new Set<string>();
-        const merged: string[] = [];
-        for (const link of [...drm, ...scroll]) {
-            if (!seen.has(link)) {
-                seen.add(link);
-                merged.push(link);
+        // Prefer the visible reader. The DRM extractor opens a second browser window and
+        // can time out while the reader already has the pages, so use it only as a fallback.
+        let pages = await ExtractPagesFromReader(referer);
+        if (!pages.length) {
+            try {
+                pages = await this.#drm.CreateImageLinks(chapterURL);
+            } catch {
+                pages = [];
             }
         }
-        return merged.map(link => new Page(this, chapter, new URL(link), { Referer: referer }));
+        return pages.map(link => new Page(this, chapter, new URL(link), { Referer: referer }));
     }
 }

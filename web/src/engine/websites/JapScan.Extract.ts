@@ -9,8 +9,14 @@ import { FetchWindowScript } from '../platform/FetchProvider';
 export async function ExtractPagesFromReader(referer: string): Promise<string[]> {
     const script = `
         (() => {
-            const IMG_RE = /.(jpe?g|png|webp|gif|avif|bmp|tiff?)(?:[?#]|$)/i;
-            const isCDN = u => typeof u === 'string' && u.length > 0 && u.indexOf('.japscan.foo') !== -1 && u.indexOf('www.japscan.foo') === -1 && IMG_RE.test(u);
+            const IMG_RE = /\.(jpe?g|png|webp|gif|avif|bmp|tiff?)(?:[?#]|$)/i;
+            const isCDN = u => {
+                if (typeof u !== 'string' || !u || !IMG_RE.test(u)) return false;
+                try {
+                    const host = new URL(u, location.href).hostname;
+                    return host !== location.hostname && /japscan\./i.test(host);
+                } catch { return false; }
+            };
             const seen = new Set();
             const collect = () => {
                 try {

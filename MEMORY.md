@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 28 août 2026 (v3.0.1+fix — CDP cookie check restauré, JapScan challenge résolu)
+> Dernière mise à jour : 31 août 2026 (v3.0.1+ — PDF thèmes/double-page, CBZ streaming, omnibus collection, cf_clearance 后台续期, JapScan 顺序回退修复)
 
 ---
 
@@ -121,6 +121,46 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 ### ChallengeReload (`ChallengeReload.ts`)
 - Poller 5s, max 3 reloads, budget partagé globalement
 - Arrêt pollers au `destroy()`
+
+## 5b. Export amélioré + Omnibus (31 août, NON COMMITTÉ → commité ce jour)
+
+### PDF amélioré (`PortableDocumentFormatExporter.ts`)
+- Settings: `PDFTheme` (White/Sepia/Dark) + `PDFDoublePage` (double-page spread)
+- Double-page: chaque image = moitié du spread (halfWidth), gutter central, centrage vertical
+- Écritures stream explicites (pas de promesses flottantes dans events `data`)
+
+### CBZ streaming (`ComicBookArchiveExporter.ts`)
+- Écriture image-par-image dans le zip stream (pas de buffer mémoire complet)
+- Fermeture/abort propre du writable si échec mid-stream
+
+### Omnibus / Collection (`CollectionDownloadTask.ts` + `CollectionExporter.ts`)
+- Regroupe plusieurs chapitres en un seul volume CBZ/EPUB/PDF
+- Dossier par chapitre dans l'archive, fallback nom `Chapter-N` (index réel d'itération)
+- Chapitres en échec `Update()` ignorés; si aucun chargé → tâche échoue
+- UI: menu Download → « Download selected as omnibus (N) » (une seule entrée, pas de doublon) + menu contextuel
+
+### Cloudflare
+- `FetchProviderCommon.ts`: challenge sans widget ≠ résolu pour CrunchyScan/JapScan — confirmation via `cf_clearance` requise
+- `app/electron/src/ipc/CloudFlareRenewal.ts` (nouveau): renouvellement périodique cf_clearance en arrière-plan sans fenêtre
+
+### JapScan fix (31 août)
+- Retour au chemin séquentiel avec fallback : `ExtractPagesFromReader` (scroll) puis fallback `CreateImageLinks` si reader échoue — plus de double fenêtre parallèle qui bloquait
+- Regex CDN élargie `japscan.*` (domaine TLD variable)
+- **Validation utilisateur : JapScan OK** ✅ (PDF ✅, omnibus UI ✅)
+
+### Screenshots doc
+- `scripts/take-screenshots.mjs` (Puppeteer, captures UI réelles 49-99 KB)
+- `docs/screenshots/` embarquées dans README.md + README.en.md
+
+### E2E offline
+- `ExportPipeline_e2e.ts` : plugin synthétique → chapitres → pages → CBZ streaming + omnibus, 3/3 vert (Electron réel + Puppeteer)
+- ⚠️ `page.evaluate` : passer un STRING script, pas une fonction (sérialisation)
+
+### Bugs environnement (Windows/Git Bash)
+- `tasklist`, `wmic`, `cmd //c`, `ps -W` et curl/netcat se figent souvent → utiliser `powershell -NoProfile -Command "Get-CimInstance Win32_Process ..."` (fonctionne parfois, sinon réessayer)
+- `build-app.mjs` purge `app/electron/build` → TOUJOURS relancer `vite build` (main+preload) APRÈS, puis recopier `web/build` → `app/electron/build/web`
+- Ordre build fiable : `vite build` (web) → `build-app.mjs` → `vite build` (main+preload) → copier web/build → build/web → lancer electron.exe
+- Lancement app : `node .tmp/launch-app.mjs` (détaché, profil `.user-data`, log `.tmp/electron-launch.log`)
 
 ## 6. Frontend — Fixes
 

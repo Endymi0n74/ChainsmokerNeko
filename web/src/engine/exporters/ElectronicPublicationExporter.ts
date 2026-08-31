@@ -219,4 +219,68 @@ export class ElectronicPublicationExporter extends MangaExporter {
         await stream.write(await zip.generateAsync({ type: 'blob' }));
         await stream.close();
     }
+
+    /**
+     * Merges several already-downloaded chapters into a single EPUB volume
+     * ("collection / omnibus" export). The table of contents lists each chapter,
+     * and every page keeps a stable, chapter-prefixed file name.
+     */
+    public async ExportCollection(
+        volumes: { title: string; resources: Map<number, string> }[],
+        targetDirectory: FileSystemDirectoryHandle,
+        volumeTitle: string,
+        seriesTitle: string
+    ): Promise<void> {
+        const zip = new JSZip();
+        zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+        zip.folder('META-INF').file('container.xml', this.CreateContainer(), { compression: 'DEFLATE' });
+
+        const uid = crypto.randomUUID().toUpperCase();
+        const oebps = zip.folder('OEBPS');
+        const xhtml = oebps.folder('xhtml');
+        const assets = oebps.folder('assets');
+        const ncx = this.CreateNCX(uid, volumeTitle);
+        const toc = this.CreateTableOfContent(volumeTitle);
+        const opf = this.CreatePackageFile(uid, volumeTitle, 'UND');
+
+        const chapterNav = this.xmlParser.parseFromString('<?xml version="1.0" encoding="UTF-8"?><ol xmlns="http://www.w3.org/1999/xhtml"></ol>', 'text/xml');
+        const chapterList = chapterNav.querySelector('ol') as Element;
+
+        let globalPage = 0;
+        for(let chapterIndex = 0; chapterIndex < volumes.length; chapterIndex++) {
+            const chapter = volumes[chapterIndex];
+            const digits = Math.max(chapter.resources.size.toString().length, 3);
+            for(const [ index, tempfile ] of chapter.resources) {
+                const page = ++globalPage;
+                const pageFileName = `${chapterIndex + 1}-${(index + 1).toString().padStart(digits, '0')}.xhtml`;
+                const { name: imageFileName, data } = await super.ReadTempImageData(tempfile, index, digits);
+                const imagePath = `${chapterIndex + 1}-${imageFileName}`;
+
+                assets.file(imagePath, data, { compression: 'STORE' });
+                xhtml.file(pageFileName, this.CreatePage(page, imagePath), { compression: 'DEFLATE' });
+                opf.add(page, pageFileName, imagePath, data.type);
+            }
+            const firstPage = `${chapterIndex + 1}-${'1'.padStart(digits, '0')}.xhtml`;
+            const label = SanitizeFileName(chapter.title) || `Chapter ${chapterIndex + 1}`;
+            toc.add(chapterIndex + 1, firstPage);
+            ncx.add(chapterIndex + 1, firstPage);
+            // Build the chapter-level navigation list with real chapter titles.
+            const li = chapterNav.createElementNS('http://www.w3.org/1999/xhtml', 'li');
+            const a = chapterNav.createElementNS('http://www.w3.org/1999/xhtml', 'a');
+            a.setAttribute('href', 'xhtml/' + firstPage);
+            a.textContent = label;
+            li.appendChild(a);
+            chapterList.appendChild(li);
+        }
+
+        oebps.file('toc.ncx', ncx.serialize(), { compression: 'DEFLATE' });
+        oebps.file('toc.xhtml', toc.serialize(), { compression: 'DEFLATE' });
+        oebps.file('content.opf', opf.serialize(), { compression: 'DEFLATE' });
+        oebps.file('nav.xhtml', this.xmlSerializer.serializeToString(chapterNav), { compression: 'DEFLATE' });
+
+        const file = await targetDirectory.getFileHandle(SanitizeFileName(`${seriesTitle} - ${volumeTitle}.epub`), { create: true });
+        const stream = await file.createWritable();
+        await stream.write(await zip.generateAsync({ type: 'blob' }));
+        await stream.close();
+    }
 }
