@@ -391,7 +391,7 @@ export abstract class FetchProvider {
                 // Always run site-specific detection (JapScan overlay, CrunchyScan subframe, etc.)
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
                 // Turnstile widget gone = CF solved. Site detection resolved = site own challenge solved.
-                cleared = widgetGone || (cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None);
+                cleared = widgetGone || cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
                 // Subframe / interactive Turnstile: DOM parent may never see the widget cleared.
                 // Detect resolution via cf_clearance cookie change through CDP, with a short
                 // timeout so we never block the loading screen if the debugger is not ready.
@@ -678,53 +678,102 @@ export abstract class FetchProvider {
                     stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations));
                 }
 
+                const enterInteractive = async () => {
+                    // NOTE: Allow the user to solve the captcha within 2.5 minutes before rejecting the request with an error
+                    ClearTimeout(cancellation);
+                    cancellation = await SetTimeout(() => {
+                        if (!settled) {
+                            settled = true;
+                            destroy();
+                            reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
+                        }
+                    }, 150_000);
+                    await win.Show();
+                    // In-place challenges (e.g. JapScan's `#jc-overlay` puzzle) resolve without
+                    // a navigation, so DOMReady never fires again and the extraction script would
+                    // never run. Poll until the challenge clears, then run the script on the
+                    // now-usable reader page.
+                    this.PollForChallengeResolution(win, request.url, cloudflareDetectionScript, runScript, () => settled, stopPollers, invocations);
+                };
+
+                const enterAutomatic = () => {
+                    // CrunchyScan's managed challenge only issues its clearance cookie
+                    // while the remote window is visible. Keep this visibility scoped to
+                    // the explicit stalled-reload opt-in; other fork-handled sites remain
+                    // fully backgrounded.
+                    if (stalledReloadEnabled) {
+                        void win.Show().then(() => this.PollForChallengeResolution(
+                            win,
+                            request.url,
+                            cloudflareDetectionScript,
+                            runScript,
+                            () => settled,
+                            stopPollers,
+                            invocations,
+                        ));
+                    } else if (ShouldUseForkChallengeHandling(request.url)) {
+                        void this.PollForChallengeResolution(
+                            win,
+                            request.url,
+                            cloudflareDetectionScript,
+                            runScript,
+                            () => settled,
+                            stopPollers,
+                            invocations,
+                        );
+                    }
+                };
+
                 switch (redirect) {
                     case FetchRedirection.Interactive:
-                        // NOTE: Allow the user to solve the captcha within 2.5 minutes before rejecting the request with an error
-                        ClearTimeout(cancellation);
-                        cancellation = await SetTimeout(() => {
-                            if (!settled) {
-                                settled = true;
-                                destroy();
-                                reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
-                            }
-                        }, 150_000);
-                        await win.Show();
-                        // In-place challenges (e.g. JapScan's `#jc-overlay` puzzle) resolve without
-                        // a navigation, so DOMReady never fires again and the extraction script would
-                        // never run. Poll until the challenge clears, then run the script on the
-                        // now-usable reader page.
-                        this.PollForChallengeResolution(win, request.url, cloudflareDetectionScript, runScript, () => settled, stopPollers, invocations);
+                        await enterInteractive();
                         break;
                     case FetchRedirection.Automatic:
-                        // CrunchyScan's managed challenge only issues its clearance cookie
-                        // while the remote window is visible. Keep this visibility scoped to
-                        // the explicit stalled-reload opt-in; other fork-handled sites remain
-                        // fully backgrounded.
-                        if (stalledReloadEnabled) {
-                            await win.Show();
-                            void this.PollForChallengeResolution(
-                                win,
-                                request.url,
-                                cloudflareDetectionScript,
-                                runScript,
-                                () => settled,
-                                stopPollers,
-                                invocations,
-                            );
-                        } else if (ShouldUseForkChallengeHandling(request.url)) {
-                            void this.PollForChallengeResolution(
-                                win,
-                                request.url,
-                                cloudflareDetectionScript,
-                                runScript,
-                                () => settled,
-                                stopPollers,
-                                invocations,
-                            );
-                        }
+                        enterAutomatic();
                         break;
                     default:
+                        // Site-specific challenges may be rendered asynchronously, AFTER the
+                        // DOMReady that triggered this classification: JapScan's own anti-bot
+                        // decides via an AJAX call (a few seconds after the page loaded) whether
+                        // its `#jc-overlay` puzzle is required — typically on the SECOND reader
+                        // request in a row (e.g. downloading one volume and immediately asking
+                        // for the next one). A single detection at DOMReady therefore reports
+                        // `None` too early and the extraction starts on a page that is about to
+                        // be locked by the puzzle, silently yielding an incomplete page list.
+                        // For visible fetches on fork-handled sites (the reader extraction),
+                        // show the window and re-run the site detection for a short grace
+                        // period; upgrade to the Interactive/Automatic handling as soon as the
+                        // puzzle shows up during that window.
+                        if (ShouldUseForkChallengeHandling(request.url) && show && !settled) {
+                            const grace = 16_000;
+                            const step = 2_000;
+                            await win.Show();
+                            invocations.push({ name: 'AsyncChallengeGrace', info: `Re-polling site detection for ${grace / 1000}s` });
+                            let upgraded = FetchRedirection.None;
+                            for (let waited = 0; waited < grace && !settled; waited += step) {
+                                await Delay(step);
+                                if (settled) break;
+                                try {
+                                    upgraded = await CheckAntiScrapingDetection(win, request.url);
+                                } catch {
+                                    // Transient navigation race: keep polling
+                                    upgraded = FetchRedirection.None;
+                                }
+                                if (upgraded !== FetchRedirection.None) break;
+                            }
+                            if (upgraded !== FetchRedirection.None) {
+                                console.warn("[KUMO] redirect (grace re-check):", FetchRedirection[upgraded], "url:", request?.url);
+                                invocations.push({ name: 'AsyncChallengeDetected', info: `Mode: ${FetchRedirection[ upgraded ]}` });
+                            }
+                            if (upgraded === FetchRedirection.Interactive) {
+                                await enterInteractive();
+                                break;
+                            }
+                            if (upgraded === FetchRedirection.Automatic) {
+                                enterAutomatic();
+                                break;
+                            }
+                        }
                         await runScript();
                 }
             });

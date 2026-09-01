@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 31 août 2026 (v3.0.1+ — PDF thèmes/double-page, CBZ streaming, omnibus collection, cf_clearance 后台续期, JapScan 顺序回退修复)
+> Dernière mise à jour : 31 août 2026 (v3.0.2 — JapScan puzzle asynchrone + collecte robuste)
 
 ---
 
@@ -13,8 +13,8 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version** : 3.0.1 (28 août 2026)
-- **Release** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.1) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
+- **Version** : 3.0.2 (31 août 2026) — bumpé dans les 3 `package.json` ; release/tag 3.0.2 PAS encore publiés
+- **Release 3.0.1** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.1) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
 
 ## 2. Chemins & remotes
 
@@ -122,7 +122,8 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 - Poller 5s, max 3 reloads, budget partagé globalement
 - Arrêt pollers au `destroy()`
 
-## 5b. Export amélioré + Omnibus (31 août, NON COMMITTÉ → commité ce jour)
+## 5b. Export amélioré + Omnibus (31 août)
+- **État git** : export/PDF/CBZ/omnibus + CloudFlareRenewal COMMITTÉS dans `dff45a7a7` (feat(export)). JapScan v3.0.2 (`FetchProviderCommon.ts`, `JapScan.Extract.ts`, CHANGELOG, bumps 3.0.2) encore NON committés en local.
 
 ### PDF amélioré (`PortableDocumentFormatExporter.ts`)
 - Settings: `PDFTheme` (White/Sepia/Dark) + `PDFDoublePage` (double-page spread)
@@ -143,10 +144,14 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 - `FetchProviderCommon.ts`: challenge sans widget ≠ résolu pour CrunchyScan/JapScan — confirmation via `cf_clearance` requise
 - `app/electron/src/ipc/CloudFlareRenewal.ts` (nouveau): renouvellement périodique cf_clearance en arrière-plan sans fenêtre
 
-### JapScan fix (31 août)
+### JapScan fix (31 août, v3.0.2)
 - Retour au chemin séquentiel avec fallback : `ExtractPagesFromReader` (scroll) puis fallback `CreateImageLinks` si reader échoue — plus de double fenêtre parallèle qui bloquait
 - Regex CDN élargie `japscan.*` (domaine TLD variable)
-- **Validation utilisateur : JapScan OK** ✅ (PDF ✅, omnibus UI ✅)
+- **Fix puzzle non proposé (v3.0.2)** : le puzzle `#jc-overlay` est rendu ASYNCHRONE (AJAX anti-bot quelques secondes après DOMReady, typiquement sur la 2e requête consécutive du lecteur) → détection unique au DOMReady = `None` trop tôt. Fix : période de grâce dans `FetchWindowPreloadScript` — si `ShouldUseForkChallengeHandling && show`, win.Show() puis re-poll de `CheckAntiScrapingDetection` toutes les 2s pendant 16s ; upgrade vers Interactive/Automatic (enterInteractive/enterAutomatic refactorés en closures) dès apparition. Log `[KUMO] redirect (grace re-check)`.
+- **Fix pages manquantes + 404 CDN (v3.0.2)** : fin de collecte = `atBottom && stable` (8 rounds, au lieu de `atBottom || stable`) ; pause de la collecte tant que `#jc-overlay`/`__captcha.needed` visible (l'utilisateur résout dans la fenêtre visible), sortie anticipée si vraies images re-décodées (`decodedBodySize > 10ko` — l'overlay peut persister dans le DOM après résolution comme le Turnstile) ; collecte élargie aux holders `[data-src]/[data-original]/[data-lazy-src]` non-img ; garde-fou 80 rounds sans nouvelle URL.
+- ⚠️ Piège : backticks dans les commentaires DANS un template literal ferment le template → TS1005. Mots simples dans ces commentaires.
+- Lint : parenthèses redondantes retirées dans `cleared = widgetGone || ...` (precedence `&&`/`||` inchangée) — CI lint doit rester vert.
+- **Validation utilisateur : JapScan OK** ✅ (PDF ✅, omnibus UI ✅) — v3.0.2 en attente de re-validation (volume 24 Dreamland)
 
 ### Screenshots doc
 - `scripts/take-screenshots.mjs` (Puppeteer, captures UI réelles 49-99 KB)

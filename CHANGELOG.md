@@ -3,6 +3,29 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.2] - 2026-08-31
+
+### Fix
+
+- **JapScan - puzzle non proposé au changement de volume** : le puzzle anti-bot
+  `#jc-overlay` est rendu de façon asynchrone (appel AJAX quelques secondes après
+  DOMReady, typiquement sur la 2e requête du lecteur consécutive — télécharger un
+  volume puis en demander un autre). La détection unique au DOMReady renvoyait
+  `None` trop tôt : l'extraction démarrait sur une page sur le point d'être
+  verrouillée. Ajout d'une période de grâce dans `FetchWindowPreloadScript`
+  (sites fork-handled + fenêtre visible) : re-polling de la détection site toutes
+  les 2 s pendant 16 s, upgrade vers le traitement Interactive/Automatic dès que
+  le puzzle apparaît. Lint : parenthèses redondantes retirées dans la condition
+  `cleared` (précédence `&&`/`||` inchangée).
+- **JapScan - pages manquantes + 404 CDN** : la collecte s'arrêtait sur `atBottom`
+  OU stabilité sans attendre la fin du lazy-load (images en attente perdues), et
+  tournait sur une page verrouillée par le puzzle. Désormais : pause de la collecte
+  tant que le puzzle est affiché (l'utilisateur le résout dans la fenêtre visible)
+  avec sortie anticipée si de vraies images (`decodedBodySize > 10 ko`) sont
+  re-décodées (l'overlay peut persister dans le DOM après résolution, comme le
+  Turnstile) ; fin de collecte = bas de page ATTEINT et stable (8 rounds) ;
+  collecte élargie aux holders génériques `data-src`.
+
 ## [3.0.1] - 2026-08-28
 
 ### Fix
