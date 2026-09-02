@@ -25,6 +25,16 @@ export function ShouldCompleteWithDRM(pageLinks: string[]): boolean {
     return pageLinks.length < MIN_READER_PAGES_FOR_COMPLETE_RESULT;
 }
 
+/** The reader returned fewer pages than its own page indicator announced. */
+export function IsIncompleteReaderResult(links: string[], total?: number): boolean {
+    return typeof total === 'number' && links.length < total;
+}
+
+/** A whole-book chapter: identifier or title mentions "volume". */
+export function IsVolumeChapter(chapter: Pick<Chapter, 'Identifier' | 'Title'>): boolean {
+    return /volume/i.test(`${chapter.Identifier} ${chapter.Title}`);
+}
+
 /** Prefer the DRM order, while retaining reader-only links discovered by scrolling. */
 export function MergePageLinks(primary: string[], supplemental: string[]): string[] {
     return [...new Set([...primary, ...supplemental])];
@@ -117,16 +127,32 @@ export default class extends DecoratableMangaScraper {
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {
         const referer = new URL(chapter.Identifier, this.URI).href;
-        const chapterURL = new URL(chapter.Identifier, this.URI);
+        const chapterURL = new URL(chapter.Identifier, this.URI); // Volumes are huge (hundreds of pages): the reader lazy-loads them in
+        // screenfuls and stops mounting after ~110 images even when drained, so
+        // query the DRM extractor first for those and keep the reader as fallback.
+        // Normal chapters stay reader-first: the DRM window can time out while the
+        // reader already has the pages. (Parallel allSettled here was tried and
+        // reverted: the duplicate window re-triggers the anti-bot puzzle and can
+        // deadlock both extractions.)
+        if (IsVolumeChapter(chapter)) {
+            // TEST: real-condition measurement of the DRM output for volumes.
+            // Remove these two logs once the ~110 cap is explained.
+            try {
+                const drmPages = await this.#drm.CreateImageLinks(chapterURL);
+                console.log(`[TEST DRM] ${chapter.Identifier} -> ${drmPages.length} pages (last: ${drmPages.at(-1) ?? 'n/a'})`);
+                if (drmPages.length) {
+                    return drmPages.map(link => new Page(this, chapter, new URL(link), { Referer: referer }));
+                }
+            } catch (error) {
+                console.error(`[TEST DRM] ${chapter.Identifier} failed:`, error);
+            }
+        }
 
-        // Prefer the visible reader. The DRM extractor opens a second browser window and
-        // can time out while the reader already has the pages, so use it to complete
-        // suspiciously short reader results instead of treating them as successful.
-        // (Parallel allSettled here was tried and reverted: the duplicate window re-triggers
-        // the anti-bot puzzle and can deadlock both extractions.)
-        const readerPages = await ExtractPagesFromReader(referer);
+        const extraction = await ExtractPagesFromReader(referer);
+        const readerPages = extraction.links;
+        console.log(`[TEST Reader] ${chapter.Identifier} -> ${readerPages.length} pages (total indicator: ${extraction.total ?? 'none'})`);
         let pages = readerPages;
-        if (ShouldCompleteWithDRM(readerPages)) {
+        if (ShouldCompleteWithDRM(readerPages) || IsIncompleteReaderResult(readerPages, extraction.total)) {
             try {
                 pages = MergePageLinks(await this.#drm.CreateImageLinks(chapterURL), readerPages);
             } catch {

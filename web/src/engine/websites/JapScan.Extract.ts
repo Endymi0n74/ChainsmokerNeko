@@ -6,12 +6,59 @@ export type OrderedPageLink = {
     discovery: number;
 };
 
+export type ReaderExtraction = {
+    /** Deduplicated reader image URLs, ordered by DOM position. */
+    links: string[];
+    /** Total announced by the reader's own page indicator, when detected. */
+    total?: number;
+};
+
 /** Keep DOM-discovered links ahead of late resource-timeline discoveries. */
 export function OrderPageLinks(pages: OrderedPageLink[]): string[] {
     return pages
         .slice()
         .sort((left, right) => left.order - right.order || left.discovery - right.discovery)
         .map(page => page.link);
+}
+
+/**
+ * Reads the reader's total-page indicator from its DOM.
+ * JapScan exposes the chapter length in a page selector (`#pages`), the same
+ * information can appear in an attribute or as "Page X / N" text. Returns
+ * `undefined` when no credible indicator exists (nothing to wait for).
+ */
+export function ReadTotalPageIndicator(): number | undefined {
+    const toCount = (value: unknown): number | undefined => {
+        const count = Number(value);
+        return Number.isFinite(count) && count > 1 ? count : undefined;
+    };
+    try {
+        // Primary signal: the dedicated page selector and its options.
+        const select = (document.querySelector('select#pages') ?? document.querySelector('select[id*="page" i]')) as HTMLSelectElement | null;
+        if (select) {
+            const total = toCount(select.options?.length)
+                ?? toCount(select.getAttribute('data-count'));
+            if (total) return total;
+        }
+        // Secondary signal: any select that looks like a page selector — its id/name
+        // mentions "page", or its first option is page 1.
+        for (const candidate of document.querySelectorAll('select')) {
+            const looksLikePages = /page/i.test(`${candidate.id} ${candidate.name} ${candidate.className}`)
+                || candidate.options?.[0]?.value === '1';
+            if (!looksLikePages) continue;
+            const total = toCount(candidate.options?.length);
+            if (total) return total;
+        }
+        // Tertiary signal: explicit data-attributes carrying the chapter length.
+        for (const element of document.querySelectorAll('[data-pages], [data-total-pages], [data-page-count]')) {
+            const total = toCount(element.getAttribute('data-pages') ?? element.getAttribute('data-total-pages') ?? element.getAttribute('data-page-count'));
+            if (total) return total;
+        }
+        // Last resort: "Page X / N" text anywhere in the reader.
+        const total = toCount((document.body?.textContent ?? '').match(/page\s*\d+\s*\/\s*(\d+)/i)?.[1]);
+        if (total) return total;
+    } catch { /* reader DOM not ready — treat as unknown */ }
+    return undefined;
 }
 
 /**
@@ -24,9 +71,11 @@ export function OrderPageLinks(pages: OrderedPageLink[]): string[] {
  * pauses whenever the overlay shows up and resumes once it is gone, instead of
  * scraping a locked page (which yields an incomplete page list and CDN 404s).
  *
- * Returns a deduplicated list of image URLs suitable for Page construction.
+ * Returns the collected image links together with the reader's announced
+ * total page count (when its page indicator was found), so callers can
+ * detect an incomplete lazy-load.
  */
-export async function ExtractPagesFromReader(referer: string): Promise<string[]> {
+export async function ExtractPagesFromReader(referer: string): Promise<ReaderExtraction> {
     const script = `
         (() => {
             const IMG_RE = /\\.(jpe?g|png|webp|gif|avif|bmp|tiff?)(?:[?#]|$)/i;
@@ -62,6 +111,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                 }
             };
             const orderPageLinks = ${OrderPageLinks.toString()};
+            const readTotalPages = ${ReadTotalPageIndicator.toString()};
             const collect = () => {
                 try {
                     // Scan all image/lazy attributes, including volume-specific names.
@@ -136,6 +186,25 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
             collect();
             return new Promise(async resolve => {
                 await waitWhileBlocked();
+                // Volume readers mount only the first screenful of images; the reader's
+                // own page selector announces the real total. Drain the lazy-loader:
+                // jump to the bottom and wait until that many images were seen. Give
+                // up early when the count stalls (unreliable indicator) or the budget
+                // is exhausted — the host-side completeness check takes over then.
+                const total = readTotalPages();
+                if (total) {
+                    const drainStarted = Date.now();
+                    let stallRounds = 0;
+                    let lastSeen = seen.size;
+                    while (seen.size < total && Date.now() - drainStarted < 90_000 && stallRounds < 4) {
+                        try { window.scrollTo(0, document.body?.scrollHeight || 0); } catch (e) {}
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        if (isBlocked()) await waitWhileBlocked();
+                        collect();
+                        stallRounds = seen.size > lastSeen ? 0 : stallRounds + 1;
+                        lastSeen = seen.size;
+                    }
+                }
                 let steps = 0;
                 let lastCount = 0;
                 let stableRounds = 0;
@@ -151,7 +220,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                         await waitWhileBlocked();
                         if (isBlocked()) { // budget exhausted — report what we have
                             collect();
-                            resolve(orderPageLinks(Array.from(seen.values())));
+                            resolve({ links: orderPageLinks(Array.from(seen.values())), total: total ?? readTotalPages() });
                             return;
                         }
                     }
@@ -174,10 +243,11 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                     if (atBottom) bottomStableRounds++;
                     const done = (atBottom && bottomStableRounds >= BOTTOM_STABLE_LIMIT && stableRounds >= STABLE_LIMIT)
                         || stableRounds >= 4 * STABLE_LIMIT
+                        || (total && seen.size >= total)
                         || ++steps >= MAX_STEPS;
                     if (done) {
                         collect();
-                        resolve(orderPageLinks(Array.from(seen.values())));
+                        resolve({ links: orderPageLinks(Array.from(seen.values())), total: total ?? readTotalPages() });
                     } else {
                         setTimeout(step, STEP_MS);
                     }
@@ -187,9 +257,10 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
         })()
     `;
     try {
-        const pages = await FetchWindowScript<string[]>(new Request(referer), script, 1000, 300_000, true);
-        return (pages ?? []).filter((link, index, all) => all.indexOf(link) === index);
+        const result = await FetchWindowScript<ReaderExtraction>(new Request(referer), script, 1000, 300_000, true);
+        const links = (result?.links ?? []).filter((link, index, all) => all.indexOf(link) === index);
+        return { links, total: result?.total ?? undefined };
     } catch {
-        return [];
+        return { links: [] };
     }
 }
