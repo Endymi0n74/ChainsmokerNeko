@@ -54,9 +54,11 @@ export function StaticLinkGenerator(...endpoints: string[]): LinkGenerator {
  * @param start - The start for the sequence of incremental numbers which are applied to the {@link endpoint} pattern
  * @param increment - The amount by which the sequence shall be incremented for each iteration
  */
-export function PatternLinkGenerator<T extends MediaContainer<MediaChild>>(endpoint: string, start = 1, increment = 1): LinkGenerator<T> {
+export function PatternLinkGenerator<T extends MediaContainer<MediaChild>>(endpoint: string, start = 1, increment = 1, maxPages = 0): LinkGenerator<T> {
     return function* (this: MangaScraper, media: T): Generator<URL> {
-        for (let page = start; true; page += increment) {
+        let generated = 0;
+        for (let page = start; maxPages <= 0 || generated < maxPages; page += increment) {
+            generated++;
             yield new URL(endpoint.replace('{id}', media.Identifier).replace('{page}', `${page}`), this.URI);
         }
     };

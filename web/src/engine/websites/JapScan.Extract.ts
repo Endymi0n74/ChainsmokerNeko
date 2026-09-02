@@ -19,8 +19,10 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
             const isCDN = u => {
                 if (typeof u !== 'string' || !u || !IMG_RE.test(u)) return false;
                 try {
-                    const host = new URL(u, location.href).hostname;
-                    return host !== location.hostname && /japscan\\./i.test(host);
+                    const url = new URL(u, location.href);
+                    // Volume readers may use a same-origin proxy or a CDN subdomain;
+                    // accept JapScan-owned hosts, while rejecting unrelated page assets.
+                    return /(?:^|\\.)japscan\\./i.test(url.hostname);
                 } catch { return false; }
             };
             const isBlocked = () => {
@@ -30,21 +32,44 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                 } catch { return false; }
             };
             const seen = new Set();
+            const addCandidate = u => {
+                if (typeof u !== 'string' || !u) return;
+                const value = u.trim();
+                if (isCDN(value)) seen.add(new URL(value, location.href).href);
+            };
             const collect = () => {
                 try {
-                    // Also scan generic data-src holders (some readers attach the
-                    // lazy URL to a wrapper element instead of the <img> itself).
-                    document.querySelectorAll('img, [data-src], [data-original], [data-lazy-src]').forEach(el => {
-                        const srcs = el.tagName === 'IMG'
-                            ? [el.currentSrc, el.src, el.getAttribute('data-src'), el.getAttribute('data-original'), el.getAttribute('data-lazy-src')]
-                            : [el.getAttribute('data-src'), el.getAttribute('data-original'), el.getAttribute('data-lazy-src')];
-                        srcs.forEach(u => { if (isCDN(u)) seen.add(u); });
+                    // Scan all image/lazy attributes, including volume-specific names.
+                    document.querySelectorAll('img, source, [data-src], [data-original], [data-lazy-src], [data-lazy], [data-image], [data-url]').forEach(el => {
+                        const srcs = [
+                            el.currentSrc,
+                            el.src,
+                            el.getAttribute('src'),
+                            el.getAttribute('srcset'),
+                            el.getAttribute('data-src'),
+                            el.getAttribute('data-original'),
+                            el.getAttribute('data-lazy-src'),
+                            el.getAttribute('data-lazy'),
+                            el.getAttribute('data-image'),
+                            el.getAttribute('data-url'),
+                        ];
+                        srcs.flatMap(value => typeof value === 'string' && value.includes(',')
+                            ? value.split(',').map(candidate => candidate.trim().split(/\\s+/)[0])
+                            : [value]).forEach(addCandidate);
                     });
                 } catch (e) {}
                 try {
                     performance.getEntriesByType('resource').forEach(entry => {
-                        if (entry && isCDN(entry.name) && (!entry.initiatorType || entry.initiatorType === 'img' || entry.initiatorType === 'fetch' || entry.initiatorType === 'xmlhttprequest')) seen.add(entry.name);
+                        if (entry && isCDN(entry.name) && (!entry.initiatorType || entry.initiatorType === 'img' || entry.initiatorType === 'fetch' || entry.initiatorType === 'xmlhttprequest')) addCandidate(entry.name);
                     });
+                } catch (e) {}
+                try {
+                    // Some full-volume readers ship every page URL in inline JS rather
+                    // than creating all <img> nodes. Extract JapScan image URLs from
+                    // script/style text before scrolling.
+                    const text = Array.from(document.scripts).map(script => script.textContent || '').join('\\n');
+                    const matches = text.match(/https?:\\/\\/[^\\s"'\\\\]+\\.(?:jpe?g|png|webp|gif|avif|bmp|tiff?)(?:[?#][^\\s"'\\\\]*)?/gi) || [];
+                    matches.forEach(addCandidate);
                 } catch (e) {}
             };
             const realLoads = () => {
@@ -103,12 +128,6 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                             return;
                         }
                     }
-                    document.querySelectorAll('img').forEach(img => {
-                        const src = img.getAttribute('src') ?? null;
-                        if (src !== null && !src.startsWith('about:') && /japscan\./i.test(src)) {
-                            seen.add(src);
-                        }
-                    });
                     collect();
                     try { window.scrollBy(0, Math.min(window.innerHeight || 800, 600)); } catch (e) {}
                     const atBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 30);

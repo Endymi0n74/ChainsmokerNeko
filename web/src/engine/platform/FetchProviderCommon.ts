@@ -426,7 +426,11 @@ export abstract class FetchProvider {
             }
             if (cleared) {
                 invocations.push({ name: "ChallengeResolved", info: "Interactive challenge cleared, running extraction script" });
-                await runScript();
+                try {
+                    await runScript();
+                } catch (error) {
+                    console.warn('[KUMO] challenge resolution script failed:', error);
+                }
                 return;
             }
             if (isSettled()) return;
@@ -442,13 +446,16 @@ export abstract class FetchProvider {
         }[] = [];
 
         const win = CreateRemoteBrowserWindow();
+        let destroyed = false;
 
         const destroy = async () => {
+            if (destroyed) return;
+            destroyed = true;
             try {
                 if (this.featureFlags.VerboseFetchWindow.Value) {
                     console.log('FetchWindow()::invocations', invocations);
                 } else {
-                    win.Close();
+                    await win.Close();
                 }
             } catch (error) {
                 console.warn(error);
@@ -490,7 +497,13 @@ export abstract class FetchProvider {
             });
 
             invocations.push({ name: 'Open', info: `Request URL: ${request.url}` });
-            await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+            try {
+                await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+            } catch (error) {
+                await destroy();
+                ClearTimeout(cancellation);
+                reject(error);
+            }
         });
     }
 
@@ -524,6 +537,7 @@ export abstract class FetchProvider {
         }[] = [];
 
         const win = CreateRemoteBrowserWindow();
+        let destroyed = false;
 
         win.BeforeWindowNavigate.Subscribe(async uri => {
             invocations.push({ name: 'BeforeNavigate', info: `URL: ${uri.href}` });
@@ -541,6 +555,8 @@ export abstract class FetchProvider {
         };
 
         const destroy = async () => {
+            if (destroyed) return;
+            destroyed = true;
             try {
                 for (const stop of stopPollers) {
                     stop();
@@ -549,7 +565,7 @@ export abstract class FetchProvider {
                 if (this.featureFlags.VerboseFetchWindow.Value) {
                     console.log('FetchWindow()::invocations', invocations);
                 } else {
-                    win.Close().catch(() => {});
+                    await win.Close().catch(() => {});
                 }
             } catch (error) {
                 console.warn(error);
@@ -684,7 +700,7 @@ export abstract class FetchProvider {
                     cancellation = await SetTimeout(() => {
                         if (!settled) {
                             settled = true;
-                            destroy();
+                            void destroy();
                             reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
                         }
                     }, 150_000);
@@ -779,7 +795,14 @@ export abstract class FetchProvider {
             });
 
             invocations.push({ name: 'Open', info: `Request URL: ${request.url}` });
-            await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+            try {
+                await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+            } catch (error) {
+                await destroy();
+                settled = true;
+                ClearTimeout(cancellation);
+                reject(error);
+            }
         });
     }
 }

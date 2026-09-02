@@ -2,6 +2,48 @@ import type { StoreableMediaContainer, MediaItem } from './providers/MediaPlugin
 import { Priority } from './taskpool/DeferredTask';
 import type { StorageController } from './StorageController';
 import { type IObservable, Observable, ObservableArray } from './Observable';
+import { SetTimeout, ClearTimeout } from './BackgroundTimers';
+
+/**
+ * Maximum time a single network request inside a download task may stay stalled
+ * (no response at all) before it is abandoned. Applies per page/request, NOT to
+ * the whole task, so a hung image never freezes the rest of the queue.
+ */
+export const STALL_TIMEOUT_MS = 15_000;
+
+/**
+ * Maximum time a chapter's page-list resolution may take before it is abandoned.
+ * Most connectors resolve pages with a quick request, but some (e.g. JapScan)
+ * open a visible reader window and wait for the user to solve an interactive
+ * anti-bot puzzle before the lazy-loaded pages are collected — which legitimately
+ * takes far longer than a single stalled request. Matches the fetch provider's
+ * own reader timeout, so it only fires for truly hung resolutions, while a
+ * broken connector can still never occupy the shared download queue forever.
+ */
+export const CHAPTER_UPDATE_TIMEOUT_MS = 300_000;
+
+/**
+ * Reject if {@link promise} does not settle within {@link ms}.
+ * Used to bound individual network operations inside a download task so one
+ * blocked request can never stall the shared download queue indefinitely.
+ */
+export function WithTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    let timerID: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+        // BackgroundTimers.SetTimeout renvoie une Promise<number> résolue à l'ACK du worker.
+        // Le mock de test (vitest.setup.ts) le remplace par le setTimeout natif qui renvoie
+        // un objet Timeout sans .then : dans ce cas, aucun timer à nettoyer.
+        const ret = SetTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        if (ret instanceof Promise) {
+            ret.then(id => {
+                timerID = id;
+            });
+        }
+    });
+    return Promise.race([promise, timeout]).finally(() => {
+        if (timerID !== undefined) ClearTimeout(timerID);
+    });
+}
 
 export const enum Status {
     Paused = 'paused',
@@ -38,7 +80,6 @@ export class DownloadTask {
         this.progress.Value = this.Media.Entries.Value.length > 0 ? processed / this.Media.Entries.Value.length : 0.0;
     }
 
-
     private get IsRunning(): boolean {
         return this.status.Value === Status.Downloading || this.status.Value === Status.Processing;
     }
@@ -64,11 +105,21 @@ export class DownloadTask {
         try {
             const cancellator = new AbortController();
             this.Abort = cancellator.abort.bind(cancellator);
-            await this.Media.Update();
+            // Bound chapter resolution too. Interactive challenges are handled by the
+            // fetch provider and must settle within its own timeout; a broken connector
+            // must not permanently occupy the shared download queue.
+            await WithTimeout(this.Media.Update(), CHAPTER_UPDATE_TIMEOUT_MS, `Chapter update for ${this.Media.Title ?? 'unknown chapter'}`);
             this.AssertMediaEntries();
             const promises = this.Media.Entries.Value.map(async (item, index: number) => {
                 try {
-                    const data = await item.Fetch(Priority.Low, cancellator.signal);
+                    // Bound each individual page request: a stalled request is
+                    // abandoned after STALL_TIMEOUT_MS and skipped, so the rest of
+                    // the pages (and the whole queue) keep moving.
+                    const data = await WithTimeout(
+                        item.Fetch(Priority.Low, cancellator.signal),
+                        STALL_TIMEOUT_MS,
+                        `Page fetch from ${this.Media.Title ?? 'unknown chapter'}`
+                    );
                     // Skip empty or non-image blobs (e.g. JapScan CDN resources, placeholders):
                     // empty blobs export as 0-byte .bin; non-image blobs shift file numbering.
                     if (data instanceof Blob && (data.size === 0 || data.type.length > 0 && !data.type.startsWith("image/"))) {

@@ -8,6 +8,7 @@ import { ExtractPagesFromReader } from './JapScan.Extract';
 import { DRMProvider } from './JapScan.DRM';
 import { TaskPool, Priority } from '../taskpool/TaskPool';
 import { RateLimit } from '../taskpool/RateLimit';
+import { FetchWindowScript } from '../platform/FetchProvider';
 
 AddAntiScrapingDetection(async invoke => {
     // JapScan's own anti-bot (the "Glisse pour remettre dans l'ordre" puzzle) is announced by
@@ -21,8 +22,8 @@ AddForkChallengeHandling(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
 @Common.ImageAjax(true)
 export default class extends DecoratableMangaScraper {
 
-    // JapScan présente un challenge interactif (#jc-overlay) qui nécessite une
-    // vraie fenêtre visible — la vérification silencieuse saute donc ce site.
+    // JapScan presents an interactive challenge (#jc-overlay) that requires a
+    // real visible window — silent verification therefore skips this site.
     public override readonly RequiresVisibleBrowserWindow = true;
 
     readonly #drm = new DRMProvider();
@@ -30,6 +31,7 @@ export default class extends DecoratableMangaScraper {
     // Cache chapter lists to avoid re-opening browser windows on every refresh
     readonly #chapterCache = new Map<string, { chapters: Chapter[]; ts: number }>();
     readonly #CACHE_TTL = 3600_000; // 1 hour
+
     public override ValidateMangaURL(url: string): boolean {
         try {
             const u = new URL(url);
@@ -64,9 +66,27 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async FetchMangas(provider: MangaPlugin): Promise<Manga[]> {
+        // Pre-heat: the /mangas/ listing path triggers an interactive Cloudflare
+        // challenge that background renewal alone cannot solve. Open it in a real
+        // browser window so the challenge is resolved (auto or user), then the
+        // shared session cookies allow the paginated HTTP requests to go through.
+        try {
+            await FetchWindowScript(
+                new Request(new URL('/mangas/?p=1', this.URI)),
+                'true', // dummy script — we only need the page to load & clear
+                2_000, // poll interval
+                300_000, // 5 min budget for interactive solve
+                true // visible window (RequiresVisibleBrowserWindow)
+            );
+        } catch {
+            // If the window times out or the user closes it, try anyway —
+            // FetchMangasMultiPageCSS will either reuse stale cookies or fail
+            // with the same error as before.
+        }
+
         return [
-            ... await Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/mangas/?p={page}'), 2500),
-            ... await Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/bds/?p={page}'), 2500),
+            ... await Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/mangas/?p={page}', 1, 1, 500), 2500),
+            ... await Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/bds/?p={page}', 1, 1, 500), 2500),
         ];
     }
 
@@ -90,6 +110,8 @@ export default class extends DecoratableMangaScraper {
 
         // Prefer the visible reader. The DRM extractor opens a second browser window and
         // can time out while the reader already has the pages, so use it only as a fallback.
+        // (Parallel allSettled here was tried and reverted: the duplicate window re-triggers
+        // the anti-bot puzzle and can deadlock both extractions.)
         let pages = await ExtractPagesFromReader(referer);
         if (!pages.length) {
             try {

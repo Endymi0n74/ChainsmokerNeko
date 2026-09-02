@@ -1,8 +1,9 @@
-import { DownloadTask, Status } from './DownloadTask';
+import { DownloadTask, Status, CHAPTER_UPDATE_TIMEOUT_MS, STALL_TIMEOUT_MS, WithTimeout } from './DownloadTask';
 import { Priority } from './taskpool/DeferredTask';
 import type { Chapter } from './providers/MangaPlugin';
 import type { MediaItem, StoreableMediaContainer } from './providers/MediaPlugin';
 import { type StorageController, SanitizeFileName } from './StorageController';
+import { SetTimeout, ClearTimeout } from './BackgroundTimers';
 import { Key, Scope } from './SettingsGlobal';
 import { type Choice, type Check, type Directory } from './SettingsManager';
 import { CreateCollectionExportRegistry, MangaExportFormat } from './exporters/MangaExporterRegistry';
@@ -63,7 +64,7 @@ export class CollectionDownloadTask extends DownloadTask {
             // page count is known before any image is downloaded (progress).
             let totalPages = 0;
             const updates = this.Chapters.map(async chapter => {
-                await chapter.Update();
+                await this.WaitForUpdate(chapter);
                 totalPages += chapter.Entries.Value.length;
             });
             const updateResults = await Promise.allSettled(updates);
@@ -89,9 +90,9 @@ export class CollectionDownloadTask extends DownloadTask {
                 const resourcemap = new Map<number, string>();
                 const promises = chapter.Entries.Value.map(async (item, index) => {
                     try {
-                        const data = await item.Fetch(Priority.Low, cancellator.signal);
+                        const data = await WithTimeout(item.Fetch(Priority.Low, cancellator.signal), STALL_TIMEOUT_MS, `Collection page fetch (${chapter.Title})`);
                         // Skip empty or non-image blobs (e.g. JapScan CDN resources, placeholders)
-                        if (data instanceof Blob && (data.size === 0 || (data.type.length > 0 && !data.type.startsWith('image/')))) {
+                        if (data instanceof Blob && (data.size === 0 || data.type.length > 0 && !data.type.startsWith('image/'))) {
                             return;
                         }
                         const resource = await this.storage.SaveTemporary(data);
@@ -136,6 +137,22 @@ export class CollectionDownloadTask extends DownloadTask {
     }
 
     #NoOpAbort(/*_reason?: string*/) { /* NO-OP */ }
+
+    /**
+     * Bound a chapter's page-list resolution so one dead chapter cannot hang the
+     * whole collection forever. A timed-out chapter is skipped like any failure.
+     */
+    private WaitForUpdate(chapter: Chapter): Promise<void> {
+        let timerID: number | undefined;
+        const timeout = new Promise<never>((_, reject) => {
+            SetTimeout(() => reject(new Error(`Chapter update timed out (${chapter.Title})`)), CHAPTER_UPDATE_TIMEOUT_MS).then(id => {
+                timerID = id;
+            });
+        });
+        return Promise.race([chapter.Update(), timeout]).finally(() => {
+            if (timerID !== undefined) ClearTimeout(timerID);
+        });
+    }
 
     private async StoreCollection(volumes: CollectionVolume[]): Promise<void> {
         const settings = HakuNeko.SettingsManager.OpenScope(Scope);
