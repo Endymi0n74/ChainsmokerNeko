@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 31 août 2026 (v3.0.2 — JapScan puzzle asynchrone + collecte robuste)
+> Dernière mise à jour : 2 septembre 2026 (v3.0.2 — rebuild bundle multi-arch avec fix JapScan 300s)
 
 ---
 
@@ -287,3 +287,138 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - Cookie `sessionT` déclenche page réduite → sentinel `__hkn_no_session_cookies__`
 - API bqj: fingerprint WebGL + effectiveType, payload encodé base64→gzip→reverse→base64
 - Injection cookies uniquement pour le renderer (pas les fenêtres distantes)
+
+---
+Session du 1er septembre 2026 — JapScan + Timeouts de téléchargement
+
+DIAGNOSTIC (avant modifications)
+
+    JapScan FetchPages (web/src/engine/websites/JapScan.ts) : L'arbre de travail contenait une exécution PARALLÈLE de Promise.allSettled([ExtractPagesFromReader, drm.CreateImageLinks]) — une régression par rapport au chemin séquentiel vérifié (§4/§5b : reader → DRM fallback). Un DRM en parallèle ouvre une seconde fenêtre de navigateur → duplication de fenêtres, blocages, puzzle inutile.
+
+    File d'attente de téléchargement (web/src/engine/DownloadManager.ts) : Process() exécute await task.Run() SANS timeout — une tâche bloquée (ex. fenêtre/réseau JapScan) bloque TOUTE la file d'attente indéfiniment. Exigence du CDC : un timeout de blocage (stall) de 15s par tâche, pas sur la file d'attente.
+
+    DownloadTask.Run / CollectionDownloadTask.Run : item.Fetch() et Media.Update() sans timeout par élément — attente infinie possible.
+
+SOLUTION (générique, pas seulement JapScan)
+
+    DownloadTask.ts : Dans Run(), chaque item.Fetch() est enveloppé dans WaitForWithTimeout(fetch_coro, 15s) (fonction auxiliaire wait_with_timeout) : au bout de 15s, le fetch est annulé via AbortController (signal déjà transmis à Fetch), l'erreur est écrite dans errors, la page est ignorée — la tâche continue les autres pages. Media.Update() dispose aussi d'un timeout de 15s → sinon toute la tâche échoue avec une erreur claire, statut Failed, la file d'attente avance.
+
+    DownloadManager.Process() : await task.Run() a-t-il été remplacé par await wait_with_timeout(task.Run(), 15s) ? NON — 15s pour toute la tâche est trop court (un chapitre de plusieurs pages prend plus de temps). La bonne approche : détection de blocage (stall-detect). Implémenté : Process() attend task.Run() avec un watchdog : si la tâche ne modifie pas Progress/Status pendant plus de 15s → task.Abort() + wait_with_timeout(abort_wait, 5s) → statut Failed, la file continue. Détection de progression : comparaison du snapshot (status, progress) toutes les 1s.
+
+    CollectionDownloadTask.Run : chapter.Update() est déjà dans allSettled — ajout d'un timeout de 15s sur chaque Update (même wait_with_timeout), un Update échoué = chapitre ignoré (déjà le cas), mais ne reste plus bloqué indéfiniment.
+
+    Tous les timeouts utilisent la constante DOWNLOAD_STALL_TIMEOUT_S = 15.0 dans DownloadTask.ts, importée par le gestionnaire.
+
+FICHIERS MODIFIÉS
+
+    web/src/engine/DownloadTask.ts : +wait_with_timeout(), +DOWNLOAD_STALL_TIMEOUT_S, timeouts par page et Update, transmission de l'Abort.
+
+    web/src/engine/DownloadManager.ts : Watchdog sur la progression dans Process().
+
+    web/src/engine/CollectionDownloadTask.ts : Timeout sur chapter.Update().
+
+    web/src/engine/websites/JapScan.ts : FetchPages est revenu en SÉQUENTIEL (reader → DRM fallback), comme dans §5b.
+
+POURQUOI CELA NE CASSE PAS LES AUTRES SITES
+
+    Timeout uniquement sur l'INACTIVITÉ (stall) : la progression réinitialise le watchdog. Un téléchargement lent mais actif (listing MangaFire 70k, DRM CrunchyScan) n'en souffre pas.
+
+    L'annulation (Abort) est déjà prise en compte dans tous les Fetch (AbortSignal est transmis à item.Fetch et Media.Update).
+
+    Le TaskPool (listing/chapitres) N'EST PAS touché — uniquement la file d'attente de téléchargement.
+
+TESTS (exécutés le 1er sept., aucune autre source modifiée à part les timeouts)
+
+    tsc --noEmit (web) ✅ et tsc -p app/electron/tsconfig.json ✅ (0 erreur)
+
+    ESLint : La commande avec --ext .ts,.svelte,.vue est INCORRECTE pour ce dépôt — la configuration flat (eslint.config.js) ignore .svelte/.vue (fichiers dans ignores), et --ext n'est pas appliqué → 50 « Parsing error: Unexpected token < ». La bonne commande = CI : eslint . depuis web/ (= check:lint).
+
+        Il reste 1 erreur de lint — PRÉEXISTANTE (commit dff45a7a7), en dehors de la zone timeouts/JapScan : web/src/engine/exporters/ExportPipeline_e2e.ts:3 — import inutilisé Chapter. Non touché (demande de l'utilisateur : uniquement timeouts/JapScan).
+
+    DownloadTask_test + DownloadManager_test : 7 échecs auparavant → 40/40 ✅.
+
+        BUG (dans ce travail), trouvé et corrigé : WithTimeout faisait SetTimeout(...).then(...), mais vitest.setup.ts simule (mock) BackgroundTimers avec le setTimeout natif (renvoie un objet Timeout, pas une Promise !) → TypeError synchrone dans l'executor → la promesse du timeout était rejetée IMMÉDIATEMENT → tout fetch avec du retard (setTimeout ≥ 5ms) perdait la course → erreur, tâche en Failed, le Store n'était pas appelé, le statut restait bloqué sur downloading. Correctif dans DownloadTask.ts : if (ret instanceof Promise) ret.then(id => ...) (le vrai BackgroundTimers.SetTimeout renvoie une Promise — le comportement en prod reste inchangé ; sous le mock, nous ne nettoyons simplement pas le timer). Leçon : ne jamais faire de .then sur le retour d'un wrapper de SetTimeout sans vérifier son type.
+
+        ⚠️ Pas de "nouveaux" cas de blocage sur 15s dans les fichiers de test (les deux fichiers sont inchangés, dernier commit d16a90f9b) — le timeout par page n'est vérifié qu'indirectement ; un cas de blocage dédié = TODO.
+
+    E2E websites : ScanManga 5/5 + MangaNova 7/7 = 12/12 ✅ (réseau réel).
+
+        Commande (DEPUIS LA RACINE haruneko/, pas depuis web/) : export PATH="/c/Program Files/nodejs:$PATH" && node node_modules/vitest/vitest.mjs run --config test/vitest.websites.ts ScanManga_e2e MangaNova_e2e
+
+        Pièges : Sans node dans le PATH, vite.cmd plante avec « 'node' n'est pas reconnu » → le serveur preview ne démarre pas → Electron ERR_CONNECTION_REFUSED sur https://localhost:5000 → globalSetup timeout → « No test files found ». Avant l'exécution, tuer les processus bloqués : taskkill //F //IM electron.exe + le processus sur le port 5000. Le serveur preview sert du HTTPS (certificat de vite.config.ts) — c'est normal.
+
+BUILD (1er sept., ordre du §7 respecté — les 4 étapes)
+
+    vite build (web) ✅ — uniquement un avertissement sur la taille des chunks
+
+    build-app.mjs ✅ — ⚠️ La version actuelle du script est DÉJÀ SANS npm install (main.js intègre commander/websocket-rpc ; build/node_modules n'est PAS nécessaire — la note du §7 concernant build/node_modules est obsolète)
+
+    vite build main ✅ (main.js) + vite build --config vite.preload.config.ts preload ✅ (le preload est compilé avec une config SÉPARÉE — vite.preload.config.ts, non suivi dans ce travail ; la compilation conjointe cassait : rolldown extrayait un chunk commun → le preload exigeait ./main.js)
+
+    cp -r ../../web/build/. build/web/ ✅ (après vite build, car le build principal ne nettoie pas)
+
+    Résultat dans app/electron/build/ : main.js, preload.js, package.json (manifeste), web/
+
+LANCEMENT (1er sept.)
+
+    node .tmp/launch-app.mjs (depuis la racine) → pid 16272, profil app/electron/.user-data, log .tmp/electron-launch.log
+
+    [LocalServer] D:\Codex\haruneko\app\electron\build\web → [http://127.0.0.1:64210](http://127.0.0.1:64210) → HTTP 200 ✅, processus actif (netstat LISTENING), aucune erreur fatale
+
+    Bruit dans le log (non fatal) : RemoteBrowserWindowController::* — Failed to find window with id 38 (BrowserWindow.fromId → null, handlers après fermeture de la fenêtre, ~10 lignes au démarrage) et ERR_BLOCKED_BY_CLIENT (publicité a-ads.com).
+
+    EXE : build dev D:\Codex\haruneko\node_modules\electron\dist\electron.exe (app : app/electron/build) ; aucun bundle empaqueté/NSIS réalisé durant cette session.
+
+    ✅ Deuxième passage complet confirmé (le même jour) : tsc ×2 OK, eslint (1 erreur préexistante), 40/40, e2e 12/12, build 4 étapes OK, nouveau lanceur pid 15372, HTTP 200, [CloudFlareRenewal] japscan.foo clearance renewed (511 chars) — l'actualisation en arrière-plan du cf_clearance fonctionne.
+
+    Test manuel (JapScan : puzzle au 1er lancement + le téléchargement bloqué se libère au bout d'environ 15s, la file ne se bloque pas) — EN COURS DE VALIDATION PAR L'UTILISATEUR (interactif, point 3-3 de la tâche).
+
+STATUT
+
+    [x] Diagnostic
+
+    [x] JapScan séquentiel restauré
+
+    [x] Timeouts de 15s
+
+    [x] Exécution des tests (40/40 moteur + e2e 12/12 + tsc ×2 + eslint : 1 erreur préexistante hors zone)
+
+    [x] Build + EXE + Lancement (build OK, lancement OK, HTTP 200 ; test manuel JapScan côté utilisateur)
+
+---
+
+## 13. Session 2 septembre 2026 — Bundle multi-arch Windows complet + fix PATH Windows + timeout JapScan
+
+### Bundle complet multi-arch (`npm run bundle` dans `app/electron`) ✅
+- Les 6 artefacts sont dans `haruneko/app/electron/bundle/` :
+  - `ChainsmokerNeko-v3.0.2-win32-{ia32,x64,arm64}.zip` (portables, ~124/139/141 Mo)
+  - `ChainsmokerNeko-v3.0.2-win32-{ia32,x64,arm64}-setup.exe` (NSIS per-user, ~94/105/100 Mo)
+- Prérequis machine : **NSIS absent** → NSIS portable 3.10 téléchargé dans `app/electron/.tmp/nsis/nsis-3.10` (SourceForge), détecté via env var `MAKENSIS` (`findMakensis` le prend). 7-Zip présent (`C:/Program Files/7-Zip/7z.exe`) → zips OK.
+- Cache Electron partagé : `HAKUNEKO_ELECTRON_CACHE=D:\Codex\.electron-cache` (les 3 archives v43.3.0 déjà téléchargées = pas de re-download).
+- Log : `app/electron/.tmp/bundle-full.log` (fini proprement sur le dernier makensis arm64).
+- ✅ **Rebuild final corrigé (2 sept., ~16:07-16:13)** : ⚠️ le 1er rebuild (pid 489, log `bundle-full2.log`) avait produit des artefacts SANS le fix — `npm run bundle` NE reconstruit PAS web (il copie `web/build`, encore pré-fix). Correctif : `haruneko/.tmp/bundle-full-fixed.ps1` = `npm run build:web` PUIS `npm run bundle` (PATH registre propre + `MAKENSIS` portable, log `app/electron/.tmp/bundle-full3.log`). Résultat : 6 artefacts frais (mtimes 16:07-16:13), zéro erreur, et fix **vérifié dans les 3 zips + web/build** : asset `resources/app/web/MTK66PBE/DownloadTask.js` (nouveau hash → le build a bien changé) contient `Q=15e3,$=3e5` (per-page 15s + chapter-update 300s ; les installateurs NSIS embarquent le même `resources/app`). ⚠️ Piège retenu : vérifier le fix DANS les artefacts, pas seulement les mtimes ; esbuild minifie les constantes (`300000` → `3e5`, `15000` → `15e3`).
+
+### Fix « 'npm' n'est pas reconnu » (cause racine Windows) ✅
+- **PATH MACHINE corrompu** : 2 entrées invalides — un guillemet nu `"` et `C:\Program Files\nodejs\"` (guillemet final) → `cmd.exe` (utilisé par TOUS les lifecycle scripts npm) ne résolvait plus npm/node → tout `npm run` imbriqué échouait (ex. `npm run build` dans le script `bundle`).
+- Fix : `haruneko/.tmp/fix-machine-path.ps1` (élevé, approuvé par l'utilisateur) filtre les entrées contenant un guillemet → vérifié `Residual quotes? False`, `C:\Program Files\nodejs\` conservé.
+- Preuve : `npm run bundle:x64` à la racine en UNE commande = exit 0 (web build → build-app → vite main+preload → rcedit → 7z).
+- ⚠️ Le shell de l'agent Freebuff garde le PATH obsolète (processus long) → en session : `export PATH="$(echo "$PATH" | tr -d '"')"` avant toute commande npm/cmd ; les NOUVEAUX terminaux sont OK sans workaround.
+
+### JapScan « Chapter update … timed out after 15000ms » ✅ (nécessite rebuild)
+- **Cause** : `STALL_TIMEOUT_MS` (15s) bornait AUSSI `Media.Update()` (résolution liste de pages), alors que JapScan ouvre un reader visible, attend le puzzle `#jc-overlay` (budget 180s dans JapScan.Extract) puis scroll en lazy-load → dépasse légitimement 15s. Les autres sites résolvent en <1s → seul JapScan échouait.
+- **Fix** (`CHAPTER_UPDATE_TIMEOUT_MS = 300_000` = timeout du fetch provider reader) :
+  - `web/src/engine/DownloadTask.ts` : nouvelle constante + `Media.Update()` borné par elle (avec commentaire explicatif)
+  - `web/src/engine/CollectionDownloadTask.ts` : `WaitForUpdate()` (collection/omnibus) sur la même constante
+  - Le stall PAR PAGE reste 15s (une image bloquée ne fige pas la file) ; un connecteur cassé reste borné (5 min max).
+- **Vérifs** : `tsc --noEmit` web ✅ ; vitest `DownloadTask_test` + `DownloadManager_test` = **40/40 ✅**.
+- ⚠️ À re-tester en app réelle (JapScan) + rebuild bundle requis.
+- **Pré-chauffage `FetchMangas` (2 sept., après-midi)** : ouvre `/mangas/?p=1` en fenêtre visible (`FetchWindowScript(request, 'true', 2s, 300s, show)`) pour résoudre le challenge Cloudflare interactif avant la pagination HTTP ; fallback silencieux (try/catch). Intégré depuis `C:\Users\endymion\Downloads\JapScan.ts` (diff = 1 seule vraie modif). tsc ✅, eslint --fix (4× no-multi-spaces) ✅. Non committé. Notes : pas de cache session « pré-chauffé » (fenêtre rouverte à chaque ouverture) ; `2_000` = délai avant injection (le commentaire « poll interval » est imprécis) ; commentaire FR→EN.
+- **Rebuild final 2 (2 sept., 16:39-16:46)** : `bundle-full-fixed.ps1` (build:web + bundle) après intégration du pré-chauffage → 6 artefacts frais (mtimes 16:40-16:46), 0 erreur, nouveau hash `MTK7DAO5`, **vérifié contenu** : `3e5` dans `DownloadTask.js` (ia32) + `mangas/?p=1`/`FetchWindowScript` dans `HakuNeko.js` (ia32 et x64). Les installateurs NSIS embarquent le même `resources/app`.
+- **e2e JapScan (2 sept., 16:35-16:41)** : 🚫 BLOQUÉ — `FetchProvider_Fetch_CloudFlareChallenge` sur `jujutsu-kaisen/` et `king-game/` (8 échecs / 2 init OK, retry identique) : l'IP est challengée et le e2e tourne avec un profil temporaire vierge (pas de `cf_clearance`/extension, l'Utilisateur ne peut pas résoudre le puzzle interactif dans le timeout). Env. NON lié au pré-chauffage (le fixture teste `FetchMangaCSS` mono-URL, chemin intact). Validation runtime du pré-chauffage = manuel (ouvrir l'onglet Mangas dans l'app).
+
+### Réparation index git (2 sept., après-midi) ✅
+- **Symptôme** : `git status` montrait TOUS les fichiers en `D ` (suppression stagiée) + les mêmes en `??` (untracked), y compris des fichiers existants.
+- **Cause** : le fichier `.git/index` avait DISPARU (vérifié : absent de `.git/`, `git ls-files` = 0 entrées, HEAD/objects/refs intacts, HEAD = 1dfea5555, 2945 fichiers).
+- **Fix** : `git reset` (mixed, non destructif — réécrit l'index depuis HEAD, working tree INTACT) → index recréé (312 Ko), `git status --short --untracked-files=no` = 15 entrées ` M` seulement (0 suppression).
+- **Vérifié** : mes modifs présentes (`CHAPTER_UPDATE_TIMEOUT_MS` dans DownloadTask.ts + CollectionDownloadTask.ts, MEMORY.md §13) + modifs préexistantes non committées (§5b/§12) intactes.
+- **Suite (même jour)** : commit `0ce03b955` « chore(build): track preload vite config and ignore electron user-data » — a ajouté `app/electron/.user-data/` au `.gitignore` (CRLF respecté) et committé `app/electron/vite.preload.config.ts` (requis par `vite build --config vite.preload.config.ts`). Les 15 fichiers ` M` restants (fix JapScan, DownloadTask/CollectionDownloadTask timeouts, MEMORY.md) sont TOUJOURS non committés (choix utilisateur).
