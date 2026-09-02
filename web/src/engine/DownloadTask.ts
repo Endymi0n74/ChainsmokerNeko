@@ -16,11 +16,12 @@ export const STALL_TIMEOUT_MS = 15_000;
  * Most connectors resolve pages with a quick request, but some (e.g. JapScan)
  * open a visible reader window and wait for the user to solve an interactive
  * anti-bot puzzle before the lazy-loaded pages are collected — which legitimately
- * takes far longer than a single stalled request. Matches the fetch provider's
- * own reader timeout, so it only fires for truly hung resolutions, while a
- * broken connector can still never occupy the shared download queue forever.
+ * takes far longer than a single stalled request. Kept well above the per-page
+ * stall so interactive challenges can settle, while still bounding how long one
+ * broken connector can occupy the shared download queue. (Note: JapScan's own
+ * reader extraction keeps its longer internal budget — see JapScan.Extract.)
  */
-export const CHAPTER_UPDATE_TIMEOUT_MS = 300_000;
+export const CHAPTER_UPDATE_TIMEOUT_MS = 120_000;
 
 /**
  * Reject if {@link promise} does not settle within {@link ms}.

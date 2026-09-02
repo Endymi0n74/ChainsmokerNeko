@@ -1,5 +1,19 @@
 import { FetchWindowScript } from '../platform/FetchProvider';
 
+export type OrderedPageLink = {
+    link: string;
+    order: number;
+    discovery: number;
+};
+
+/** Keep DOM-discovered links ahead of late resource-timeline discoveries. */
+export function OrderPageLinks(pages: OrderedPageLink[]): string[] {
+    return pages
+        .slice()
+        .sort((left, right) => left.order - right.order || left.discovery - right.discovery)
+        .map(page => page.link);
+}
+
 /**
  * Scrolls a visible JapScan reader to trigger lazy-loading, then collects
  * every image URL whose host is the JapScan image CDN (c*.japscan.foo).
@@ -31,16 +45,29 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                         || (window.__captcha && window.__captcha.needed === true);
                 } catch { return false; }
             };
-            const seen = new Set();
-            const addCandidate = u => {
+            const seen = new Map();
+            let discovery = 0;
+            const addCandidate = (u, order = Number.POSITIVE_INFINITY) => {
                 if (typeof u !== 'string' || !u) return;
                 const value = u.trim();
-                if (isCDN(value)) seen.add(new URL(value, location.href).href);
+                if (!isCDN(value)) return;
+                const link = new URL(value, location.href).href;
+                const existing = seen.get(link);
+                if (existing) {
+                    // A URL can enter the resource timeline before its <img> is
+                    // attached. Let the later DOM observation correct its order.
+                    existing.order = Math.min(existing.order, order);
+                } else {
+                    seen.set(link, { link, order, discovery: discovery++ });
+                }
             };
+            const orderPageLinks = ${OrderPageLinks.toString()};
             const collect = () => {
                 try {
                     // Scan all image/lazy attributes, including volume-specific names.
+                    let domOrder = 0;
                     document.querySelectorAll('img, source, [data-src], [data-original], [data-lazy-src], [data-lazy], [data-image], [data-url]').forEach(el => {
+                        const order = domOrder++;
                         const srcs = [
                             el.currentSrc,
                             el.src,
@@ -55,7 +82,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                         ];
                         srcs.flatMap(value => typeof value === 'string' && value.includes(',')
                             ? value.split(',').map(candidate => candidate.trim().split(/\\s+/)[0])
-                            : [value]).forEach(addCandidate);
+                            : [value]).forEach(value => addCandidate(value, order));
                     });
                 } catch (e) {}
                 try {
@@ -124,7 +151,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                         await waitWhileBlocked();
                         if (isBlocked()) { // budget exhausted — report what we have
                             collect();
-                            resolve(Array.from(seen));
+                            resolve(orderPageLinks(Array.from(seen.values())));
                             return;
                         }
                     }
@@ -150,7 +177,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<string[]>
                         || ++steps >= MAX_STEPS;
                     if (done) {
                         collect();
-                        resolve(Array.from(seen));
+                        resolve(orderPageLinks(Array.from(seen.values())));
                     } else {
                         setTimeout(step, STEP_MS);
                     }

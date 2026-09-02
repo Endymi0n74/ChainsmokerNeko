@@ -19,6 +19,17 @@ AddAntiScrapingDetection(async invoke => {
 }, /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
 AddForkChallengeHandling(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
 
+export const MIN_READER_PAGES_FOR_COMPLETE_RESULT = 5;
+
+export function ShouldCompleteWithDRM(pageLinks: string[]): boolean {
+    return pageLinks.length < MIN_READER_PAGES_FOR_COMPLETE_RESULT;
+}
+
+/** Prefer the DRM order, while retaining reader-only links discovered by scrolling. */
+export function MergePageLinks(primary: string[], supplemental: string[]): string[] {
+    return [...new Set([...primary, ...supplemental])];
+}
+
 @Common.ImageAjax(true)
 export default class extends DecoratableMangaScraper {
 
@@ -109,15 +120,17 @@ export default class extends DecoratableMangaScraper {
         const chapterURL = new URL(chapter.Identifier, this.URI);
 
         // Prefer the visible reader. The DRM extractor opens a second browser window and
-        // can time out while the reader already has the pages, so use it only as a fallback.
+        // can time out while the reader already has the pages, so use it to complete
+        // suspiciously short reader results instead of treating them as successful.
         // (Parallel allSettled here was tried and reverted: the duplicate window re-triggers
         // the anti-bot puzzle and can deadlock both extractions.)
-        let pages = await ExtractPagesFromReader(referer);
-        if (!pages.length) {
+        const readerPages = await ExtractPagesFromReader(referer);
+        let pages = readerPages;
+        if (ShouldCompleteWithDRM(readerPages)) {
             try {
-                pages = await this.#drm.CreateImageLinks(chapterURL);
+                pages = MergePageLinks(await this.#drm.CreateImageLinks(chapterURL), readerPages);
             } catch {
-                pages = [];
+                pages = readerPages;
             }
         }
         return pages.map(link => new Page(this, chapter, new URL(link), { Referer: referer }));
