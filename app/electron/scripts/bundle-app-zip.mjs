@@ -49,6 +49,9 @@ async function createZipArchive(blinkDeploymentTemporaryDirectory, blinkDeployme
         await fs.unlink(artifact);
     } catch(error) {/**/}
     const source = path.resolve(blinkDeploymentTemporaryDirectory);
+    // Electron resolves resources/app/package.json relative to the executable.
+    // Keep the generated package manifest inside the packaged app; the source
+    // distribution's default_app.asar must remain untouched.
     // Windows PowerShell Compress-Archive silently fails on deep/long paths
     // (resources/app/web/...), producing incomplete zips. Prefer 7-Zip or the
     // native `zip` CLI (preinstalled on macOS/Linux runners) instead.

@@ -101,7 +101,10 @@ async function main() {
     if (needsBuild) {
         console.log('Building web + electron (this can take a while)…');
         await run(ViteBin, [ 'build' ], path.join(Root, 'web'));
-        await run('node', [ 'scripts/build-app.mjs', '&&', 'vite', 'build' ], path.join(Root, 'app', 'electron'));
+        const electronDir = path.join(Root, 'app', 'electron');
+        await run('node', [ 'scripts/build-app.mjs' ], electronDir);
+        await run(ViteBin, [ 'build' ], electronDir);
+        await run(ViteBin, [ 'build', '--config', 'vite.preload.config.ts' ], electronDir);
     }
 
     // 2. Serve the built web app.

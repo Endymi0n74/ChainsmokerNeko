@@ -1,6 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { purge, run } from '../../tools.mjs';
+import { purge } from '../../tools.mjs';
 
 const dirBuild = path.resolve('build');
 const dirWebBuild = path.resolve('..', '..', 'web', 'build');
@@ -12,9 +12,7 @@ try {
     targetConfig = JSON.parse(await fs.readFile(targetFile));
 } catch { /* IGNORE */ }
 
-const nmDir=path.resolve(dirBuild,"node_modules");let hasNm=false;try{await fs.access(nmDir);hasNm=true;await fs.rename(nmDir,path.resolve(".tmp","saved_node_modules"));}catch{}
 await purge(dirBuild);
-if(hasNm){try{await fs.rename(path.resolve(".tmp","saved_node_modules"),nmDir);}catch{}}
 
 // Copie le build web local
 const dirWebTarget = path.resolve(dirBuild, 'web');
@@ -43,16 +41,12 @@ const manifest = {
     ],
     'user-data-dir': null,
     'user-agent': targetConfig['user-agent'] ?? null,
-    'repository': pkgConfig.repository ?? null,
-    dependencies: pkgConfig.dependencies
+    'repository': pkgConfig.repository ?? null
 };
-// npm 11+ requires allowScripts keys to match dependency names exactly.
-if (manifest.dependencies) {
-    manifest.allowScripts = {};
-    for (const [name, spec] of Object.entries(manifest.dependencies)) {
-        manifest.allowScripts[name] = true;
-    }
-}
+// NOTE: no `dependencies`/`allowScripts` in the packaged manifest — the main-process
+// bundle inlines Commander and websocket-rpc (see vite.config.ts `ssr.noExternal`),
+// so the packaged app needs no node_modules at runtime (and the previous
+// `npm install --omit=dev` here failed under npm 11's allowScripts policy, shipping
+// an empty node_modules that crashed main.js on `Cannot find module 'commander'`).
 
 await fs.writeFile(targetFile, JSON.stringify(manifest, null, 4));
-try{await fs.access(path.resolve(dirBuild,"node_modules"));console.log("[build-app] node_modules exists, skipping install");}catch{await run("npm install --omit=dev", dirBuild);}

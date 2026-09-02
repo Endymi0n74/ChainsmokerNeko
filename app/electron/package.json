@@ -23,7 +23,7 @@
     "scripts": {
         "check:ts": "tsc --noEmit --pretty",
         "check": "npm run check:ts && eslint",
-        "build": "node ./scripts/build-app.mjs && vite build",
+        "build": "node ./scripts/build-app.mjs && vite build && vite build --config vite.preload.config.ts",
         "bundle": "npm run build && node ./scripts/deploy-app.mjs",
         "bundle:x64": "node ./scripts/bundle-x64.mjs",
         "test": "vitest run",

@@ -54,18 +54,22 @@ export class RemoteBrowserWindowController {
     }
 
     private async CloseWindow(windowID: number): Promise<void> {
-        const win = this.FindWindow(windowID);
-        win.webContents.debugger.detach();
+        const win = BrowserWindow.fromId(windowID);
+        if (!win || win.isDestroyed()) return;
+        if (win.webContents.debugger.isAttached()) win.webContents.debugger.detach();
         win.destroy();
     }
 
     private async SetVisibility(windowID: number, show: boolean): Promise<void> {
-        const win = this.FindWindow(windowID);
+        const win = BrowserWindow.fromId(windowID);
+        if (!win || win.isDestroyed()) return;
         return show ? win.show() : win.hide();
     }
 
     private async ExecuteScript<T extends JSONElement>(windowID: number, script: string): Promise<T> {
-        return this.FindWindow(windowID).webContents.executeJavaScript(script, true);
+        const win = BrowserWindow.fromId(windowID);
+        if (!win || win.isDestroyed()) throw new Error(`Failed to find window with id ${windowID}!`);
+        return win.webContents.executeJavaScript(script, true);
     }
 
     private async SendDebugCommand<T extends void | JSONElement>(windowID: number, method: string, parameters?: JSONObject): Promise<T> {

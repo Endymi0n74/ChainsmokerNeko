@@ -11,7 +11,8 @@ import { run } from '../../tools.mjs';
  */
 
 // Git Bash (used on Windows) does not always have npm/node on PATH for spawned
-// processes — add the NodeJS install dir so `npm install` inside build-app.mjs works.
+// processes. The build commands below use process.execPath directly, so they do
+// not depend on PATH resolution.
 if (process.platform === 'win32') {
     const nodeDir = path.dirname(process.execPath);
     if (!process.env.PATH.includes(nodeDir)) {
@@ -31,8 +32,12 @@ const dirRes = path.resolve('..', 'res');
 
 // 1. Electron app build (web build must exist already — the root script builds it first)
 console.log('[bundle:x64] electron build (web copy + manifest + main/preload)…');
-await run('node ./scripts/build-app.mjs');
-await run(`node ${path.resolve('..', '..', 'node_modules', 'vite', 'bin', 'vite.js')} build`);
+const nodeBin = process.execPath;
+await run(`"${nodeBin}" ./scripts/build-app.mjs`);
+const viteBin = path.resolve('..', '..', 'node_modules', 'vite', 'bin', 'vite.js');
+await run(`"${nodeBin}" "${viteBin}" build`);
+// Preload builds separately so it stays self-contained (see vite.preload.config.ts).
+await run(`"${nodeBin}" "${viteBin}" build --config vite.preload.config.ts`);
 console.log('[bundle:x64] electron build done.');
 
 // 2. Single x64 zip from the cached Electron distribution
