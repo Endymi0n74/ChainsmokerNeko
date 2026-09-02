@@ -16,9 +16,6 @@
 ![Plugins](docs/screenshots/plugins.png)
 
 
-> Les captures sont régénérées avec `node scripts/take-screenshots.mjs` (lance
-> l'app Electron sur un serveur `vite preview` local).
-
 ## 📄 Licence
 
 [Unlicense](UNLICENSE) — domaine public.
