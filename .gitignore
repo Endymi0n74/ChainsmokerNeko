@@ -4,6 +4,7 @@
 cache
 build
 app/electron/.tmp/
+app/electron/.user-data/
 bundle
 deploy
 dist
