@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { PuppeteerFixture } from '../../../../test/PuppeteerFixture';
-import type { Chapter } from '../providers/MangaPlugin';
 
 // Minimal valid 1x1 PNG — enough for the exporters to treat the blob as a real
 // image without network access or decoding.
