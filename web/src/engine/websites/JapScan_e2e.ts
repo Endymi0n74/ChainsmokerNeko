@@ -45,3 +45,26 @@ new TestFixture({
         type: 'image/jpeg'
     }
 }).AssertWebsite();
+
+// CASE: Volume Reader (Dreamland volume 24 — page-selector walk recovery)
+new TestFixture({
+    plugin: {
+        id: 'japscan',
+        title: 'JapScan'
+    },
+    container: {
+        url: 'https://www.japscan.foo/manga/dreamland/',
+        id: '/manga/dreamland/',
+        title: 'Dreamland'
+    },
+    child: {
+        id: '/manga/dreamland/volume-24/',
+        title: 'Volume 24',
+        timeout: 300_000 // 5 min budget for volume reader with page-selector walk
+    },
+    entry: {
+        index: 0,
+        size: 100_000, // placeholder — will be adjusted after first run
+        type: 'image/jpeg'
+    }
+}).AssertWebsite();

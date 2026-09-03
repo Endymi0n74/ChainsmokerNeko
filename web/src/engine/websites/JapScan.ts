@@ -127,32 +127,21 @@ export default class extends DecoratableMangaScraper {
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {
         const referer = new URL(chapter.Identifier, this.URI).href;
-        const chapterURL = new URL(chapter.Identifier, this.URI); // Volumes are huge (hundreds of pages): the reader lazy-loads them in
-        // screenfuls and stops mounting after ~110 images even when drained, so
-        // query the DRM extractor first for those and keep the reader as fallback.
-        // Normal chapters stay reader-first: the DRM window can time out while the
-        // reader already has the pages. (Parallel allSettled here was tried and
-        // reverted: the duplicate window re-triggers the anti-bot puzzle and can
-        // deadlock both extractions.)
-        if (IsVolumeChapter(chapter)) {
-            // TEST: real-condition measurement of the DRM output for volumes.
-            // Remove these two logs once the ~110 cap is explained.
-            try {
-                const drmPages = await this.#drm.CreateImageLinks(chapterURL);
-                console.log(`[TEST DRM] ${chapter.Identifier} -> ${drmPages.length} pages (last: ${drmPages.at(-1) ?? 'n/a'})`);
-                if (drmPages.length) {
-                    return drmPages.map(link => new Page(this, chapter, new URL(link), { Referer: referer }));
-                }
-            } catch (error) {
-                console.error(`[TEST DRM] ${chapter.Identifier} failed:`, error);
-            }
-        }
-
+        const chapterURL = new URL(chapter.Identifier, this.URI);
+        // The visible reader window (5-minute budget) is the only context where the
+        // interactive anti-bot puzzle can be solved in place. The extraction runs the
+        // site DRM bootstrap inside that same window, so volume chapters deliver their
+        // full page list from the page's own protected payload once unlocked — no
+        // second DRM window needed (its hardcoded 30s budget always times out against
+        // the async `captcha_d.js` puzzle, see DRMProvider.CreateImageLinks).
         const extraction = await ExtractPagesFromReader(referer);
         const readerPages = extraction.links;
-        console.log(`[TEST Reader] ${chapter.Identifier} -> ${readerPages.length} pages (total indicator: ${extraction.total ?? 'none'})`);
+        console.log(`[JapScan] ${chapter.Identifier} -> ${readerPages.length} pages (drm: ${extraction.drm ?? 0}, dom: ${extraction.dom ?? 0}, selector: ${extraction.selector ?? 0}, total: ${extraction.total ?? 'none'})`);
         let pages = readerPages;
         if (ShouldCompleteWithDRM(readerPages) || IsIncompleteReaderResult(readerPages, extraction.total)) {
+            // Last resort: the reader under-delivered and carried no DRM payload.
+            // Query the DRM provider directly; its window may still time out on the
+            // anti-bot, in which case the reader's partial result is kept.
             try {
                 pages = MergePageLinks(await this.#drm.CreateImageLinks(chapterURL), readerPages);
             } catch {
