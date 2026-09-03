@@ -21,7 +21,7 @@ export const STALL_TIMEOUT_MS = 15_000;
  * broken connector can occupy the shared download queue. (Note: JapScan's own
  * reader extraction keeps its longer internal budget — see JapScan.Extract.)
  */
-export const CHAPTER_UPDATE_TIMEOUT_MS = 120_000;
+export const CHAPTER_UPDATE_TIMEOUT_MS = 300_000;
 
 /**
  * Reject if {@link promise} does not settle within {@link ms}.

@@ -198,8 +198,19 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
             };
             const isBlocked = () => {
                 try {
-                    return !!document.querySelector('#jc-overlay')
-                        || (window.__captcha && window.__captcha.needed === true);
+                    const overlay = document.querySelector('#jc-overlay');
+                    if (overlay) {
+                        // The overlay can linger in the DOM after the puzzle was solved
+                        // (hidden via CSS). Only treat it as blocking when it is actually
+                        // visible on screen — otherwise the user can already interact.
+                        const style = window.getComputedStyle(overlay);
+                        const visible = style.display !== 'none'
+                            && style.visibility !== 'hidden'
+                            && parseFloat(style.opacity) > 0
+                            && overlay.offsetHeight > 0;
+                        if (visible) return true;
+                    }
+                    return !!(window.__captcha && window.__captcha.needed === true);
                 } catch { return false; }
             };
             const seen = new Map();
@@ -310,15 +321,19 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
             const waitWhileBlocked = async (budgetMs = 180_000) => {
                 const started = Date.now();
                 const baseline = realLoads();
+                let lastSeenSize = seen.size;
                 let announced = false;
                 let lastCheck = Date.now();
                 while (Date.now() - started < budgetMs) {
                     collect();
                     if (!isBlocked()) break;
                     if (realLoads() > baseline + 2) break;
-                    // Don't busy-loop: wait at least 500ms between checks.
-                    // If the worst ever happens, bail out after 5s of no variation
-                    // to get back to the paging flow.
+                    // New DOM images appeared (lazy-loader mounted more pages)
+                    // even though the resource-timing counter did not increase
+                    // (e.g. cached images). Treat DOM growth as proof the reader
+                    // is usable again.
+                    if (seen.size > lastSeenSize) break;
+                    lastSeenSize = seen.size;
                     const now = Date.now();
                     if (now - lastCheck < 500) {
                         await new Promise(resolve => setTimeout(resolve, 500));
@@ -326,7 +341,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     lastCheck = now;
                     if (!announced) {
                         announced = true;
-                        try { console.warn('[KUMO] JapScan overlay detected — waiting for user to solve the puzzle'); } catch {}
+                        try { console.warn('[KUMO] JapScan overlay detected - waiting for user to solve the puzzle'); } catch {}
                     }
                 }
             };
@@ -349,6 +364,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     const links = drmComplete()
                         ? [...new Set([...drmPages, ...domLinks])]
                         : domLinks;
+                    console.log('[JapScan] ' + location.pathname + ' -> ' + links.length + ' pages (drm: ' + drmPages.length + ', dom: ' + domCount + ', selector: ' + selectorCount + ', total: ' + (total || 'none') + ')');
                     return {
                         links,
                         total: total ?? readTotalPages(),
@@ -366,6 +382,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                 const readPageSelectorURLs = ${ReadPageSelectorURLs.toString()};
                 const enumeratePageSelectorImages = async budgetMs => {
                     const urls = readPageSelectorURLs();
+                    console.log('[JapScan] page-selector walk: ' + urls.length + ' walkable URLs found');
                     if (!urls.length) return false;
                     const deadline = Date.now() + budgetMs;
                     const workers = Math.min(3, urls.length);
@@ -403,6 +420,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     try {
                         await Promise.all(Array.from({ length: workers }, () => run()));
                     } catch (e) {}
+                    console.log('[JapScan] page-selector walk complete: ' + seen.size + ' total pages after walk');
                     return true;
                 };
                 if (total) {
@@ -481,6 +499,9 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                         || ++steps >= MAX_STEPS;
                     if (done) {
                         collect();
+                        // Update domCount to include scroll-loop discoveries so
+                        // the diagnostic correctly attributes all DOM-scraped pages.
+                        domCount = seen.size - selectorCount;
                         resolve(finalize());
                     } else {
                         setTimeout(step, STEP_MS);

@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 2 septembre 2026 (v3.0.2 — rebuild bundle multi-arch avec fix JapScan 300s)
+> Dernière mise à jour : 3 septembre 2026 (v3.0.2 — reader-first JapScan + page-selector walk + diagnostics + fix overlay visibilité)
 
 ---
 
@@ -92,8 +92,10 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 
 ### JapScan
 - Puzzle interactif (#jc-overlay) + Cloudflare Turnstile interactif
-- **Fix pages manquantes** : FetchPages lance DRM + scroll en parallègle, fusionne et déduplique les résultats
-- Scroll limit 80→500 steps, stable detection 20 steps, timeout 300s
+- **Reader-first extraction** : une seule fenêtre visible avec DRM bootstrap en preload ; le script protégé du site décode la liste complète des pages une fois le puzzle résolu — pas de 2e fenêtre DRM (budget 30s toujours dépassé par captcha_d.js async)
+- **Page-selector walk** : quand le lazy-load drain plafonne à ~110 images malgré l'indicateur du sélecteur de pages (volume), l'extraction récupère les pages restantes en fetchant les URLs du sélecteur same-origin dans la fenêtre déjà déverrouillée (3 workers, 15s/timeout, 100s budget)
+- **Source-breakdown diagnostics** : `ReaderExtraction` expose `drm`, `dom`, `selector` pour diagnostiquer d'un coup d'oeil si la récupération a échoué
+- Scroll limit 500 steps, stable detection 20 steps, timeout 300s
 - Cloudflare résolu via plugin navigateur (Interactive mode)
 ### MangaNova
 - Catalogue `/catalogue`, fiches `/manga/<slug>`, chapitres `/lecture-en-ligne/<slug>/chapitre/<n>`
@@ -151,7 +153,7 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 - **Fix pages manquantes + 404 CDN (v3.0.2)** : fin de collecte = `atBottom && stable` (8 rounds, au lieu de `atBottom || stable`) ; pause de la collecte tant que `#jc-overlay`/`__captcha.needed` visible (l'utilisateur résout dans la fenêtre visible), sortie anticipée si vraies images re-décodées (`decodedBodySize > 10ko` — l'overlay peut persister dans le DOM après résolution comme le Turnstile) ; collecte élargie aux holders `[data-src]/[data-original]/[data-lazy-src]` non-img ; garde-fou 80 rounds sans nouvelle URL.
 - ⚠️ Piège : backticks dans les commentaires DANS un template literal ferment le template → TS1005. Mots simples dans ces commentaires.
 - Lint : parenthèses redondantes retirées dans `cleared = widgetGone || ...` (precedence `&&`/`||` inchangée) — CI lint doit rester vert.
-- **Validation utilisateur : JapScan OK** ✅ (PDF ✅, omnibus UI ✅) — v3.0.2 en attente de re-validation (volume 24 Dreamland)
+- **Validation utilisateur : JapScan OK** ✅ (PDF ✅, omnibus UI ✅) — v3.0.2 en attente de validation volume 24 Dreamland (e2e ajouté, timeout 300s)
 
 ### Screenshots doc
 - `scripts/take-screenshots.mjs` (Puppeteer, captures UI réelles 49-99 KB)
@@ -228,6 +230,7 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 
 ## 9. Conventions
 
+- **Langue : français uniquement** — répondre toujours en français à l'utilisateur, quel que soit le modèle
 - **Pas de `git add -A`** ; committer uniquement les fichiers liés
 - **Commit format**: description concise + `🤖 Generated with Codebuff` / `Co-Authored-By: Codebuff <noreply@codebuff.com>`
 - **Pas de push** sans demande explicite
@@ -404,14 +407,14 @@ STATUT
 - Preuve : `npm run bundle:x64` à la racine en UNE commande = exit 0 (web build → build-app → vite main+preload → rcedit → 7z).
 - ⚠️ Le shell de l'agent Freebuff garde le PATH obsolète (processus long) → en session : `export PATH="$(echo "$PATH" | tr -d '"')"` avant toute commande npm/cmd ; les NOUVEAUX terminaux sont OK sans workaround.
 
-### JapScan « Chapter update … timed out after 15000ms » ✅ (nécessite rebuild)
-- **Cause** : `STALL_TIMEOUT_MS` (15s) bornait AUSSI `Media.Update()` (résolution liste de pages), alors que JapScan ouvre un reader visible, attend le puzzle `#jc-overlay` (budget 180s dans JapScan.Extract) puis scroll en lazy-load → dépasse légitimement 15s. Les autres sites résolvent en <1s → seul JapScan échouait.
-- **Fix** (`CHAPTER_UPDATE_TIMEOUT_MS = 300_000` = timeout du fetch provider reader) :
-  - `web/src/engine/DownloadTask.ts` : nouvelle constante + `Media.Update()` borné par elle (avec commentaire explicatif)
+### JapScan « Chapter update … timed out after 120000ms » ✅ (nécessite rebuild)
+- **Cause** : `CHAPTER_UPDATE_TIMEOUT_MS` (120s) bornait `Media.Update()` dans `DownloadTask.Run()`, alors que le pipeline JapScan (puzzle interactif `#jc-overlay` ≈ 150s + drain lazy-load ≈ 90s + page-selector walk ≈ 100s) a besoin de jusqu'à 300s. Le timeout externe expirait avant les budgets internes. Les autres sites résolvent en <1s → seul JapScan échouait.
+- **Fix** (`CHAPTER_UPDATE_TIMEOUT_MS = 300_000` = budget du fetch provider reader `FetchWindowPreloadScript`) :
+  - `web/src/engine/DownloadTask.ts` : constante portée à 300s, commentaire mis à jour
   - `web/src/engine/CollectionDownloadTask.ts` : `WaitForUpdate()` (collection/omnibus) sur la même constante
-  - Le stall PAR PAGE reste 15s (une image bloquée ne fige pas la file) ; un connecteur cassé reste borné (5 min max).
-- **Vérifs** : `tsc --noEmit` web ✅ ; vitest `DownloadTask_test` + `DownloadManager_test` = **40/40 ✅**.
-- ⚠️ À re-tester en app réelle (JapScan) + rebuild bundle requis.
+  - Le stall PAR PAGE reste 15s (`STALL_TIMEOUT_MS`) — une image bloquée ne fige pas la file ; un connecteur cassé reste borné (5 min max).
+- **Vérifs** : `tsc --noEmit` web ✅ ; vitest `DownloadTask_test` (27/27) + `DownloadManager_test` (13/13) = **40/40 ✅** ; tous les tests web (2154/2154 ✅).
+- ⚠️ À re-tester en app réelle (JapScan — Dreamland Volume 24) + rebuild bundle requis.
 - **Pré-chauffage `FetchMangas` (2 sept., après-midi)** : ouvre `/mangas/?p=1` en fenêtre visible (`FetchWindowScript(request, 'true', 2s, 300s, show)`) pour résoudre le challenge Cloudflare interactif avant la pagination HTTP ; fallback silencieux (try/catch). Intégré depuis `C:\Users\endymion\Downloads\JapScan.ts` (diff = 1 seule vraie modif). tsc ✅, eslint --fix (4× no-multi-spaces) ✅. Non committé. Notes : pas de cache session « pré-chauffé » (fenêtre rouverte à chaque ouverture) ; `2_000` = délai avant injection (le commentaire « poll interval » est imprécis) ; commentaire FR→EN.
 - **Rebuild final 2 (2 sept., 16:39-16:46)** : `bundle-full-fixed.ps1` (build:web + bundle) après intégration du pré-chauffage → 6 artefacts frais (mtimes 16:40-16:46), 0 erreur, nouveau hash `MTK7DAO5`, **vérifié contenu** : `3e5` dans `DownloadTask.js` (ia32) + `mangas/?p=1`/`FetchWindowScript` dans `HakuNeko.js` (ia32 et x64). Les installateurs NSIS embarquent le même `resources/app`.
 - **e2e JapScan (2 sept., 16:35-16:41)** : 🚫 BLOQUÉ — `FetchProvider_Fetch_CloudFlareChallenge` sur `jujutsu-kaisen/` et `king-game/` (8 échecs / 2 init OK, retry identique) : l'IP est challengée et le e2e tourne avec un profil temporaire vierge (pas de `cf_clearance`/extension, l'Utilisateur ne peut pas résoudre le puzzle interactif dans le timeout). Env. NON lié au pré-chauffage (le fixture teste `FetchMangaCSS` mono-URL, chemin intact). Validation runtime du pré-chauffage = manuel (ouvrir l'onglet Mangas dans l'app).
@@ -422,3 +425,47 @@ STATUT
 - **Fix** : `git reset` (mixed, non destructif — réécrit l'index depuis HEAD, working tree INTACT) → index recréé (312 Ko), `git status --short --untracked-files=no` = 15 entrées ` M` seulement (0 suppression).
 - **Vérifié** : mes modifs présentes (`CHAPTER_UPDATE_TIMEOUT_MS` dans DownloadTask.ts + CollectionDownloadTask.ts, MEMORY.md §13) + modifs préexistantes non committées (§5b/§12) intactes.
 - **Suite (même jour)** : commit `0ce03b955` « chore(build): track preload vite config and ignore electron user-data » — a ajouté `app/electron/.user-data/` au `.gitignore` (CRLF respecté) et committé `app/electron/vite.preload.config.ts` (requis par `vite build --config vite.preload.config.ts`). Les 15 fichiers ` M` restants (fix JapScan, DownloadTask/CollectionDownloadTask timeouts, MEMORY.md) sont TOUJOURS non committés (choix utilisateur).
+
+---
+
+## 14. Session 3 septembre 2026 — JapScan reader-first + page-selector walk + diagnostics
+
+### Reader-first volume extraction (`c3289d7fe`)
+- **Avant** : FetchPages ouvrait DRM en parallèle du reader pour les volumes (régression par rapport au séquentiel de §12). Le DRM ouvrait une 2e fenêtre dont le budget 30s expirait toujours sur captcha_d.js async.
+- **Après** : une seule fenêtre visible reader avec le DRM bootstrap en preload (`JapScan.DRM.preload.ts`). Le script protégé du site décode la liste complète des pages via CustomEvent une fois le puzzle résolu — pas de 2e fenêtre.
+- **Fallback** : si le reader sous-livre (< 5 pages ou < total), `CreateImageLinks` (DRM provider) est tenté en dernier recours.
+
+### Page-selector walk (`JapScan.Extract.ts`)
+- **Problème** : les lecteurs volume JapScan montent lazy-load les images par écrans et plafonnent à ~110 images, même avec drain, alors que le sélecteur de pages (`select#pages`) annonce le vrai total (~204 pour Dreamland vol. 24).
+- **Solution** : `ReadPageSelectorURLs()` — helper sérialisable qui lit les URLs du sélecteur de pages (value, data-url, data-href, href), filtrées same-origin, chapter-subtree, dédupliquées. `enumeratePageSelectorImages()` — fetch same-origin de chaque page URL dans la fenêtre déjà déverrouillée (3 workers, 15s abort, 100s budget), parsing DOM de la réponse pour extraire l'image CDN. Pages ordonnées par position sélecteur, fusionnées avec les pages DOM.
+- **Précédence** inchangée : DRM payload > DOM drain > selector walk > host-side CreateImageLinks fallback.
+
+### Source-breakdown diagnostics
+- `ReaderExtraction` : nouveaux champs `dom` (pages DOM avant selector walk) et `selector` (nouvelles pages récupérées par le walk). Log : `[JapScan] /path/ -> N pages (drm: X, dom: Y, selector: Z, total: T)`
+- Lecture instantanée : `drm: 204` = DRM complet ; `drm: 0, dom: 110, selector: 94, total: 204` = lazy-load stall récupéré par walk ; `drm: 0, dom: 85, selector: 0, total: 204` = walk échoué.
+
+### Fichiers modifiés
+- `web/src/engine/websites/JapScan.DRM.preload.ts` (nouveau) : bootstrap DRM sérialisable pour le reader window
+- `web/src/engine/websites/JapScan.Extract.ts` : TransformDRMPayload, ReadPageSelectorURLs, scanFetchedPage, enumeratePageSelectorImages, dom/selector counts dans finalize()
+- `web/src/engine/websites/JapScan.Extract_test.ts` : 15 tests (OrderPageLinks, TransformDRMPayload, ReadTotalPageIndicator, ReadPageSelectorURLs)
+- `web/src/engine/websites/JapScan.ts` : FetchPages reader-first sans DRM parallèle, log source-breakdown
+- `web/src/engine/websites/JapScan_e2e.ts` : fixture Dreamland volume 24 (timeout 300s)
+
+### Validation
+- `tsc --noEmit` web ✅ et electron ✅ (0 erreur)
+- Vitest : JapScan_test 4/4 + JapScan.Extract_test 15/15 + DownloadTask_test 27/27 + DownloadManager_test 13/13 = **59/59 ✅**
+- E2E JapScan : 🚫 BLOQUÉ (Cloudflare interactif, profil temporaire) — fixture Dreamland ajouté, validation runtime = manuelle
+- Commit `c3289d7fe` : 5 fichiers, 467 insertions, 32 suppressions
+
+### Tests manuels à valider
+1. Lancer l'app (`node .tmp/launch-app.mjs`)
+2. Ouvrir JapScan → Dreamland → Volume 24
+3. Résoudre le puzzle `#jc-overlay`
+4. Vérifier log console : `~204 pages (drm: X, dom: Y, selector: Z, total: ~204)`
+5. Le page-selector walk doit récupérer les pages au-delà de ~110
+6. Télécharger et vérifier que les timeouts (15s/page, 300s/chapter) ne bloquent pas
+
+### Rebuild bundle 3 sept (17:50-17:57) ✅
+- 6 artefacts Windows régénérés depuis l'arbre de travail : 3 zips + 3 NSIS, hash web `MTLPAGU7`.
+- Vérifié dans les 6 artefacts (zip + installateurs) : `3e5` (`CHAPTER_UPDATE_TIMEOUT_MS` 300s) dans `DownloadTask.js` + fix overlay (`getComputedStyle` sur `#jc-overlay`) dans `HakuNeko.js`. Aucun `12e4` résiduel.
+- ⚠️ Piège confirmé : le bundle de 12:36 contenait encore `12e4` (120s) — `npm run bundle` copie `web/build` sans le reconstruire ; il faut `build:web` d'abord (ou build depuis l'arbre de travail).
