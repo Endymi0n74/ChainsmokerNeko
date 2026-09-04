@@ -469,3 +469,206 @@ STATUT
 - 6 artefacts Windows régénérés depuis l'arbre de travail : 3 zips + 3 NSIS, hash web `MTLPAGU7`.
 - Vérifié dans les 6 artefacts (zip + installateurs) : `3e5` (`CHAPTER_UPDATE_TIMEOUT_MS` 300s) dans `DownloadTask.js` + fix overlay (`getComputedStyle` sur `#jc-overlay`) dans `HakuNeko.js`. Aucun `12e4` résiduel.
 - ⚠️ Piège confirmé : le bundle de 12:36 contenait encore `12e4` (120s) — `npm run bundle` copie `web/build` sans le reconstruire ; il faut `build:web` d'abord (ou build depuis l'arbre de travail).
+
+### Log de durée par phase (`JapScan.Extract.ts`)
+- `timing = { puzzleMs, drainMs, walkMs, scrollMs }` : temps passé dans `waitWhileBlocked` (puzzle, accumulé sur tous les appels), drain lazy-load, page-selector walk, scroll fallback.
+- Log finalize enrichi : `... (drm: X, dom: Y, selector: Z, total: T) puzzle: Xs, drain: Ys, walk: Zs, scroll: Ws`.
+- `waitWhileBlocked` : les 3 conditions de sortie fusionnées en une seule (équivalent), pour accumuler le temps de puzzle en un seul point.
+- Validation : tsc web ✅ ; vitest 2154/2154 ✅ (dont JapScan.Extract_test 15/15).
+
+### ⚠️ Le log de phase ne remonte pas dans la capture console (mesure Dreamland 24)
+- Session 3 sept 19:37-20:13 (pid 18948, build `MTLQVPM0`) : **aucune ligne `puzzle:/drain:/walk:/scroll:` capturée**, et aucun résultat `[JapScan]` pour Dreamland volume-24 (reader chargé 19:57:34, activité arrêtée ~19:59:53, aucune résolution).
+- Les 7 lignes `[JapScan]` capturées (one-piece/1192 ×3, dreamland-remaster volume-10 ×4, tous `drm: 0, selector: 0`, `dom: 18` ou `110-113` vs `total: 272` — boucle de retry incomplète ~78s) viennent du log **externe** `FetchPages` (JapScan.ts), pas du finalize du script.
+- Cause : le script d'extraction tourne dans la fenêtre reader séparée (`FetchWindowPreloadScript`) ; son `console.log` n'atteint PAS la capture `--enable-logging` (seuls les messages générés par le navigateur — CSP/CORS — y apparaissent). Le log externe `FetchPages` (fenêtre principale) est bien capturé.
+- Fix appliqué : les durées remontent désormais **dans l'objet résultat** (`ReaderExtraction.puzzle/drain/walk/scroll` en secondes, ajoutées au retour de `finalize()`), loggées par `FetchPages` (console capturée). Build `MTLW7S2M` (web + app/electron) — nécessite un relaunch de l'app pour mesurer.
+- Validation : tsc web ✅ ; vitest 2154/2154 ✅.
+
+### Console des fenêtres reader routée vers le log main (diagnostics sans modifier la page)
+- `app/electron/src/ipc/RemoteBrowserWindow.ts` (contrôleur main) : `win.webContents.on('console-message', …)` sur chaque fenêtre ouverte via `FetchWindowPreloadScript`.
+- Ligne émise dans la console du processus principal : `[ReaderWindow:<win.id>] [<level>] <message> (<sourceId>:<lineNumber> @ <frame.url>)` — `console.warn` pour warning/error, `console.log` sinon. Greppable dans `.tmp/electron-launch.log` (`grep ReaderWindow`).
+- Ne filtre PAS (toute la console de la fenêtre, y compris sous-frames/iframes) ; la capture native `INFO:CONSOLE` reste inchangée → double visibilité, pas de perte.
+- Complémentaire du fix résultat-objet : couvre tout futur `console.log` du script d'extraction sans re-instrumenter la page.
+- Validation : tsc electron ✅ ; vitest electron 28/28 ✅ ; `npm run build` (app/electron) OK — `ReaderWindow` présent dans `build/main.js`.
+
+### ✅ Mesures réelles Dreamland vol-24 / vol-10 (3 sept 22:14-22:38, build MTLW7S2M + routage [ReaderWindow])
+- 8 runs capturés dans `.tmp/electron-launch.log` (lignes `[JapScan] ... -> N pages ... puzzle/drain/walk/scroll` = log externe FetchPages, timings portés par l'objet résultat).
+- **vol-24 (5×, identiques)** : `114 pages (drm: 0, dom: 114, selector: 0, total: 204) puzzle: 0s, drain: 4s, walk: 0s, scroll: 5.4s` — 22:14:53 / 22:18:12 / 22:20:59 / 22:28:32 / 22:36:07 (cadence irrégulière 2m47s→7m35s = **re-téléchargements manuels**, PAS une boucle auto ~78s ; le ~78s de la session 19:37 était dominé par l'attente puzzle).
+- **vol-10 (3×)** : `110 pages (drain: 18.1s)` puis `114 pages (drain: 9s)` à 10s d'écart (2e run = fenêtre fallback DRM), puis `114 pages (drain: 4s)`.
+- **Comparaison budgets** : puzzle mesuré **0s** vs 180s (jamais atteint en session chaude — ne borne que le temps humain) ; drain **4-18s** vs 90s (sortie par garde anti-stall `stallRounds<4`, jamais par le cap) ; walk **0s** vs 100s (**no-op structurel** : 0 URL walkable — options de `select#pages` = numéros nus) ; scroll **5.4s** vs 125s (sortie par stabilité).
+- **Conclusion** : total mesuré ~9-24s vs somme des budgets ~495s → **les budgets ne sont PAS le problème** ; les resserrer ne changerait rien. Le problème est la **complétude** : `dom: 110-114` (lazy-loader s'arrête / pagination) + `drm: 0` (payload DRM jamais décodé) + `walk: 0` (sélecteur sans URLs) → ~90-158 pages manquantes par volume.
+- **Indice nouveau** : lignes `[ReaderWindow] [error]` = `fetch()` vers `c4.japscan.foo` (CDN images) **bloqué CORS** depuis la page reader — possible cause de l'arrêt du lazy-loader à ~110 (le site fetch-rait les images au-delà).
+- **Limite du routage** : les `console.log` du script d'extraction (exécuté via `executeJavaScript`) ne remontent PAS via `[ReaderWindow]` (seuls les logs du contexte page remontent : preload + scripts du site). Aucune ligne `page-selector walk: N walkable URLs found` dans le log — les timings restent fiables car portés par l'objet résultat.
+
+### Synthèse d'URLs de pages volume dans le walk (fix complétude 110/204-272)
+- **Cause mesurée** (8 runs 22:14-22:38) : `walk: 0s, selector: 0` — les options de `select#pages` sont des **numéros nus** (`1..N`) sans `data-url` → `ReadPageSelectorURLs()` retourne [] → le walk ne peut rien récupérer au-delà des ~110-114 images montées par le lazy-loader.
+- **Fix** (`JapScan.Extract.ts`) :
+  - Nouveau helper sérialisé `ReadPageSelectorRange()` : lit la plage `{min,max}` d'un select page-like dont les options sont numériques (ou labels → repli sur options.length). Exporté + testé (5 tests).
+  - Dans `enumeratePageSelectorImages` : quand le walk ne trouve aucune URL explicite, **synthèse** de documents de page depuis `location.pathname` via 4 templates (`base+n+'/'`, `base+'page/'+n+'/'`, `base+'?page='+n`, `base+'?p='+n`), **validés par un fetch de probe** (page échantillon au milieu de la plage, 8s abort) : seul un template qui rend une image CDN **inédite** est adopté → marche sur `range.min..max`. Un mauvais pattern ne coûte que ~4 fetchs et ne pollue pas `seen`.
+- Sérialisation sûre : code inséré **sans backslash ni backtick** (template literal). Script sérialisé re-syntax-checké (`new Function`, 24.7 KB) OK.
+- Validation : tsc web ✅ ; vitest JapScan 24/24 ✅ (Extract 20 dont 5 nouveaux range). Builds : web `MTM3F71N` + app/electron régénérés.
+- **À tester** : relancer l'app → Dreamland vol-24 ou vol-10 → la ligne résultat doit montrer `selector: >0` (ex. `dom: 114, selector: ~90, total: 204`) si le template `/manga/.../volume-24/{n}/` existe ; sinon `selector: 0` inchangé + logs probe in-window (non routés) → itérer sur le pattern réel.
+
+### 04/09 diag in-window (walk-synth test + CORS/CSP evidence)
+
+- Test du build MTM3F71N (synthèse d'URLs) : 3 runs vol-24 → selector: 0 partout, walk 0.6-0.7s = les 4 probes rejetés. Le reader volume JapScan n'a PAS de documents par page (SPA lazy) → la marche du sélecteur est une impasse pour les volumes.
+- Preuve CORS/CSP du log : le script du site (v1918241/*.js) fait ~206 fetch no-cors distincts de URLs CDN chiffrées c4.japscan.foo pendant le drain (852 violations CSP connect-src 'none' report-only, 14 vrais blocs CORS seulement) → le site connaît ~toutes les 204 pages; seulement ~110 deviennent des <img>. Verrou = montage JS du site, pas la découverte d'URLs.
+- Ajout GatherReaderDiagnostics() (JapScan.Extract.ts) : renvoyé dans le résultat (diag JSON, loggé par FetchPages côté host) — conteneur de scroll réel, inventaire img (total/resolvedCDN/lazyUnresolved), état buffer resource-timing (fetchCDN/imgCDN), select#pages, overlay. Build MTMN6DGP.
+
+### ✅ Bug: reader diag JSON was computed but never surfaced (2026-09-04, build MTMON4N9)
+
+`GatherReaderDiagnostics()` in the serialized script computed the diag block and `finalize()` put it in its
+result object, but the host-side `ExtractPagesFromReader()` return statement dropped the `diag` field, so the
+`[JapScan] reader diag {...}` host log never fired (only the 4 `-> N pages` lines appeared in the launch log
+on build MTMN6DGP, at 09:58-10:04, all 110-114 pages, and one DownloadTask 300s timeout fired on the
+drain: 23.2s run). Fixed: forward `diag: result?.diag ?? undefined` in the return. Rebuilt → MTMON4N9 served.
+
+### ✅ Dreamland vol-24 diag run on MTMON4N9 (2026-09-04 ~11:28)
+
+Run: `/manga/dreamland/volume-24/ -> 110 pages (drm: 0, dom: 110, selector: 0, total: 204) ... drain: 5s`.
+`[JapScan] reader diag` captured at last (single run, fresh log): `win:{innerHeight 761, docScrollHeight 2617,
+scrollY 1856}` (= bottom reached, window IS the scroller), `scrollers:[div.ss-list client 200 scroll 864,
+div.ss-list client 200 scroll 7344]` (both horizontal dropdown lists, 7344 ≈ 204×36 = the 204-option page list,
+NOT an image scroller), `images:{total 5, resolvedCDN 2, lazyUnresolved 1}` (= NO 204 placeholders in DOM;
+the reader recycles nodes — only ~a screenful mounted at any instant), `buffer:{total 250, fetchCDN 108,
+imgCDN 108, otherCDN 3}` (buffer FULL → overflowed; visible counts post-eviction), `select:{found, options 204,
+min 1, max 203}`, `overlay false`, `drmPages 0`, `domSeen 110`.
+
+Interpretation (both candidate theories eliminated):
+1. Scroll-target theory DEAD — window scrollable and scrolled to bottom; the only inner scrollers are the
+   horizontal 204-item dropdown lists.
+2. Placeholder theory DEAD — DOM holds ~5 imgs, never 204 placeholders; virtualization recycles as it mounts.
+3. Correction: earlier "~206 distinct CDN URLs during drain" was a miscount of duplicate CSP violation lines.
+   Buffer shows ~108 fetch + ~108 img = ~110 materialized URLs — the site builds exactly the ~110 URLs we
+   collect, and NEVER builds URLs for pages 111-204 in a session.
+4. The only channel that could deliver the full ordered 204 (the DRM payload bootstrap) still fires 0
+   (`drmPages: 0`) → DRM decode investigation is now the sole remaining path to completeness.
+
+### ✅ DRM bootstrap dissection — why drmPages stays 0 (2026-09-04, static)
+
+Deobfuscated `JapScan.DRM.js` + `JapScan.DRM.preload.ts` (decoders `P`/`G` extracted,
+constants decoded via the files' own string tables; artifacts `.tmp/deobfuscate-drm.mjs`,
+`.tmp/decode2.mjs`, `.tmp/decode3.mjs`):
+
+- **DRMProvider methods (decoded)** : `Initialize` = `FetchWindowScript('/manga/-/', '')`
+  (session warm-up) ; `CreateChapterList` = DOM scraper (querySelectorAll + computed-style
+  visibility filter + chapter links) — NO payload involved ; `CreateImageLinks` =
+  `FetchWindowPreloadScript(chapterURL, preload, script, 0, 30000, true)`.
+- **The preload (identical in reader AND DRM window)** : patches **`String.prototype.replace`**
+  with a Proxy. On any `replace` call whose RETURN value is base64 of `{"ax": [...], "pi": n}`:
+  `ax.splice(parseInt(pi), 1)` (drops the honeypot at index pi), then
+  `setInterval(() => window.dispatchEvent(new CustomEvent(<random 8-char name>, {detail: ax})), 250)`.
+  Filter markers `_banner_` + `/e44j82.jpg` in `CreateImageLinks` match `TransformDRMPayload`'s
+  exclusions → the payload format is self-consistent with the captured site structure.
+- **Deployment is correct (NOT the bug)** : `app/electron/src/ipc/RemoteBrowserWindow.ts`
+  `OpenWindow` writes the preload string to a temp file and sets `webPreferences.preload`
+  → real Electron preload, runs BEFORE page scripts ; `contextIsolation:false` = main world
+  (patch lands on the page's String) ; `nodeIntegrationInSubFrames:true` = patch installed in
+  EVERY frame → **wrong-frame hypothesis EXCLUDED**.
+- **Verdict (stale hook most likely; puzzle/per-batch gating still possible)** : `drmPages: 0`
+  on every run (12+ across 3 days) means **no replace call in the window's lifetime ever
+  returned an `{ax, pi}` payload**. The site's obfuscated reader scripts VARy between requests
+  (two different anti-debug layers observed in one session: `a[f[13]][k][f[40]]` vs
+  `_0x4e62f3` decoder), image tokens rotated (`xc` → `va`/`vy` in live CDN URLs), and the DRM
+  provider's own window has NEVER delivered on the current site either (30s budget always
+  expires) — zero evidence the hook ever fired against the current site. NOT excluded:
+  (a) puzzle-gating — the decode may only run inside the `#jc-overlay` solve flow, and every
+  measured run was warm (`puzzle: 0s`, `overlay: false`) so the gate was never opened;
+  (b) per-batch gating — the site materializes only ~110 URLs per session, so even a working
+  hook may only ever see ~110 entries, not the full 204.
+- **Decisive next test (one instrumented run)** : extend `GatherReaderDiagnostics` with
+  `replaceProxyActive` (`String.prototype.replace.toString()` returns the spoofed string when
+  our Proxy is live vs `[native code]` if the site reverted it) + a second lightweight
+  replace-wrapper counting calls whose return atob-decodes to `{ax, pi}` — carried back in the
+  diag JSON. That separates stale-hook (0 payload calls, proxy active) from patch-neutralized
+  (proxy gone) from puzzle-gating (payload calls appear only after a real puzzle solve).
+
+### ✅ URL-construction probe in the reader window (2026-09-04, build MTMW5P9C)
+
+Goal: capture every CDN URL the site itself builds (c4.japscan.foo) and the exact condition
+that stops it at ~110, without changing behavior. Added to the serialized script in
+`JapScan.Extract.ts` (installUrlProbe, runs at script start, report carried in the diag JSON):
+
+- **fetch wrapper** (window.fetch): records japscan-host URLs at call time + response
+  status map (no-cors opaque responses report status 0; network errors report 'err').
+- **XHR wrapper** (open/send prototypes): records URL + load/error status.
+- **img src setter** + **Element.setAttribute('src'|'data-src'|...)**: records every
+  image mount path (data-src assignments count too).
+- **IntersectionObserver** subclass: instances, roots, observe() calls, callback
+  invocations, isIntersecting count — the lazy-mount mechanism.
+- **MutationObserver** subclass: instances + observe() calls — node recycling.
+- **error/unhandledrejection** capture (first 5): a silent throw mid-mount-loop would
+  show up here.
+- Report: fetch/xhr/imgSrc counts, distinct URL list (cap 300, truncated flag), 2s time
+  buckets (burst-then-stall pattern), firstMs/lastMs, statuses, io/mo, errors —
+  logged by the host as part of `[JapScan] reader diag {...}`.
+- The walk's own page probes bypass the wrapper via a saved `nativeFetch` (captured
+  before wrapping) so the measurement only sees the SITE's requests.
+- Key discriminator for the run: distinct ≈ 204 but imgSrc ≈ 110 → site builds all URLs
+  yet mounts ~110 (mount gating); distinct ≈ 110 → site never constructs the rest
+  (payload-limited); buckets gap + error captured → exception halted the mount loop.
+- Validation: executed-script syntax OK via new Function (34.4 KB, `.tmp/validate-urlprobe.mjs`),
+  probe regex verified against real c4.japscan.foo URLs, tsc web clean, vitest JapScan
+  24/24. Web hash MTMW5P9C served by the app dir; probe marker confirmed in HakuNeko.js.
+
+### ✅ URL probe moved to PRELOAD time (2026-09-04, build MTMX0G41)
+
+First instrumented run (MTMW5P9C, post-load probe) result: urlProbe all zeros (fetch/xhr/imgSrc/distinct = 0)
+while buffer showed 112 fetch + 112 img CDN entries — the site's URL construction happens at page load,
+BEFORE the extraction script runs (executeJavaScript is post-load), and/or through references the site
+aliases at its init (obfuscator pattern), so a post-load wrapper can never see it. CORS timeline in the
+same run: sparse single c4.japscan.foo fetches at 13:52:54 / 13:54:15 / 13:55:03 / 13:55:49 (~1 per 75s,
+recurring site ping, unrelated to our scroll), ZERO CSP violations in this run vs the 852-line storm at
+07:09 → the site's reader script variants rotate between sessions (confirmed again).
+
+Fix: DRM_URL_PROBE_PRELOAD appended to BuildDRMPreload output (runs BEFORE any page script — real
+preload), same wrappers (fetch/XHR/img-src/setAttribute/IO/MO/error) but image-only filter (japscan
+host + image extension) so the extraction's own same-origin HTML probes never contaminate; exposed as
+window.__jpUrlProbe.report(). Extraction script merges preload report + local post-load capture
+(urlProbeReport) into diag.urlProbe. Verified: full preload syntax OK via new Function (14.3 KB,
+.tmp/validate-preload-probe.mjs), sandbox run proves fetch wrapper records c4 image URLs and IGNORES
+same-origin HTML fetches; extraction script syntax OK, tsc web clean, vitest JapScan 24/24. Hash
+MTMX0G41 served. Next run decides: distinct ≈ 204 (site builds all, mounts ~110) vs ≈ 112 (payload-limited).
+
+### ✅ URL-construction probe (MTMX0G41): all 204 URLs exist, mount caps at ~110
+- Preload-time probe (installed before ANY page script) wrapped fetch/XHR/img.src/setAttribute/IO/MO on the reader window.
+- Two runs (14:19, 14:21) → urlProbe: fetch 208, imgSrc 204, distinct 205, truncated: false. Buckets [0,214,196,...] = the whole construction is ONE burst at page init (2-6s), not progressive.
+- Cross-session comparison: after dropping each run's single divergent FIRST url, the remaining **204 URLs are byte-identical and in the same order in both sessions**. The divergent head is a fetch-only warm-up (fetch 208 > imgSrc 204 by 4; distinct 205 = 204 img-assigned + 1 fetch-only). Site construction is deterministic + display-ordered.
+- Yet only ~110-115 of the 204 ever fetch/mount (resource-timing buffer ≈ 110, domSeen 110-115, docScrollHeight ~2617px ≈ 5 recycled img nodes). Single IntersectionObserver on one sentinel, callback fired once; 2 silent resource errors (no message). → The ~110 cap is a MOUNT-side artifact of the reader's virtualization; the missing ~94 pages are NOT absent — their URLs exist, deterministic, in order.
+- **Fix implication**: DRM channel moot for volumes. The probe's 204 img-assigned URLs (filtered of the fetch-only warm-up head) ARE the complete ordered page list. Harvest them in finalize instead of the DOM mount.
+- Prev entry (MTMW5P9C post-load probe): all zeros — site aliases references at init; probe must be preload.
+
+### ✅ Probe harvest fix (MTMXQZ87): full volume page list from the preload probe
+- finalize() now adopts the preload probe's `imgUrls` (img-assigned CDN URLs, construction = display order, deterministic across sessions) as the page list when it extends the DOM result by ≥5 AND covers the announced total AND the DOM's first page sits in the probe's first 20% (order-direction anchor; reversed/offset lists fall back to DOM).
+- Banner markers (_banner_, /e44j82.jpg) filtered from the probe list; DRM payload still wins when it decodes.
+- ReaderExtraction + host log gain `probe: N` (pages beyond DOM). Type + tests green; builds regenerated.
+- Expected next run: 204 pages (probe: ~94) instead of ~110-115.
+
+### ✅ V24 run MTMXQZ87 (14:52-14:58) — probe: 0 malgré imgUrls 204, + timeout 300s
+- Deux runs terminés : 110/114 pages, `probe: 0` alors que le diag montre `urlProbe: {fetch 206, imgSrc 204, distinct 205, imgUrls: 204 unique, statuses {fetch:200: 205}, firstMs 3311, lastMs 4035, buckets [0,390,20]}` = le site construit TOUTES les URLs en un seul burst ~700ms à +3.3s, dans un ordre déterministe inter-sessions. `localAfter` présent = c'est bien le rapport du probe preload.
+- Cause du rejet : le garde `probeOrderOK` exigeait `domLinks[0]` dans les 20% premiers de probePages (match exact). Échec = soit premier img monté est un banner (_banner_ filtré de probePages → indexOf -1), soit ordre de construction ≠ ordre de montage (inversé/décalé), soit variante URL au montage (redirect/query).
+- 3e run (ReaderWindow:12, 14:53:16) : AUCUNE ligne de finalize → le pire-cas des budgets internes (puzzle 180s + drain 90s + walk 100s + scroll 125s = 495s) dépasse le budget hôte FetchWindowPreloadScript ET le timeout DownloadTask (300s) → carte rouge "timed out after 300000ms". Fenêtre verrouillée (puzzle non résolu) = brûle les 300s.
+- Fix (build MTN00M4F) dans JapScan.Extract.ts finalize() :
+  - Ancre robuste : essaie les 5 premières URLs DOM (contourne un banner en tête), match sans query (variantes token/redirect), détecte forward (index ≤ 20%) OU reversed (index ≥ 80%, liste retournée), exige overlap ≥ 50% des pages montées présentes dans la liste probe.
+  - Diag enrichi : `probeHarvest {domLen, domFirst, probeLen, anchorIdx, reversed, overlap, adopt}` → si rejet persistant, la prochaine run dit exactement pourquoi.
+  - Deadline dure 240s : EXTRACT_DEADLINE clamp chaque budget de phase (waitWhileBlocked/drain/walk/scroll) et un hardTimer resolve(finalize()) inconditionnel → plus jamais de timeout 300s côté script vivant.
+- Tests : tsc clean, vitest JapScan 24/24, validateur script OK (new Function), markers vérifiés dans web/build/MTN00M4F et app/electron/build/web/MTN00M4F.
+- Relance : `node .tmp/launch-app.mjs`. Run attendu : `204 pages (… probe: 94, total: 204)`.
+
+### ✅ V3 chrome-filter + probe passthrough (MTN3PIJW)
+
+- Après V2 (MTN00M4F) : run Dreamland vol-24 → **208 pages téléchargées** (204 probe + 4 chrome), `probeHarvest {domLen:110, domFirst:[top-banner-728x90.png, donate.png, japys/image-1.jpg], probeLen:204, anchorIdx:0, overlap:0.964, adopt:TRUE}` → l'adoption a fonctionné.
+- Bug n°1 : `probe` était **droppé** dans le return host de `ExtractPagesFromReader` (result?.probe manquant, `probe: 0` affiché alors que l'adoption avait eu lieu). Fix : `probe: result?.probe ?? undefined` passe maintenant.
+- Bug n°2 : les 4 pages en trop étaient des images chrome du site (www host) apposées au probe list. Fix : le filtre d'append exclut tout lien dont le hostname est `location.hostname` ou `www.*` (chrome), en plus des marqueurs `_banner_`/`e44j82.jpg`. Classes `[.]` au lieu de backslashes → pas de souci d'échappement dans le script sérialisé.
+- Piège d'échappement : dans le template literal sérialisé, `\/` → `/` (echo du backslash) → le regex `^https?:\/\/...` (single `\` dans le fichier) cassait la syntaxe ("Unexpected token '?'" sur le `?` après `https`). Contourné via `new URL(link).hostname` + `/^www[.]/i`.
+- Tests : tsc clean, vitest JapScan 24/24, validateur `new Function` SYNTAX OK (41.7 Ko), filtre chrome vérifié (CDN append / www skip), markers dans web/build/MTN3PIJW et app/electron/build/web/MTN3PIJW.
+- Run attendu : `204 pages (… dom ~110, probe: 94, total: 204)` **sans pages chrome en trop** (pas de 208).
+
+### ✅ Confirmed: probe harvest delivers full volumes (MTN3PIJW, 2026-09-04)
+
+Two passes on Dreamland vol-24 + two passes on Saint Seiya Dark Wing vol-7, all on MTN3PIJW:
+
+- Pass 1 (vol-24, 17:53): `110 pages, probe: 0` — that session's preload probe captured only 165/204 URLs (site session variance: sometimes the full 204 construction burst happens, sometimes ~165), so the harvest guard (probeLen must cover announced total) correctly refused. DOM-only fallback.
+- Pass 2 (vol-24, 17:58): `205 pages (drm: 0, dom: 114, selector: 0, probe: 90, total: 204)`, `probeHarvest {adopt: TRUE, probeLen: 204, overlap: 0.965}` — probe caught the full 204-URL burst; harvest adopted it; download folder `Desktop/Dreamland/Volume 24` contains exactly `1.png..204.png` (204 files). The printed 205 = 204 probe + 1 stray DOM append whose filename collided at download and deduped away.
+- Passes 3-4 (Saint Seiya Dark Wing vol-7, 18:12/18:13): `157 pages (probe: 46, adopt: TRUE, probeLen: 156, total: 156)` twice — same N+1 stray-append signature.
+
+Remaining wart: one DOM-mounted link (usually a token-refreshed remount of an already-listed page, occasionally site chrome) appends past the probe list on adopted runs → extraction returns announced+1, but the downloader dedupes by filename so folders land exact. Cosmetic; not worth chasing unless extraction-count purity matters.

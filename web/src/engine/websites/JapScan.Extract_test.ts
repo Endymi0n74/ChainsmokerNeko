@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { OrderPageLinks, ReadPageSelectorURLs, ReadTotalPageIndicator, TransformDRMPayload, type OrderedPageLink } from './JapScan.Extract';
+import { OrderPageLinks, ReadPageSelectorRange, ReadPageSelectorURLs, ReadTotalPageIndicator, TransformDRMPayload, type OrderedPageLink } from './JapScan.Extract';
 
 describe('JapScan page extraction helpers', () => {
     it('Should order links by their DOM position instead of discovery order', () => {
@@ -254,5 +254,114 @@ describe('JapScan page selector URLs', () => {
             'https://www.japscan.foo/manga/dreamland/volume-24/2/',
             'https://www.japscan.foo/manga/dreamland/volume-24/3/',
         ]);
+    });
+});
+
+describe('JapScan page selector numeric range', () => {
+
+    interface FakeRangeOption {
+        value: string;
+        textContent?: string;
+    }
+
+    interface FakeRangeSelect {
+        id: string;
+        name: string;
+        className: string;
+        options: FakeRangeOption[];
+    }
+
+    function RangeStub(selects: FakeRangeSelect[]): void {
+        vi.stubGlobal('location', {
+            href: 'https://www.japscan.foo/manga/dreamland/volume-24/',
+            hostname: 'www.japscan.foo',
+            pathname: '/manga/dreamland/volume-24/',
+            search: '',
+        } as unknown as Location);
+        vi.stubGlobal('document', {
+            querySelector: () => null,
+            querySelectorAll: (selector: string) => selector === 'select'
+                ? selects.map(select => ({
+                    id: select.id,
+                    name: select.name,
+                    className: select.className,
+                    getAttribute: () => null,
+                    options: select.options.map(option => ({
+                        value: option.value,
+                        textContent: option.textContent ?? '',
+                        getAttribute: () => null,
+                    })),
+                })) as unknown as ReturnType<typeof document.querySelectorAll>
+                : [] as unknown as ReturnType<typeof document.querySelectorAll>,
+        } as unknown as Document);
+    }
+
+    it('Should return the min/max of bare-number options in #pages', () => {
+        RangeStub([{
+            id: 'pages',
+            name: '',
+            className: '',
+            options: Array.from({ length: 204 }, (_, index) => ({ value: String(index + 1) })),
+        }]);
+        expect(ReadPageSelectorRange()).toEqual({ min: 1, max: 204 });
+    });
+
+    it('Should span non-contiguous numeric options', () => {
+        RangeStub([{
+            id: 'pages',
+            name: '',
+            className: '',
+            options: [
+                { value: '3' },
+                { value: '7' },
+                { value: '5' },
+            ],
+        }]);
+
+        expect(ReadPageSelectorRange()).toEqual({ min: 3, max: 7 });
+    });
+
+    it('Should fall back to the option count for labelled options', () => {
+        RangeStub([{
+            id: 'pages',
+            name: '',
+            className: '',
+            options: [
+                { value: '', textContent: 'Page 1' },
+                { value: '', textContent: 'Page 2' },
+                { value: '', textContent: 'Page 3' },
+            ],
+        }]);
+
+        expect(ReadPageSelectorRange()).toEqual({ min: 1, max: 3 });
+    });
+
+    it('Should return undefined when no page-like selector exists', () => {
+        RangeStub([{
+            id: 'volume',
+            name: 'sort',
+            className: '',
+            options: [
+                { value: 'asc' },
+                { value: 'desc' },
+            ],
+        }]);
+
+        expect(ReadPageSelectorRange()).toBeUndefined();
+    });
+
+    it('Should ignore URL-valued options (not a numeric range)', () => {
+        RangeStub([{
+            id: 'pages',
+            name: '',
+            className: '',
+            options: [
+                { value: '/manga/dreamland/volume-24/2/' },
+                { value: '/manga/dreamland/volume-24/3/' },
+            ],
+        }]);
+
+        // URL-valued selectors are handled by ReadPageSelectorURLs instead.
+        expect(ReadPageSelectorRange()).toEqual({ min: 1, max: 2 });
     });
 });

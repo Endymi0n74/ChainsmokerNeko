@@ -47,6 +47,19 @@ export class RemoteBrowserWindowController {
         win.setMenuBarVisibility(false);
         win.webContents.debugger.attach('1.3');
         win.webContents.setWindowOpenHandler(() => { return { action: 'deny' }; });
+        // Route the reader window's in-page console output into the main-process log
+        // (captured e.g. via `--enable-logging`) so extraction-script diagnostics are
+        // visible without instrumenting the page itself.
+        win.webContents.on('console-message', (details) => {
+            const level = details.level ?? 'info';
+            const frame = details.frame?.url ? ` @ ${details.frame.url}` : '';
+            const line = `[ReaderWindow:${win.id}] [${level}] ${details.message} (${details.sourceId}:${details.lineNumber}${frame})`;
+            if (level === 'warning' || level === 'error') {
+                console.warn(line);
+            } else {
+                console.log(line);
+            }
+        });
         win.webContents.on('dom-ready', () => this.ipc.Send(Channels.Web.OnDomReady, win.id));
         win.webContents.on('did-start-navigation', event => this.ipc.Send(Channels.Web.OnBeforeNavigate, win.id, event.url, event.isMainFrame, event.isSameDocument));
         win.once('closed', () => windowOptions.webPreferences?.preload && fs.rm(windowOptions.webPreferences?.preload).catch(err => console.warn(err)));

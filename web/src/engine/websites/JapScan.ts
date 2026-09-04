@@ -136,7 +136,11 @@ export default class extends DecoratableMangaScraper {
         // the async `captcha_d.js` puzzle, see DRMProvider.CreateImageLinks).
         const extraction = await ExtractPagesFromReader(referer);
         const readerPages = extraction.links;
-        console.log(`[JapScan] ${chapter.Identifier} -> ${readerPages.length} pages (drm: ${extraction.drm ?? 0}, dom: ${extraction.dom ?? 0}, selector: ${extraction.selector ?? 0}, total: ${extraction.total ?? 'none'})`);
+        console.log(`[JapScan] ${chapter.Identifier} -> ${readerPages.length} pages (drm: ${extraction.drm ?? 0}, dom: ${extraction.dom ?? 0}, selector: ${extraction.selector ?? 0}, probe: ${extraction.probe ?? 0}, total: ${extraction.total ?? 'none'}) puzzle: ${extraction.puzzle ?? 0}s, drain: ${extraction.drain ?? 0}s, walk: ${extraction.walk ?? 0}s, scroll: ${extraction.scroll ?? 0}s`);
+        // DOM-level reader diagnostics (JSON) ride back in the extraction result — the
+        // reader window's own console output is not visible to the host process, so the
+        // host logs them here (see JapScan.Extract.ts GatherReaderDiagnostics).
+        if (extraction.diag) console.log(`[JapScan] reader diag ${extraction.diag}`);
         let pages = readerPages;
         if (ShouldCompleteWithDRM(readerPages) || IsIncompleteReaderResult(readerPages, extraction.total)) {
             // Last resort: the reader under-delivered and carried no DRM payload.
