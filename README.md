@@ -8,7 +8,7 @@
 
 ## 📥 Télécharger
 
-👉 **[Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.0)** — Windows (x64/ia32/arm64)
+👉 **[Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.3)** — Windows (x64/ia32/arm64)
 
 ## 📸 Aperçu
 

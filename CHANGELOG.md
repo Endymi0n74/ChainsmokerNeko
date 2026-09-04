@@ -3,6 +3,41 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.3] - 2026-09-04
+
+### Ajouté
+
+- **JapScan - extraction reader-first des volumes** (`JapScan.DRM.preload.ts`, `JapScan.Extract.ts`) :
+  une seule fenêtre visible reader avec le bootstrap DRM en preload ; le script protégé du site
+  décode la liste des pages via CustomEvent une fois le puzzle résolu — suppression de la 2e fenêtre
+  DRM parallèle qui bloquait (budget 30s toujours dépassé par `captcha_d.js` async).
+- **JapScan - page-selector walk** : quand le lazy-load du reader plafonne (~110 images) alors que
+  le sélecteur de pages annonce le vrai total, les pages restantes sont récupérées via les URLs du
+  sélecteur (3 workers, 15s/timeout, 100s budget).
+- **JapScan - diagnostics source-breakdown** : `ReaderExtraction` expose `drm`/`dom`/`selector`/
+  `probe` + durées de phase (`puzzle`/`drain`/`walk`/`scroll`) et `reader diag` JSON (scroll real,
+  inventaire img, resource-timing, sélecteur, overlay) — log `[JapScan] /path/ -> N pages (...)`.
+- **JapScan - récupération complète des volumes via probe preload** (`DRM_URL_PROBE_PRELOAD`) :
+  un probe installé AVANT tout script page capture les URLs CDN construites par le site à l'init
+  (204/204 pages sur Dreamland vol-24, 156/156 sur Saint Seiya Dark Wing vol-7). Le site construit
+  toutes les URLs en un seul burst déterministe, mais n'en monte que ~110 (virtualisation reader) ;
+  le probe récupère les ~90-94 manquantes.
+
+### Fix
+
+- **JapScan - timeout « Chapter update … timed out after 120000ms »** : `CHAPTER_UPDATE_TIMEOUT_MS`
+  porté de 120s à 300s (budget réel du pipeline puzzle + drain + walk) dans `DownloadTask.ts` et
+  `CollectionDownloadTask.ts` ; le stall par page reste borné à 15s.
+- **JapScan - overlay résiduel bloquant la collecte** : la collecte ne démarre plus tant que le
+  puzzle `#jc-overlay` est affiché et ne reste plus bloquée si l'overlay persiste dans le DOM après
+  résolution.
+- **JapScan - page parasite N+1** : les runs adoptés par le probe ne renvoient plus `total+1` pages
+  (une image chrome du site ou un remount token-refreshé était apposé à la liste) — filtres `www.*`
+  et marqueurs `_banner_`/`e44j82.jpg` sur l'append.
+- **JapScan - garde d'adoption du probe robuste** : ancrage sur les 5 premières URLs DOM, match sans
+  query (variantes token/redirect), détection forward/reversed, overlap ≥ 50%, deadline dure 240s
+  (`EXTRACT_DEADLINE`) pour ne plus jamais dépasser le budget hôte de 300s.
+
 ## [3.0.2] - 2026-08-31
 
 ### Fix

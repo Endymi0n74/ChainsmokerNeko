@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 3 septembre 2026 (v3.0.2 — reader-first JapScan + page-selector walk + diagnostics + fix overlay visibilité)
+> Dernière mise à jour : 4 septembre 2026 (v3.0.3 — probe harvest volumes complets + fix page N+1 + bump 3.0.3)
 
 ---
 
@@ -13,7 +13,7 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version** : 3.0.2 (31 août 2026) — bumpé dans les 3 `package.json` ; release/tag 3.0.2 PAS encore publiés
+- **Version** : 3.0.3 (4 septembre 2026) — bumpé dans les 3 `package.json` (check:versions CI) + CHANGELOG ; release/tag 3.0.3 publié par la CI au prochain push master
 - **Release 3.0.1** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.1) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
 
 ## 2. Chemins & remotes
@@ -53,7 +53,7 @@ app/electron/scripts/             → deploy-app.mjs, bundle-{x64,ia32,arm64,mjs
 | MangaDrama | `MangaDrama.ts` | ✅ validé | Paywall débloqué |
 | CrunchyScan | `CrunchyScan.ts` | ✅ validé | DRM + cache par URL chapitre (fix fenêtres multiples) |
 | MangaNova | `MangaNova.ts` | ✅ validé | Next.js RSC extraction, 93 pages fixture |
-| JapScan | `JapScan.ts` | ✅ validé | DRM+scroll merge (156+ pages), poll delay 4s |
+| JapScan | `JapScan.ts` | ✅ validé | Probe harvest volumes complets (204/204), poll delay 4s |
 | ScanManga | `ScanManga.ts` | ✅ validé | Sentinel cookies + API bqj |
 | PornComix | `PornComix.ts` | ✅ validé | e2e complet |
 | MangaMoins | `MangaMoins.ts` | ✅ validé | @Common.ImageAjax |
@@ -672,3 +672,25 @@ Two passes on Dreamland vol-24 + two passes on Saint Seiya Dark Wing vol-7, all 
 - Passes 3-4 (Saint Seiya Dark Wing vol-7, 18:12/18:13): `157 pages (probe: 46, adopt: TRUE, probeLen: 156, total: 156)` twice — same N+1 stray-append signature.
 
 Remaining wart: one DOM-mounted link (usually a token-refreshed remount of an already-listed page, occasionally site chrome) appends past the probe list on adopted runs → extraction returns announced+1, but the downloader dedupes by filename so folders land exact. Cosmetic; not worth chasing unless extraction-count purity matters.
+
+### ✅ N+1 stray page dropped on adopted probe runs (`c32e7b292`, 2026-09-04)
+
+Fixed the wart: adopted probe runs no longer return `announced+1` pages. The append filter now
+excludes any link whose hostname is `location.hostname` or `www.*` (site chrome) in addition to the
+`_banner_`/`e44j82.jpg` markers, and only appends when the DOM link is NOT already present in the
+probe list (token-refreshed remounts of already-listed pages are dropped, not re-appended).
+`OrderPageLinks` guard keeps the order stable. Tests: tsc clean, vitest JapScan 24/24.
+
+### ✅ Version 3.0.3 declared (2026-09-04)
+
+- Bump `3.0.2 → 3.0.3` dans les 3 manifests (`package.json`, `web/package.json`,
+  `app/electron/package.json`) — vérifié par `check:versions` (CI, job ci). Le lockfile racine garde
+  l'ancienne version upstream 2.1.1 (jamais synchronisée) — ne PAS le toucher.
+- CHANGELOG : section `[3.0.3] - 2026-09-04` (reader-first, page-selector walk, probe harvest,
+  timeout 300s, overlay résiduel, page N+1).
+- README.md + README.en.md : lien Releases → `releases/tag/3.0.3`.
+- MEMORY.md : header + §1 Version + ligne JapScan §3 mis à jour.
+- Poussé sur `fork` (Endymi0n74/ChainsmokerNeko) → la CI publie la release "ChainsmokerNeko 3.0.3"
+  (version lue depuis `app/electron/package.json`, 10 artefacts, `--latest=false`).
+- ⚠️ Ne pas oublier : le bundle local `app/electron/bundle/` date de la v3.0.2 (hash MTN3PIJW era)
+  — les artefacts 3.0.3 sont produits par la CI (release job), pas localement.
