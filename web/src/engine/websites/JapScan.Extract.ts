@@ -772,22 +772,33 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     } else if (adoptProbe) {
                         probeCount = probePages.length - domLinks.length;
                         links = probeReversed ? probePages.slice().reverse() : probePages.slice();
-                        // Append only DOM-discovered URLs the probe missed that are chapter
-                        // images. The reader also mounts chrome on the www host (top banners,
-                        // donate icons, japys placeholders) — those must not download as pages.
-                        for (const link of domLinks) {
-                            if (link.indexOf('_banner_') >= 0 || link.indexOf('/e44j82.jpg') >= 0 || links.includes(link)) continue;
-                            // Site chrome (top banners, donate icons, japys placeholders) lives on the
-                            // main www host; chapter images live on the CDN subhost. A DOM URL the probe
-                            // missed that is hosted on the main site is chrome, not a page — never
-                            // download it. [.] character classes avoid backslash escaping inside the
-                            // serialized script.
-                            try {
-                                const host = new URL(link, location.href).hostname;
-                                if (host === location.hostname || /^www[.]/i.test(host)) continue;
-                            } catch (e) { continue; }
-                            links.push(link);
+                        // The probe captured every announced page when it covers the total,
+                        // so DOM links it missed are chrome or token-refreshed remounts of
+                        // known pages — appending them would add N+1 stray pages. Only
+                        // append DOM links when the probe is short of the announced total.
+                        if (!total || probePages.length < total) {
+                            // Append only DOM-discovered URLs the probe missed that are
+                            // chapter images. The reader also mounts chrome on the www host
+                            // (top banners, donate icons, japys placeholders) — those must
+                            // not download as pages.
+                            for (const link of domLinks) {
+                                if (link.indexOf('_banner_') >= 0 || link.indexOf('/e44j82.jpg') >= 0 || links.includes(link) || probeIdxOf(link) >= 0) continue;
+                                // Site chrome (top banners, donate icons, japys placeholders) lives on the
+                                // main www host; chapter images live on the CDN subhost. A DOM URL the probe
+                                // missed that is hosted on the main site is chrome, not a page — never
+                                // download it. [.] character classes avoid backslash escaping inside the
+                                // serialized script.
+                                try {
+                                    const host = new URL(link, location.href).hostname;
+                                    if (host === location.hostname || /^www[.]/i.test(host)) continue;
+                                } catch (e) { continue; }
+                                links.push(link);
+                            }
                         }
+                        // Hard guarantee: never report more pages than the site announced
+                        // (a remounted token variant or stray chrome slipping through would
+                        // otherwise push the result to announced+1).
+                        if (total && links.length > total) links = links.slice(0, total);
                     } else {
                         links = domLinks;
                     }
