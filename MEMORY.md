@@ -1,7 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 4 septembre 2026 (v3.0.3 — probe harvest volumes complets + fix page N+1 + bump 3.0.3)
+> Dernière mise à jour : 5 septembre 2026 (v3.0.4 — fusion upstream fork-first + restructuration 2 branches + suite de checks verte)
 
 ---
 
@@ -13,7 +13,7 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version** : 3.0.3 (4 septembre 2026) — bumpé dans les 3 `package.json` (check:versions CI) + CHANGELOG ; release/tag 3.0.3 publié par la CI au prochain push master
+- **Version** : 3.0.4 (5 septembre 2026) — bumpé dans les 4 manifests (`package.json`, `web`, `app/electron`, `app/electron/build`) + CHANGELOG ; tag 3.0.4 poussé sur `fork/chainsmoker` (release GitHub à créer depuis les artifacts CI)
 - **Release 3.0.1** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.1) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
 
 ## 2. Chemins & remotes

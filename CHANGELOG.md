@@ -3,6 +3,24 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.4] - 2026-09-05
+
+### Ajouté
+
+- **Restructuration du fork en deux branches** : `master` redevient un miroir pristine d'`manga-download/haruneko` (synchronisation = `git pull` fast-forward, sans jamais de conflit) ; la ligne produit v3 (v3.0.x, plateforme Cloudflare/Electron, sites conservés) vit désormais sur `chainsmoker`. `SYNC.md` documente le workflow et la procédure de fusion fork-first.
+- **Intégration de l'amont** (depuis v3.0.3) via deux fusions fork-first (`7d94f3a14`, `41431fcc8`) : refonte UI classique (migration Svelte 5, préchargement de l'item suivant dans le viewer, fondu accéléré des quickactions…), nouveaux connecteurs (Batcave, LeerManhwas, Onisaga, WhyToon, AeroToon, MerlinShoujo, ManhwaNex, RinkoComics, RawFree, template NovelDex…), dizaines de recodes/fixes de sites, suppression des sites morts, mise à jour des dépendances.
+- **Sites conservés malgré leur suppression chez l'amont** : MangaFury, ManhwaHub, JManga — politique fork-first : on garde et on maintient ce que l'amont abandonne.
+
+### Fix
+
+- **svelte-check à 0 erreur / 0 warning** : port du réglage `ViewerPreloadNextItem` (clé enum + registre + bloc de réglage) manquant dans le store `Settings` — utilisé par `ImageViewer.svelte`/`viewer/Settings.svelte` ; `MediaSelect.svelte` : `scrollTop` rendu réactif (`$state`) et `on:scroll` déprécié remplacé par `onscroll`.
+- **13 locales Crowdin réalignées sur l'amont** (`check:rules` interdit de les modifier à la main) ; les clés propres au fork restent dans `en_US.ts` — repli sur le nom de clé en attendant la traduction Crowdin.
+
+### Modifié
+
+- **Validation complète** : check:ts/eslint/svelte-check/vue-tsc/rules/versions verts sur les 3 workspaces, 2155+ tests unitaires web passés, builds web + electron OK et app démarrée en test de boot.
+- **Sécurité** : aucun historique perdu — l'ancien tip fork `70b2ccb89`/`7d94f3a14` reste couvert par les tags `3.0.0`–`3.0.3`, `archive/*` et la branche `chainsmoker`.
+
 ## [3.0.3] - 2026-09-04
 
 ### Ajouté
