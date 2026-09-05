@@ -205,7 +205,7 @@ jobs:
     name: Publish release
     needs: [bundles-windows, bundles-linux, bundles-macos]
     # Fired on 3.x version tags (e.g. 3.0.4) - never on master (pristine
-    # upstream) nor on archive/* tags.
+    # upstream).
     if: startsWith(github.ref, 'refs/tags/3.')
     runs-on: ubuntu-latest
     permissions:

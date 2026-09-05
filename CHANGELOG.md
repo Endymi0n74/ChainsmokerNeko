@@ -21,6 +21,8 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - **Validation complète** : check:ts/eslint/svelte-check/vue-tsc/rules/versions verts sur les 3 workspaces, 2155+ tests unitaires web passés, builds web + electron OK et app démarrée en test de boot.
 - **Sécurité** : aucun historique perdu — l'ancien tip fork `70b2ccb89`/`7d94f3a14` reste couvert par les tags `3.0.0`–`3.0.3`, `archive/*` et la branche `chainsmoker`.
 
+> *Note (2026-09-05) : après la sortie de la v3.0.4, les tags `3.0.0`–`3.0.3` et `archive/*` ont été retirés du fork ; l'historique reste joignable via la branche `chainsmoker` et les SHA préservés dans `SYNC.md`.*
+
 ## [3.0.3] - 2026-09-04
 
 ### Ajouté

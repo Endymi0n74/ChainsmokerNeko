@@ -191,7 +191,7 @@ Pipeline **5 jobs en cascade** à chaque push non-docs sur `master`:
 - **Cache**: `${{ runner.temp }}/electron-zips` (clé par OS + `package.json` hash)
 - **Artefacts** : 3 zip Windows (x64/ia32/arm64), 3 NSIS (x64/ia32/arm64), AppImage, .deb, 2 DMG (x64/arm64) — 10 fichiers
 - **Release** : "ChainsmokerNeko <version>" (release nommée, pas nightly), `--latest=false`, `--generate-notes`
-- **Déclenchement release** : push d'un tag `3.*` sur `chainsmoker` (condition `startsWith(github.ref, 'refs/tags/3.')`) — jamais sur `master` (pristine) ni `archive/*` ; la release prend le nom du tag poussé (`github.ref_name`)
+- **Déclenchement release** : push d'un tag `3.*` sur `chainsmoker` (condition `startsWith(github.ref, 'refs/tags/3.')`) — jamais sur `master` (pristine) ; la release prend le nom du tag poussé (`github.ref_name`)
 - ⚠️ Pas d'unicode dans commentaires YAML GitHub
 - ⚠️ Pas `${{ runner.* }}` dans bloc `env:` de job
 
@@ -705,9 +705,10 @@ probe list (token-refreshed remounts of already-listed pages are dropped, not re
   Sync = `git checkout master && git pull` → fast-forward, zéro conflit possible.
 - **`chainsmoker` (local + fork) = ligne produit v3** (356+ commits fork : releases 3.0.x, couche
   Cloudflare/électron, sites conservés, viewer perf…). Tracking : `fork/chainsmoker`.
-- **Tags `archive/*` (5)** sur le fork : snapshots des branches `upstream/*` des PRs fermées
-  (#1797 cloudflare, #1798 perf, #1804 crunchyscan, #1805 japscan, variante -local). Tous les
-  commits auteur Endymi0n74 restent joignables via ces tags.
+- **Tags retirés le 2026-09-05** (nettoyage releases + tags, seul `3.0.4` reste) : les tags
+  `3.0.0` … `3.0.3` (releases supprimées) et `archive/*` (snapshots des branches `upstream/*`
+  des PRs fermées #1797 cloudflare, #1798 perf, #1804 crunchyscan, #1805 japscan, variante
+  -local) n'existent plus sur le fork ; leurs SHA sont préservés dans `SYNC.md` §1.
 
 ### Politique de fusion fork-first (pour intégrer upstream dans chainsmoker)
 

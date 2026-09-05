@@ -15,10 +15,18 @@ et la procédure à suivre pour intégrer l'upstream sans casser la ligne produi
 
 Points d'ancrage de sécurité (ne jamais supprimer) :
 
-- Tags `3.0.0` … `3.0.3` : releases de la ligne produit.
-- Tags `archive/*` (5) : snapshots des branches `upstream/*` des PRs fermées
-  (#1797 cloudflare, #1798 perf, #1804 crunchyscan, #1805 japscan, variante -local).
+- Tag `3.0.4` : release courante de la ligne produit.
 - Le commit de fusion `7d94f3a14` : première intégration fork-first (historique conservé).
+
+> Nettoyage du 2026-09-05 : les tags `3.0.0` … `3.0.3` et `archive/*` ont été **retirés du fork**
+> (releases + tags) pour ne garder que `3.0.4`. Les snapshots archivés des PRs fermées ne sont
+> plus référencés mais leurs SHA sont préservés (re-créables localement si besoin) :
+>
+> - `archive/upstream/cloudflare-fixes` = `274d9382b`
+> - `archive/upstream/crunchyscan-cloudflare-fixes` = `17c72a834`
+> - `archive/upstream/japscan-enhanced` = `3d108fff1`
+> - `archive/upstream/perf-optimizations` = `cbd184fac`
+> - `archive/upstream/perf-optimizations-local` = `546cae66a`
 
 ## 2. Synchroniser `master` (trivial, jamais de conflit)
 
