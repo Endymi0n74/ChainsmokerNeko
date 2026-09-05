@@ -175,8 +175,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_Check: "Activer le nouveau gestionnaire de contenu",
   Settings_NewContent_CheckInfo: "Vérifiera s'il y a de nouveaux contenus disponibles à lire",
   Settings_NewContent_CheckPeriod: "Récurrence du gestionnaire de contenu (min)",
-  Settings_NewContent_CheckSilent: "Vérifier les nouveaux chapitres sans ouvrir de fenêtre",
-  Settings_NewContent_CheckSilentInfo: "Ignore les sites qui nécessitent une fenêtre navigateur (ex. CrunchyScan) lors de la vérification du nouveau contenu.",
   Settings_NewContent_CheckPeriodInfo: "Combien de minutes avant de revérifier s'il y a de nouveaux contenus",
   Settings_NewContent_Notify: "Notifications lors de nouveaux contenus",
   Settings_NewContent_NotifyInfo: "Envoie une notification en utilisant le système de notification de l'OS",
@@ -191,8 +189,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_FeatureFlags_Description: "Options avancées/expérimentales spécialement pour les développeurs, les contributeurs et les utilisateurs expérimentés d'HakuNeko",
   Settings_FeatureFlags_ShowSplashScreen_Label: "Montrer l'écran de démarrage",
   Settings_FeatureFlags_ShowSplashScreen_Description: "Activer/désactiver l'écran de démarrage lors du démarrage de l'application",
-  Settings_FeatureFlags_SplashScreenMinimumDuration_Label: "Durée minimale de l'écran de démarrage [ms]",
-  Settings_FeatureFlags_SplashScreenMinimumDuration_Description: "Garder l'écran de démarrage visible au moins cette durée pendant le lancement de l'application (0 = pas de minimum, redémarrage requis)",
   Settings_FeatureFlags_ShowFetchBrowserWindows_Label: "Afficher les fenêtres FetchBrowser",
   Settings_FeatureFlags_ShowFetchBrowserWindows_Description: "Cette option destinée aux développeurs permet d'activer ou de désactiver la visibilité des fenêtres du navigateur pour la recherche de données en arrière-plan",
   Settings_FeatureFlags_CrowdinTranslationMode_Label: "Activer les traductions dans le contexte",
@@ -208,7 +204,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "La demande adressée à \"{0}\" a été rejetée par la détection anti-bot de CloudFlare.\nVeillez à contourner CloudFlare avant d'accéder au contenu de ce site web (par exemple, avec l'extension de navigateur HakuNeko Assistant).",
   FetchProvider_Fetch_VercelChallenge: "La requête vers \"{0}\" a été rejetée par le mode Attack Challenge de Vercel.\nMerci de vérifier que vous avez bypass Vercel avant d'essayer d'accéder au contenu de ce site.",
   FetchProvider_Fetch_Forbidden: "L'accès à «{0}» a été refusé.\nAssurez-vous que le site Web est disponible et accessible (par exemple, VPN pour contourner le verrouillage régional, connexion manuelle via le lien du site).",
-  FetchProvider_FetchWindow_UnsupportedEnvironmentError: "Ce site web nécessite une fenêtre de navigateur complète, disponible uniquement dans l'application de bureau (Electron/NW.js). L'environnement actuel ({0}) ne fournit pas cette capacité.",
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "Les données fournies semblent être invalides/corrompues et ne peuvent pas être désérialisées avec succès vers un marque-page !",
   // [SECTION]: Tags

@@ -176,8 +176,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "是否有可阅读的新内容",
   Settings_NewContent_CheckPeriod: "检查新的内容周期(分钟)",
   Settings_NewContent_CheckPeriodInfo: "再次检查新内容前多少分钟",
-  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
-  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "启用新内容桌面通知",
   Settings_NewContent_NotifyInfo: "将使用 OS 通知系统发送通知",
   Settings_Global_RPCEnabled: "启用 RPC",
@@ -206,7 +204,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "向“{0}”提出的请求被云闪光反机器人检测拒绝。\n请确保在访问此网站的内容前绕过CloudFlare (例如，HakuNeko助理浏览器扩展)。",
   FetchProvider_Fetch_VercelChallenge: 'The request to "{0}" was rejected by Vercel Attack Challenge Mode.\nMake sure to bypass Vercel before accessing the content of this website.',
   FetchProvider_Fetch_Forbidden: 'The access to "{0}" was denied.\nMake sure the website is available and accessible (e.g., VPN to bypass region lock, manual login via website link).',
-  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "提供的数据似乎无效/损坏，无法成功地取消序列化到书签！",
   // [SECTION]: Tags

@@ -176,8 +176,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "Akan memeriksa apakah ada konten baru yang tersedia untuk dibaca",
   Settings_NewContent_CheckPeriod: "Periksa konten baru berkala (menit)",
   Settings_NewContent_CheckPeriodInfo: "Berapa menit sebelum memeriksa lagi untuk konten baru",
-  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
-  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "Aktifkan notifkasi desktop konten baru",
   Settings_NewContent_NotifyInfo: "Akan mengirimkan notifikasi menggunakan sistem notifikasi OS",
   Settings_Global_RPCEnabled: 'Enable RPC',
@@ -206,7 +204,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: 'The request to "{0}" was rejected by CloudFlare Anti-Bot detection.\nMake sure to bypass CloudFlare before accessing the content of this website (e.g., with the HakuNeko Assistant browser extension).',
   FetchProvider_Fetch_VercelChallenge: 'The request to "{0}" was rejected by Vercel Attack Challenge Mode.\nMake sure to bypass Vercel before accessing the content of this website.',
   FetchProvider_Fetch_Forbidden: 'The access to "{0}" was denied.\nMake sure the website is available and accessible (e.g., VPN to bypass region lock, manual login via website link).',
-  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: 'The provided data seems to be invalid/corrupted and could not be successfully de-serialized to a bookmark!',
   // [SECTION]: Tags

@@ -176,8 +176,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "新しい読み込み可能なコンテンツがあるかを確認します",
   Settings_NewContent_CheckPeriod: "新着コンテンツ確認の頻度（分）",
   Settings_NewContent_CheckPeriodInfo: "次の確認までの分数を設定します",
-  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
-  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "新コンテンツの通知を有効化",
   Settings_NewContent_NotifyInfo: "OSの通知システムを使用して通知を送信します",
   Settings_Global_RPCEnabled: "RPCを有効化",
@@ -206,7 +204,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "\"{0}\"へのリクエストは CloudFlare のボット対策により拒否されました。\\nこのウェブサイトのコンテンツにアクセスする前に CloudFlare を回避してください（例：HakuNeko Assistant ブラウザ拡張機能を使用）。",
   FetchProvider_Fetch_VercelChallenge: "\"{0}\"へのリクエストは Vercel の攻撃対策モードにより拒否されました。\\nこのウェブサイトのコンテンツにアクセスする前に Vercel を回避してください。",
   FetchProvider_Fetch_Forbidden: "\"{0}\"へのアクセスが拒否されました。\\nウェブサイトが利用可能でアクセス可能か確認してください（例：地域制限を回避するための VPN、ウェブサイトリンクからの手動ログインなど）。",
-  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "提供されたデータが壊れているか無効なため、ブックマークとして読み込めませんでした！",
   // [SECTION]: Tags

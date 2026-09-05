@@ -176,8 +176,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "Comprobará si hay nuevo contenido disponible para leer",
   Settings_NewContent_CheckPeriod: "Período de revisión de nuevo contenido (minutos)",
   Settings_NewContent_CheckPeriodInfo: "Cuántos minutos antes de revisar de nuevo el contenido",
-  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
-  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "Activar nueva notificación de escritorio de contenido",
   Settings_NewContent_NotifyInfo: "Enviará una notificación usando el sistema de notificaciones de OS",
   Settings_Global_RPCEnabled: "Activar RPC",
@@ -206,7 +204,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "CloudFlare Anti-Bot ha rechazado la solicitud de \"{0}\".\nAsegúrese de evitar CloudFlare antes de acceder al contenido de este sitio web (por ejemplo, con la extensión del navegador HakuNeko Assistant).",
   FetchProvider_Fetch_VercelChallenge: "La solicitud de \"{0}\" fue rechazada por el Modo de Desafío al Ataque de Vercel. Asegúrese de saltarse a Vercel antes de acceder al contenido de este sitio web.",
   FetchProvider_Fetch_Forbidden: "El acceso a \"{0}\" fue denegado.\nAsegúrese de que el sitio web está disponible y accesible (por ejemplo con una VPN para evitar el bloqueo de región, o inicio de sesión manual a través del enlace del sitio web).",
-  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "Los datos proporcionados parecen no ser válidos/corruptos y no pudieron ser des-serializados con éxito en un marcador!",
   // [SECTION]: Tags

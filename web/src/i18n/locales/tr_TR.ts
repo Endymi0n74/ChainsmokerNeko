@@ -176,8 +176,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "Okunabilecek yeni içerik olup olmadığını kontrol eder",
   Settings_NewContent_CheckPeriod: "Yeni içeriği kontrol süresi (dakika)",
   Settings_NewContent_CheckPeriodInfo: "Yeni içerikleri tekrar kontrol etmeden önce kaç dakika",
-  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
-  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "Yeni içerik masaüstü bildirimini etkinleştir",
   Settings_NewContent_NotifyInfo: "İşletim sisteminin bildirim özelliğini kullanarak bir bildirim gönderir",
   Settings_Global_RPCEnabled: "RPC'yi Etkinleştir",
@@ -206,7 +204,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "\"{0}\" isteği, CloudFlare Anti-Bot tespiti tarafından reddedildi.\nBu web sitesinin içeriğine erişmeden önce CloudFlare engelini aştığınızdan emin olun (örneğin, HakuNeko Assistant tarayıcı uzantısını kullanarak).",
   FetchProvider_Fetch_VercelChallenge: "\"{0}\" isteği, Vercel Saldırı Koruma Modu tarafından reddedildi.\nBu web sitesinin içeriğine erişmeden önce Vercel engelini aştığınızdan emin olun.",
   FetchProvider_Fetch_Forbidden: "\"{0}\" adresine erişim reddedildi.\nWeb sitesinin erişilebilir ve kullanılabilir olduğundan emin olun (örneğin, bölgesel kısıtlamayı aşmak için VPN kullanarak veya site bağlantısı üzerinden manuel giriş yaparak).",
-  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "Sağlanan veriler geçersiz/bozuk görünüyor ve bir yer imine başarılı bir şekilde ayrıştırılamadı!",
   // [SECTION]: Tags

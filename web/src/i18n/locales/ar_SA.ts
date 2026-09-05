@@ -176,8 +176,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   Settings_NewContent_CheckInfo: "سيتم التحقق من وجود محتوى جديد للقراءة",
   Settings_NewContent_CheckPeriod: "تحقق من فترة المحتوى الجديدة (بالدقائق)",
   Settings_NewContent_CheckPeriodInfo: "كم دقيقة قبل التحقق مرة أخرى من المحتوى الجديد",
-  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
-  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_Notify: "تمكين إشعار سطح المكتب لمحتوى جديد",
   Settings_NewContent_NotifyInfo: "سيتم إرسال إشعار باستخدام نظام إشعارات نظام التشغيل",
   Settings_Global_RPCEnabled: "تمكين RPC",
@@ -206,7 +204,6 @@ const translations: VariantResource = { // NOTE: Use defaults for missing transl
   FetchProvider_Fetch_CloudFlareChallenge: "تم رفض طلب \"{0}\" من قبل الكشف المضاد للبوت لـ CloudFlare.\nتأكد من تجاوز CloudFlare قبل الوصول إلى محتوى هذا الموقع (على سبيل المثال مع امتداد متصفح HakuNeko المساعد).",
   FetchProvider_Fetch_VercelChallenge: 'The request to "{0}" was rejected by Vercel Attack Challenge Mode.\nMake sure to bypass Vercel before accessing the content of this website.',
   FetchProvider_Fetch_Forbidden: "تم رفض الوصول إلى \"{0}\".\nتأكد من أن الموقع متاح ويمكن الوصول إليه (e. .، VPN لتجاوز قفل المنطقة ، تسجيل الدخول اليدوي عبر رابط الموقع).",
-  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: "يبدو أن البيانات المقدمة غير صحيحة/فاسدة ولا يمكن رفعها بنجاح إلى علامة مرجعية!",
   // [SECTION]: Tags
