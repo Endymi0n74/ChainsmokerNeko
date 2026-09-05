@@ -222,7 +222,7 @@
     const VIRTUAL_ITEM_HEIGHT = 25.6;
     const VIRTUAL_BUFFER = 15;
     const VIRTUAL_THRESHOLD = 100;
-    let scrollTop = 0;
+    let scrollTop = $state(0);
     function onMediaListScroll() {
         scrollTop = medialistref?.scrollTop ?? 0;
     }
@@ -292,7 +292,7 @@
     <div id="MediaFilter">
         <Search id="MediaFilterSearch" size="sm" bind:value={mediaNameFilter} />
     </div>
-    <div id="MediaList" class="list" class:no-scroll={currentPlugin?.IsSameAs(HakuNeko.BookmarkPlugin)} bind:this={medialistref} bind:clientHeight={medialistrefHeight} on:scroll={onMediaListScroll}>
+    <div id="MediaList" class="list" class:no-scroll={currentPlugin?.IsSameAs(HakuNeko.BookmarkPlugin)} bind:this={medialistref} bind:clientHeight={medialistrefHeight} onscroll={onMediaListScroll}>
         {#await loadPlugin}
             <div class="loading center">
                 <div><Loading withOverlay={false} /></div>
