@@ -167,3 +167,17 @@ git push fork chainsmoker
   `ImageViewer.svelte` / `viewer/Settings.svelte`.
 - Ne jamais pousser un commit fork sur `fork/master` : la prochaine intégration
   upstream redeviendrait conflictuelle.
+
+## 5. Bruit CI : `continuous-deployment.yml` sur le fork
+
+Ce workflow vient d'upstream et n'existe que sur `master` (pristine). Il se déclenche
+à CHAQUE push sur `master`, y compris les push de sync du fork, et échoue toujours
+(pas de secrets upstream disponibles sur un fork). C'est du bruit inoffensif —
+les vraies vérifications (typecheck/lint/build) passent par `push-ci.yml`,
+qui lui ne tourne que sur `chainsmoker`.
+
+- NE PAS éditer le fichier sur `master` : cela casserait la pristine-ness et
+  rendrait la prochaine synchro conflictuelle.
+- Pour le désactiver (optionnel) : fork sur GitHub → onglet **Actions** →
+  « Continuous Deployment » dans la liste de gauche → menu « ... » →
+  **Disable workflow**. Aucun impact sur `push-ci.yml`.
