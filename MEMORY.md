@@ -694,3 +694,56 @@ probe list (token-refreshed remounts of already-listed pages are dropped, not re
   (version lue depuis `app/electron/package.json`, 10 artefacts, `--latest=false`).
 - ⚠️ Ne pas oublier : le bundle local `app/electron/bundle/` date de la v3.0.2 (hash MTN3PIJW era)
   — les artefacts 3.0.3 sont produits par la CI (release job), pas localement.
+
+## 📋 Procédure de sync upstream (documentée le 2026-09-05)
+
+### Structure des branches (restructuration du 2026-09-05)
+
+- **`master` (local + fork) = upstream vierge** `manga-download/haruneko` — ZÉRO commit fork.
+  Tracking : `origin/master`, `pull.ff only` configuré (jamais de merge auto sur master).
+  Sync = `git checkout master && git pull` → fast-forward, zéro conflit possible.
+- **`chainsmoker` (local + fork) = ligne produit v3** (356+ commits fork : releases 3.0.x, couche
+  Cloudflare/électron, sites conservés, viewer perf…). Tracking : `fork/chainsmoker`.
+- **Tags `archive/*` (5)** sur le fork : snapshots des branches `upstream/*` des PRs fermées
+  (#1797 cloudflare, #1798 perf, #1804 crunchyscan, #1805 japscan, variante -local). Tous les
+  commits auteur Endymi0n74 restent joignables via ces tags.
+
+### Politique de fusion fork-first (pour intégrer upstream dans chainsmoker)
+
+Contexte : le fork et l'upstream ont divergé **architecturalement** (refactor IPC/FetchProvider
+upstream incompatible avec la couche Cloudflare du fork ; l'upstream supprime des sites que le
+fork maintient). Une fusion naïve casse le build. Politique appliquée lors du merge 7d94f3a14 :
+
+1. `git checkout chainsmoker && git merge origin/master --no-commit --no-edit`
+2. **Conflits de contenu → garder le fork** : `git checkout HEAD -- <fichier>` pour chaque
+   fichier en conflit de la liste `git diff --name-only --diff-filter=U`.
+3. **Modify/delete → trancher selon le sens** : fork a supprimé → `git rm -f` ; upstream a
+   supprimé un fichier que le fork utilise → `git checkout HEAD -- <fichier> && git add`.
+4. **Sous-système platform/IPC → fork integral** : si le merge casse les types
+   (`FetchConcealed`, `InterProcessCommunication`), restaurer TOUTE la couche depuis HEAD :
+   `git checkout HEAD -- web/src/engine/platform app/electron/src app/nw/src app/src/ipc
+   app/electron/vite.config.ts` et supprimer les fichiers ajoutés par l'upstream non utilisés
+   (ex: `FetchConcealedRequest.ts`, `InterProcessCommunicationChannels.ts`, `CookieHelper.ts`).
+5. **Fichiers supprimés par upstream mais utilisés par le fork** → restaurer depuis HEAD
+   (sites web, workflows). Comparer : `git ls-tree -r --name-only HEAD` vs l'index du merge.
+6. **i18n : ne JAMAIS éditer les 13 locales Crowdin** (ar_SA, de_DE, es_ES, fil_PH, fr_FR,
+   hi_IN, id_ID, ja_JP, pt_PT, th_TH, tr_TR, zh_CN, zu_ZA) — `check:rules` compare au master
+   upstream et refuse toute modification. Les clés fork-specific vont UNIQUEMENT dans `en_US.ts`
+   (seule locale exemptée). Les autres langues afficheront la clé brute jusqu'à traduction.
+7. **Valider** : `tsc --noEmit` dans web, app/electron, app/nw (binaire : `node_modules/.bin/tsc`
+   à la racine) puis `npm run check --workspaces` (versions, eslint, svelte-check, vue-tsc,
+   coding-rules).
+8. Commiter le merge, pousser sur `fork/chainsmoker` — JAMAIS sur master.
+
+### Leçons du merge 7d94f3a14
+
+- `-X ours` ne suffit pas : l'upstream injecte quand même ses hunks non-conflictuels dans les
+  fichiers semi-modifiés → restaurer explicitement depuis HEAD les fichiers qui doivent rester
+  100% fork (vérifier avec `git rev-parse HEAD:<fichier>` vs `:0:<fichier>`).
+- 44 fichiers en conflit + 37 fichiers platform/IPC différents + 31 fichiers restaurés :
+  s'attendre à ce volume à chaque sync, la divergence est structurelle.
+- `check:rules` crée une branche temporaire `master-local` depuis l'URL upstream en dur —
+  échoue si pas d'accès réseau à github.com.
+- Les settings du viewer fork (ex: `ViewerPreloadNextItem`) doivent être déclarés dans
+  `stores/Settings.svelte.ts` (enum Key + Initialize + SettingStore) ET dans `en_US.ts`, sinon
+  svelte-check échoue sur ImageViewer/Settings.svelte.
