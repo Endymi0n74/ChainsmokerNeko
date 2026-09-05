@@ -204,7 +204,9 @@ jobs:
   release:
     name: Publish release
     needs: [bundles-windows, bundles-linux, bundles-macos]
-    if: github.ref == 'refs/heads/master'
+    # Fired on 3.x version tags (e.g. 3.0.4) - never on master (pristine
+    # upstream) nor on archive/* tags.
+    if: startsWith(github.ref, 'refs/tags/3.')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -213,11 +215,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Read version from package.json
+      - name: Read tag from git ref
         id: version
-        run: |
-          TAG=$(node -p "require('./app/electron/package.json').version")
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        run: echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
       - name: Download All Bundle Artifacts
         uses: actions/download-artifact@v4
         with:

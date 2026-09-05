@@ -13,7 +13,7 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version** : 3.0.4 (5 septembre 2026) — bumpé dans les 4 manifests (`package.json`, `web`, `app/electron`, `app/electron/build`) + CHANGELOG ; tag 3.0.4 poussé sur `fork/chainsmoker` (release GitHub à créer depuis les artifacts CI)
+- **Version** : 3.0.4 (5 septembre 2026) — bumpé dans les 4 manifests (`package.json`, `web`, `app/electron`, `app/electron/build`) + CHANGELOG ; tag 3.0.4 poussé sur `fork/chainsmoker` (release GitHub publiée automatiquement par la CI au push d'un tag `3.*` — voir push-ci.yml)
 - **Release 3.0.1** : [GitHub Releases](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.1) — Windows x64/x86/ARM (zip + NSIS) + Linux AppImage/deb + macOS DMG x64/arm64
 
 ## 2. Chemins & remotes
@@ -191,6 +191,7 @@ Pipeline **5 jobs en cascade** à chaque push non-docs sur `master`:
 - **Cache**: `${{ runner.temp }}/electron-zips` (clé par OS + `package.json` hash)
 - **Artefacts** : 3 zip Windows (x64/ia32/arm64), 3 NSIS (x64/ia32/arm64), AppImage, .deb, 2 DMG (x64/arm64) — 10 fichiers
 - **Release** : "ChainsmokerNeko <version>" (release nommée, pas nightly), `--latest=false`, `--generate-notes`
+- **Déclenchement release** : push d'un tag `3.*` sur `chainsmoker` (condition `startsWith(github.ref, 'refs/tags/3.')`) — jamais sur `master` (pristine) ni `archive/*` ; la release prend le nom du tag poussé (`github.ref_name`)
 - ⚠️ Pas d'unicode dans commentaires YAML GitHub
 - ⚠️ Pas `${{ runner.* }}` dans bloc `env:` de job
 
