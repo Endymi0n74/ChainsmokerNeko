@@ -103,25 +103,46 @@ compare au master upstream et **refuse toute modification**. Les clés fork-spec
 vont UNIQUEMENT dans `en_US.ts` (seule locale exemptée). Conséquence : ces langues
 affichent la clé brute pour les réglages propres au fork tant que Crowdin ne traduit pas.
 
-### 3.5 Valider, commiter, pousser
+### 3.5 package-lock.json — régénérer APRÈS chaque fusion
+
+La fusion absorbe les bumps de dépendances upstream (`web/package.json`,
+`app/nw/package.json` : pdfkit, svelte, fluentui, nw-sdk…) mais le lockfile reste
+celui du fork. `npm ci` échoue alors dans push-ci.yml dès « Install NPM Packages »
+(`package.json and package-lock.json are not in sync`). Toujours régénérer le lock
+après la résolution des conflits :
 
 ```bash
-# 1. Types (3 workspaces)
+npm install --engine-strict=false --package-lock-only
+git add package-lock.json
+```
+
+Le `--engine-strict=false` n'est nécessaire qu'en local (Node récent vs `engines` d'un
+paquet upstream) ; la CI tourne sur Node 24.0.0 et n'en a pas besoin. `--package-lock-only`
+suffit : node_modules local reste inchangé, la CI ré-installe depuis le lock régénéré.
+
+### 3.6 Valider, commiter, pousser
+
+```bash
+# 1. Lockfile synchrone (sinon push-ci échoue à npm ci)
+#    (npm ci n'accepte pas --dry-run : valider par un vrai npm ci sur Node 24,
+#    ou localement avec --engine-strict=false une fois l'étape 3.5 faite)
+
+# 2. Types (3 workspaces)
 cd web && ../node_modules/.bin/tsc --noEmit && cd ..
 cd app/electron && ../../node_modules/.bin/tsc --noEmit && cd ..
 cd app/nw && ../../node_modules/.bin/tsc --noEmit && cd ..
 
-# 2. Suite complète
+# 3. Suite complète
 npm run check:versions
 cd web && ../node_modules/.bin/eslint . \
   && ../node_modules/.bin/svelte-check --tsconfig=tsconfig.json --compiler-warnings a11y-click-events-have-key-events:ignore \
   && ../node_modules/.bin/vue-tsc --skipLibCheck --noEmit \
   && node ./scripts/coding-rules.mjs && cd ..
 
-# 3. Tests unitaires (rapide) — optionnel mais recommandé
+# 4. Tests unitaires (rapide) — optionnel mais recommandé
 cd web && ../node_modules/.bin/vitest run && cd ..
 
-# 4. Commit + push (JAMAIS sur master)
+# 5. Commit + push (JAMAIS sur master)
 git commit -m "Merge upstream manga-download/haruneko master into chainsmoker"
 git push fork chainsmoker
 ```
@@ -132,8 +153,12 @@ git push fork chainsmoker
   des fichiers semi-modifiés. Toujours restaurer explicitement depuis HEAD les fichiers
   en conflit (vérif : `git rev-parse HEAD:<fichier>` == `git rev-parse :0:<fichier>`).
 - Volume attendu à la première intégration : 44 fichiers en conflit + 37 fichiers
-  platform/IPC + 31 fichiers restaurés. Les suivantes sont bien plus légères (2 conflits
-  pour `850e9ffcd..5969582ef`).
+  platform/IPC + 31 fichiers restaurés. Les suivantes sont bien plus légères
+  (2 conflits pour `850e9ffcd..5969582ef` ; **0 conflit + 3 restaurations**
+  `MangasScans.*` pour `5969582ef..a155548b1`).
+- push-ci.yml rouge à « Install NPM Packages » (npm ci) = lockfile désynchronisé par
+  les bumps de dépendances absorbés à la fusion → étape 3.5
+  (`npm install --package-lock-only`), jamais un `package-lock.json` restauré à la main.
 - `check:rules` crée une branche temporaire `master-local` depuis l'URL upstream en dur
   (`scripts/coding-rules.mjs`) — nécessite l'accès réseau à github.com.
 - Les settings du viewer (ex. `ViewerPreloadNextItem`) doivent être déclarés dans
