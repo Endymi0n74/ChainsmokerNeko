@@ -14,7 +14,7 @@ AddForkChallengeHandling(/^https:\/\/www.tilkiscans\.com/);
 
 @Madara.MangaCSS(/^{origin}\/seri\/[^/]+\/$/, 'ol.breadcrumb li:last-of-type a')
 @Madara.MangasMultiPageAJAX()
-@Madara.ChaptersSinglePageAJAXv2()
+@Madara.ChaptersSinglePageAJAXv2('ul li.wp-manga-chapter > a:not([class])')
 @Common.PagesSinglePageJS('[...document.querySelectorAll("div.page-break > img")].map(image => image.dataset.src || image.src);', 2000)
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
