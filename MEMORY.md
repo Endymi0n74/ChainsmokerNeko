@@ -183,6 +183,8 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 - **v3.0.3** (4 sept.) : bump 3 manifests + CHANGELOG, poussé sur `fork` → release CI « ChainsmokerNeko 3.0.3 » (10 artefacts). ⚠️ Bundle local `app/electron/bundle/` = ère v3.0.2 (hash MTN3PIJW) — les artefacts 3.0.3+ sont produits par la CI.
 - **Validé utilisateur (6 sept.)** : JapScan v3.0.4 — chapitres téléchargés complets (puzzle au 1er lancement, Dreamland vol-24 = 204 pages, file non bloquée par les timeouts). Reste à confirmer au prochain volume : ligne log `[JapScan] … (probe: N, total: 204)` dans `.tmp/electron-launch.log`.
 - **E2E** : ScanManga 5/5 + MangaNova 7/7 ✅ ; JapScan e2e 🚫 bloqué (Cloudflare interactif, profil temporaire sans `cf_clearance`) → validation runtime manuelle.
+- **Vérification CDP automatisée abandonnée sur instruction** : la validation manuelle est la seule preuve acceptée.
+- **Clôture (6 sept.)** : tout est validé ✅ — le projet est mis de côté (aucune tâche active prévue).
 
 ### JapScan — volumes complets via probe harvest
 - **Reader-first** (`c3289d7fe`) : une seule fenêtre reader visible avec bootstrap DRM en preload ; fallback DRM séquentiel (`CreateImageLinks`).
