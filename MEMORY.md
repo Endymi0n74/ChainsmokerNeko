@@ -2,10 +2,28 @@
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
 > Dernière mise à jour : 6 septembre 2026 — état courant **v3.0.4** ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
-> 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques
+> 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
 > Dernière mise à jour (état) : 6 septembre 2026 (v3.0.4 — fusion upstream fork-first + restructuration 2 branches + suite de checks verte)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
+
+---
+
+## 0. Carte des documents (racine)
+
+| Fichier | Rôle |
+|---|---|
+| `README.md` / `README.en.md` | Présentation produit FR/EN — features, installation, releases |
+| `MEMORY.md` | État courant du projet (ce fichier) — à lire en début de session |
+| `AGENTS.md` | Règles durables agents — langue, git/commits, versioning, build/CI, tests |
+| `LESSONS.md` | Leçons techniques — plateforme, Cloudflare, sites, CI/CD, JapScan, exporters |
+| `SYNC.md` | Procédure de sync upstream + structure 2 branches (master vierge / chainsmoker) |
+| `CLOUDFLARE.md` | Guide utilisateur bypass Cloudflare — cf_clearance, puzzles, status 0.1.5→3.0.0 |
+| `CHANGELOG.md` / `CHANGELOG.en.md` | Journal des versions FR/EN |
+| `BENCHMARKS.md` | Mesures de perf réelles via CDP — filtre liste (70k titres), viewer |
+| `ROADMAP.md` | Vision produit / feuille de route (v3.0.0) |
+| `CONTRIBUTING.md` | Guide de contribution — workflow, conventions |
+| `SECURITY.md` | Politique de signalement des vulnérabilités |
 
 ---
 
@@ -163,7 +181,7 @@ cd haruneko/web && node ../node_modules/vue-tsc/bin/vue-tsc --noEmit
 ### Statut & points ouverts
 - **v3.0.4** (5 sept.) : fusion upstream fork-first (`48cf9aebd`) + restructuration 2 branches (master vierge / `chainsmoker` produit) + suite de checks verte — voir la procédure de sync ci-dessous.
 - **v3.0.3** (4 sept.) : bump 3 manifests + CHANGELOG, poussé sur `fork` → release CI « ChainsmokerNeko 3.0.3 » (10 artefacts). ⚠️ Bundle local `app/electron/bundle/` = ère v3.0.2 (hash MTN3PIJW) — les artefacts 3.0.3+ sont produits par la CI.
-- **En attente de validation utilisateur** : JapScan — puzzle au 1er lancement, volume Dreamland 24 complet (204 pages), file non bloquée par les timeouts.
+- **Validé utilisateur (6 sept.)** : JapScan v3.0.4 — chapitres téléchargés complets (puzzle au 1er lancement, Dreamland vol-24 = 204 pages, file non bloquée par les timeouts). Reste à confirmer au prochain volume : ligne log `[JapScan] … (probe: N, total: 204)` dans `.tmp/electron-launch.log`.
 - **E2E** : ScanManga 5/5 + MangaNova 7/7 ✅ ; JapScan e2e 🚫 bloqué (Cloudflare interactif, profil temporaire sans `cf_clearance`) → validation runtime manuelle.
 
 ### JapScan — volumes complets via probe harvest
