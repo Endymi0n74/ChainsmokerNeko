@@ -1,6 +1,6 @@
 # Feuille de route — ChainsmokerNeko
 
-> Document de vision. Dernière mise à jour : 26 août 2026 (v3.0.0).
+> Document de vision. Dernière mise à jour : 6 septembre 2026 (v3.0.4).
 
 ## Pourquoi une v2.0.0 ?
 
@@ -10,6 +10,13 @@ Cloudflare, ses optimisations de performance massives, sa distribution 3 OS et
 ses releases bilingues. La **v2.0.0** acte ce passage : ce n'est plus « un fork
 d'HakuNeko avec quelques fixes », c'est **la version stable et autonome du
 projet**, avec une promesse de non-régression.
+
+## Point d'étape (v3.0.4 — 6 sept. 2026)
+
+- **v2.0.x** (18 août) : installateur NSIS, série de correctifs — la convention passe au patch.
+- **v3.0.0** (26 août) : majeure — les 17 connecteurs sont **câblés** dans `_index.ts` (opt-in fork challenge handling), tests de régression e2e (MangaNova, ScanManga, Cloudflare), fix VirtualList bookmarks, sentinel cookies ScanManga.
+- **v3.0.1 → v3.0.4** (1→5 sept) : JapScan reader-first + probe harvest (volumes complets 204/204, validé utilisateur sur la 3.0.4), timeouts téléchargement (stall 15s, watchdog, `CHAPTER_UPDATE_TIMEOUT_MS = 300s`), exports PDF/CBZ/omnibus + `CloudFlareRenewal`, fusion upstream fork-first et restructuration **2 branches** (`master` = miroir pristine upstream, `chainsmoker` = ligne produit) — voir `SYNC.md`.
+- Releases publiées par la CI au push d'un tag `3.*` sur `chainsmoker` (10 artefacts, 3 OS).
 
 ## Périmètre embarqué dans la 2.0.0
 
@@ -58,9 +65,10 @@ projet**, avec une promesse de non-régression.
 
 ## Reporté (2.0.x et au-delà)
 
-- **Câblage des connecteurs restants** : les 17 connecteurs ajoutés mais non
-  câblés dans `_index.ts` doivent être validés un par un (listing → chapitres →
-  pages) avant d'entrer dans une release. Priorité aux sites français/anglais.
+- **Validation runtime des connecteurs** : les 17 connecteurs sont câblés depuis
+  la 3.0.0 ; reste à valider site par site en conditions réelles (listing →
+  chapitres → pages), priorité aux sites français/anglais. Statut par site :
+  `MEMORY.md` §3 — JapScan validé (v3.0.4).
 - **Thèmes personnalisables** (le thème clair/sombre existe déjà).
 - **Synchronisation multi-appareils** des bookmarks et réglages.
 - **Relecture des chapitres** (position de lecture persistée par chapitre).
@@ -69,14 +77,15 @@ projet**, avec une promesse de non-régression.
 
 ## Convention de versioning
 
-- **0.1.x** : correctifs fonctionnels et petites évolutions (chaque correctif
-  fonctionnel → bump + 3 bundles + release bilingue).
+- **0.1.x** (historique) : correctifs fonctionnels et petites évolutions.
 - **2.0.0** : majeure — suite Cloudflare + perf + distribution complètes.
-- **2.0.x (convention actuelle, 18 août)** : TOUTES les évolutions et correctifs
-  post-2.0.0 (installateur NSIS inclus) sortent en **2.0.1, 2.0.2, …** — pas de
-  saut direct en 2.1 tant qu'un vrai périmètre mineur n'est pas décidé.
-- Chaque **gros changement** doit être versionné et accompagné d'une release
-  GitHub (3 zips + setup.exe) et d'une entrée CHANGELOG.
+- **2.0.x** (18 août) : toutes les évolutions post-2.0.0 sortent en **2.0.1, 2.0.2, …**.
+- **3.0.0** (26 août) : majeure — câblage connecteurs, e2e, cleanup ; depuis,
+  **convention actuelle : 3.0.x** (3.0.1, 3.0.2, …) — pas de saut mineur tant
+  qu'un vrai périmètre n'est pas décidé.
+- Chaque **gros changement** doit être versionné et accompagné d'une entrée
+  CHANGELOG (FR/EN) ; la release GitHub (10 artefacts, 3 OS) est publiée par la
+  CI au push du tag `3.*` sur `chainsmoker`.
 - **Aucune régression** : typecheck (web/electron), eslint, svelte-check,
   suite vitest (2150+ tests) verts avant tout bump.
 

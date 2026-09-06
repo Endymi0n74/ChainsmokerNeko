@@ -1,17 +1,18 @@
 # Cloudflare bypass — status & how-to
 
-> Status documented on 26 August 2026 — versions **0.1.5 → 3.0.0**.
+> Status documented on 6 September 2026 — versions **0.1.5 → 3.0.4**.
 
 This document explains how **ChainsmokerNeko** handles Cloudflare challenges
 (the "Just a moment…" page that blocks some sites), and in particular how to
 reuse the `cf_clearance` cookie your real browser has already obtained.
 
-**Download the app**: the current stable release (**2.0.6**) ships **10 bundles
+**Download the app**: the current stable release (**3.0.4**) ships **10 bundles
 for 3 OS** — Windows portable zips + NSIS installers (ia32/x64/arm64), macOS
-dmg (Intel/Apple Silicon), Linux AppImage and snap (x64) — all listed in the
+dmg (Intel/Apple Silicon), Linux AppImage and .deb (x64) — all listed in the
 README and on the fork's
-[Releases page](https://github.com/Endymi0n74/ChainsmokerNeko/releases); the
-`nightly` build is the latest `master`, `Latest` is the newest stable version.
+[Releases page](https://github.com/Endymi0n74/ChainsmokerNeko/releases); a
+release is published automatically by CI when a `3.*` version tag is pushed
+to `chainsmoker`, and `Latest` always points to the newest stable version.
 
 ---
 
