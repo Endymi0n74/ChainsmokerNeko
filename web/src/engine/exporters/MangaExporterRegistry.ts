@@ -4,6 +4,8 @@ import { ImageDirectoryExporter } from './ImageDirectoryExporter';
 import { ComicBookArchiveExporter } from './ComicBookArchiveExporter';
 import { ElectronicPublicationExporter } from './ElectronicPublicationExporter';
 import { PortableDocumentFormatExporter } from './PortableDocumentFormatExporter';
+import { ComicBookCollectionExporter } from './CollectionExporter';
+import type { CollectionVolume } from './CollectionExporter';
 
 export enum MangaExportFormat {
     /**
@@ -42,5 +44,21 @@ export function CreateChapterExportRegistry(storageController: StorageController
         [MangaExportFormat.CBZ]: new ComicBookArchiveExporter(storageController),
         [MangaExportFormat.PDF]: new PortableDocumentFormatExporter(storageController),
         [MangaExportFormat.EPUB]: new ElectronicPublicationExporter(storageController),
+    };
+}
+
+type CollectionExporter = {
+    ExportCollection(volumes: CollectionVolume[], targetDirectory: FileSystemDirectoryHandle, volumeTitle: string, seriesTitle: string, ...args: unknown[]): Promise<void>;
+};
+
+/**
+ * Registry of exporters able to merge several chapters into a single volume
+ * ("collection / omnibus" export). Image-folder formats fall back to CBZ.
+ */
+export function CreateCollectionExportRegistry(storageController: StorageController): Record<string, CollectionExporter> {
+    return {
+        [MangaExportFormat.CBZ]: new ComicBookCollectionExporter(storageController),
+        [MangaExportFormat.EPUB]: new ElectronicPublicationExporter(storageController),
+        [MangaExportFormat.PDF]: new PortableDocumentFormatExporter(storageController),
     };
 }

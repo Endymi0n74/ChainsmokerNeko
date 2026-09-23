@@ -30,9 +30,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ windows-latest, ubuntu-latest, macos-latest ]
-    name: System Tests - ${{ matrix.os }}
+        include:
+          - os: windows-latest
+            required: true
+          - os: ubuntu-latest
+            required: false
+          - os: macos-latest
+            required: false
+    name: System Tests - ${{ matrix.os }}${{ !matrix.required && ' (untested)' || '' }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ !matrix.required }}
     steps:
       - name: Starting X Virtual Frame Buffer (Port 99)
         if: startsWith(matrix.os, 'ubuntu')

@@ -1,11 +1,11 @@
-import { Initialize as InitGlobalSettings, Key as GlobalKey } from './SettingsGlobal';
+import { Initialize as InitGlobalSettings } from './SettingsGlobal';
 import { Tags } from './Tags';
 import { PluginController } from './PluginController';
 import { BookmarkPlugin } from './providers/BookmarkPlugin';
 import { ItemflagManager } from './ItemflagManager';
 import { CreateStorageController, type StorageController } from './StorageController';
 import { InteractiveFileContentProvider } from './InteractiveFileContentProvider';
-import { SettingsManager, type Check } from './SettingsManager';
+import { SettingsManager } from './SettingsManager';
 import { FeatureFlags } from './FeatureFlags';
 import { DownloadManager } from './DownloadManager';
 import { CreateBloatGuard } from './platform/BloatGuard';
@@ -43,10 +43,9 @@ export class HakuNeko {
         await InitGlobalSettings(this.SettingsManager, frontends);
         CreateRemoteProcedureCallManager(this.#settingsManager);
         CreateRemoteProcedureCallContract();
-        // Preload bookmarks flags to show content to view
-        const checkNewContent = this.SettingsManager.OpenScope().Get<Check>(GlobalKey.CheckNewContent).Value ;
-        if (checkNewContent) this.BookmarkPlugin.RefreshAllFlags();
-
+        // Note: the bookmark new-content scan is lazy — it runs from the
+        // Suggestions view (BookmarkPlugin.RefreshFlagsIfDue), not at boot, to
+        // avoid opening Cloudflare challenge windows on every launch.
     }
 
     public get Tags() {

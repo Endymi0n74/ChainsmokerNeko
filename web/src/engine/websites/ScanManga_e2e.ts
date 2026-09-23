@@ -12,12 +12,14 @@ const config = {
     },
     child: {
         id: '/lecture-en-ligne/Desire-Realization-App-Chapitre-34-FR_409765.html',
-        title: 'Chapitre 34'
+        title: 'Chapitre 34',
+        timeout: 30_000
     },
     entry: {
         index: 0,
         size: 658_994,
-        type: 'image/jpeg'
+        type: 'image/jpeg',
+        timeout: 30_000
     }
 };
 

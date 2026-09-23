@@ -39,21 +39,41 @@ const Version = VersionUpgrades.length;
  */
 export class StorageControllerBrowser implements StorageController {
 
-    constructor() {
-        navigator.storage.persist().catch(console.warn);
+    /**
+     * Single shared connection reused by every operation.
+     * Opening a new IndexedDB connection per operation (the previous behavior)
+     * paid the full open/version-negotiation cost thousands of times during boot.
+     */
+    #connection?: Promise<IDBDatabase>;
+
+    private Connect(): Promise<IDBDatabase> {
+        if(!this.#connection) {
+            this.#connection = this.Open();
+        }
+        return this.#connection;
     }
 
-    private async Connect(): Promise<IDBDatabase> {
-        const connection = indexedDB.open(DataBase, Version);
+    private async Open(): Promise<IDBDatabase> {
+        const request = indexedDB.open(DataBase, Version);
         return new Promise<IDBDatabase>((resolve, reject) => {
-            connection.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-                const db = connection.result; // => event.target.result
+            request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+                const db = request.result; // => event.target.result
                 for(let version = event.oldVersion; version < event.newVersion; version++) {
                     VersionUpgrades[version](db);
                 }
             };
-            connection.onsuccess = () => resolve(connection.result);
-            connection.onerror = () => reject(connection.error);
+            request.onsuccess = () => {
+                const db = request.result;
+                // Reset the cached connection when it is closed externally
+                // (e.g., a database version upgrade from another context).
+                db.onversionchange = () => { db.close(); this.#connection = undefined; };
+                db.onclose = () => this.#connection = undefined;
+                resolve(db);
+            };
+            request.onerror = () => {
+                this.#connection = undefined;
+                reject(request.error);
+            };
         });
     }
 
@@ -66,7 +86,6 @@ export class StorageControllerBrowser implements StorageController {
             query.onsuccess = () => resolve(/*query.result*/);
             query.onerror = () => reject(query.error);
         }));
-        tx.oncomplete = () => db.close();
         tx.commit();
         await Promise.all(promises);
     }
@@ -80,7 +99,6 @@ export class StorageControllerBrowser implements StorageController {
             query.onsuccess = () => resolve(query.result as T);
             query.onerror = () => reject(query.error);
         });
-        tx.oncomplete = () => db.close();
         tx.commit();
         return promise;
     }
@@ -94,7 +112,6 @@ export class StorageControllerBrowser implements StorageController {
             query.onsuccess = () => resolve(/*query.result*/);
             query.onerror = () => reject(query.error);
         }));
-        tx.oncomplete = () => db.close();
         tx.commit();
         await Promise.all(promises);
     }

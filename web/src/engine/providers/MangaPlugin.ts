@@ -1,6 +1,7 @@
 import { Key, Scope } from '../SettingsGlobal';
 import type { Check, Choice, Directory, ISettings, SettingsManager } from '../SettingsManager';
-import { SanitizeFileName, type StorageController, Store } from '../StorageController';
+import { SanitizeFileName, type StorageController } from '../StorageController';
+import { LoadMediaList, SaveMediaList } from '../MediaListStore';
 import { type Priority, TaskPool } from '../taskpool/TaskPool';
 import { MediaContainer, StoreableMediaContainer, MediaItem, MediaScraper } from './MediaPlugin';
 import icon from '../../img/manga.webp';
@@ -19,6 +20,13 @@ const settingsKeyPrefix = 'plugin.';
 export abstract class MangaScraper extends MediaScraper<MangaPlugin> {
 
     protected readonly imageTaskPool = new TaskPool();
+
+    /**
+     * Whether normal operation of this website requires a real, visible browser
+     * window (e.g. resolving a Cloudflare challenge interactively). The silent
+     * new-content check uses this to skip such websites.
+     */
+    public readonly RequiresVisibleBrowserWindow: boolean = false;
 
     public CreatePlugin(storageController: StorageController, settingsManager: SettingsManager): MangaPlugin {
         return new MangaPlugin(storageController, settingsManager, this);
@@ -95,9 +103,13 @@ export class MangaPlugin extends MediaContainer<Manga> {
         this.Prepare();
     }
 
+    public get Scraper(): MangaScraper {
+        return this.scraper;
+    }
+
     private async Prepare() {
         await this._settings.Initialize(...this.scraper.Settings);
-        const mangas = await this.storageController.LoadPersistent<{ id: string, title: string }[]>(Store.MediaLists, this.Identifier) || [];
+        const mangas = await LoadMediaList(this.storageController, this.Identifier);
         this.entries.Value = mangas.map(manga => this.CreateEntry(manga.id, manga.title));
     }
 
@@ -135,7 +147,7 @@ export class MangaPlugin extends MediaContainer<Manga> {
         const mangas = entries.map(entry => {
             return { id: entry.Identifier, title: entry.Title };
         });
-        await this.storageController.SavePersistent(mangas, Store.MediaLists, this.Identifier);
+        await SaveMediaList(this.storageController, this.Identifier, mangas);
         return entries;
     }
 }
@@ -163,10 +175,26 @@ export class Manga extends MediaContainer<Chapter> {
 export class Chapter extends StoreableMediaContainer<Page> {
 
     private readonly isStored = new Observable<boolean, Chapter>(false);
+    private readonly publishedAt?: Date;
 
-    constructor(private readonly scraper: MangaScraper, parent: Manga, identifier: string, title: string, ...tags: Tag[]) {
+    constructor(private readonly scraper: MangaScraper, parent: Manga, identifier: string, title: string, ...tagsAndDate: (Tag | Date)[]) {
         super(identifier, title, parent);
+        const tags: Tag[] = [];
+        for (const entry of tagsAndDate) {
+            if (entry instanceof Date) {
+                this.publishedAt = entry;
+            } else {
+                tags.push(entry);
+            }
+        }
         this.tags.Value = tags;
+    }
+
+    /**
+     * Publication date of the chapter, when provided by the website (used e.g. to detect newly released chapters).
+     */
+    public get PublishedAt(): Date | undefined {
+        return this.publishedAt;
     }
 
     protected PerformUpdate(): Promise<Page[]> {
@@ -194,7 +222,11 @@ export class Chapter extends StoreableMediaContainer<Page> {
 
         // TODO: Find more appropriate way to inject the storage dependency
         const registry = CreateChapterExportRegistry(this.Parent?.Parent['storageController']);
-        await registry[settings.Get<Choice>(Key.MangaExportFormat).Value].Export(resources, output, this.Title, this.Parent?.Title);
+        const exporterOptions = {
+            theme: settings.Get<Choice>(Key.PDFTheme).Value,
+            doublePage: settings.Get<Check>(Key.PDFDoublePage).Value,
+        };
+        await registry[settings.Get<Choice>(Key.MangaExportFormat).Value].Export(resources, output, this.Title, this.Parent?.Title, exporterOptions);
     }
 }
 

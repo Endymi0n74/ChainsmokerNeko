@@ -5,7 +5,7 @@
         ContextMenuDivider,
         ContextMenuGroup,
         ContextMenuOption,
-        Dropdown,
+        MultiSelect,
         InlineNotification,
         Loading,
         MenuButton,
@@ -17,6 +17,7 @@
     import CloudDownload from 'carbon-icons-svelte/lib/CloudDownload.svelte';
 
     import { fade } from 'svelte/transition';
+    import { onDestroy } from 'svelte';
 
     import MediaComponent from './MediaItem.svelte';
     import { Store as UI } from '../stores/Stores.svelte';
@@ -31,6 +32,9 @@
         MediaChild,
     } from '../../../engine/providers/MediaPlugin';
     import { FlagType } from '../../../engine/ItemflagManager';
+    import type { EntryFlagEventData } from '../../../engine/ItemflagManager';
+    import type { DownloadTask, Status } from '../../../engine/DownloadTask';
+    import type { Chapter } from '../../../engine/providers/MangaPlugin';
     import { resizeBar } from '../lib/actions';
     import { Key as GlobalKey } from '../../../engine/SettingsGlobal';
     import type { Directory } from '../../../engine/SettingsManager';
@@ -40,6 +44,7 @@
     let selectedItems: MediaContainer<MediaItem>[] = $state([]);
     let reverseSortOrder: boolean = $state(false);
 
+    let itemsdiv: HTMLElement = $state();
     let loadItem: Promise<MediaContainer<MediaChild>> = $state();
 
     $effect(() => {
@@ -67,6 +72,124 @@
             }
         });
     }
+
+    // -------------------------------------------------------------------------
+    // Centralized download-task & flag state
+    //
+    // Previously every MediaItem subscribed to the global flag channel and the
+    // download queue (~2 subscriptions per chapter, thousands in total for big
+    // series). The subscriptions now live here, once per list, and the per-item
+    // state is passed down as props.
+    // -------------------------------------------------------------------------
+    let flagMap: Map<string, FlagType> = $state(new Map());
+    let taskMap: Map<string, DownloadTask> = $state(new Map());
+    let taskStatusMap: Map<string, Status> = $state(new Map());
+    // Non-reactive bookkeeping of the active per-task status subscriptions.
+    const taskSubscriptions = new Map<string, DownloadTask>();
+    let flagsRequestId = 0;
+
+    /** Unique key for an item, stable across list reloads (mirrors `IsSameAs`). */
+    function itemKey(item: MediaContainer<MediaItem>): string {
+        const pluginId = item.Parent?.Parent?.Identifier ?? "unknown";
+        return `${pluginId}::${item.Parent?.Identifier}::${item.Identifier}`;
+    }
+
+    /** Re-reads the flags of every item of the current media (one batch). */
+    async function refreshFlags() {
+        const requestId = ++flagsRequestId;
+        if (items.length === 0) {
+            flagMap = new Map();
+            return;
+        }
+        const flags = await Promise.all(
+            items.map((item) =>
+                window.HakuNeko.ItemflagManager.GetItemFlagType(item),
+            ),
+        );
+        if (requestId !== flagsRequestId) return; // superseded by a newer request
+        const map = new Map<string, FlagType>();
+        items.forEach((item, index) => {
+            const kind = flags[index];
+            if (kind !== undefined) map.set(itemKey(item), kind);
+        });
+        flagMap = map;
+    }
+
+    /** Applies a flag event to the local map (mirrors ItemflagManager semantics). */
+    function onFlagChanged(flagData: EntryFlagEventData) {
+        // Ignore flag events from a different manga (the global channel broadcasts all events).
+        const entry = flagData.Entry as MediaContainer<MediaItem>;
+        if (entry.Parent?.Identifier !== UI.selectedMedia?.Identifier) return;
+        if (flagData.Kind === FlagType.Current) {
+            // Flagging 'Current' marks every later chapter as Viewed and clears
+            // the flags of the earlier chapters.
+            const map = new Map<string, FlagType>();
+            map.set(itemKey(entry), FlagType.Current);
+            const index = items.findIndex((item) => item.IsSameAs(entry));
+            if (index >= 0) {
+                for (let i = index + 1; i < items.length; i++) {
+                    map.set(itemKey(items[i]), FlagType.Viewed);
+                }
+            }
+            flagMap = map;
+        } else if (flagData.Kind === FlagType.Viewed) {
+            flagMap = new Map(flagMap).set(itemKey(entry), FlagType.Viewed);
+        } else {
+            const map = new Map(flagMap);
+            map.delete(itemKey(entry));
+            flagMap = map;
+        }
+    }
+
+    /** Updates the status of the task that changed. */
+    function onTaskStatusChanged(newStatus: Status, task: DownloadTask) {
+        taskStatusMap = new Map(taskStatusMap).set(
+            itemKey(task.Media),
+            newStatus,
+        );
+    }
+
+    /** Reconciles the per-item task maps with the download queue (single subscription). */
+    function syncTasks() {
+        const tasks = window.HakuNeko.DownloadManager.Queue.Value;
+        const nextTasks = new Map<string, DownloadTask>();
+        const nextStatuses = new Map<string, Status>();
+        for (const task of tasks) {
+            const key = itemKey(task.Media);
+            nextTasks.set(key, task);
+            nextStatuses.set(key, task.Status.Value);
+            if (!taskSubscriptions.has(key)) {
+                task.Status.Subscribe(onTaskStatusChanged);
+                taskSubscriptions.set(key, task);
+            }
+        }
+        for (const [key, task] of taskSubscriptions) {
+            if (!nextTasks.has(key)) {
+                task.Status.Unsubscribe(onTaskStatusChanged);
+                taskSubscriptions.delete(key);
+            }
+        }
+        taskMap = nextTasks;
+        taskStatusMap = nextStatuses;
+    }
+
+    window.HakuNeko.ItemflagManager.EntryFlagEventChannel.Subscribe(onFlagChanged);
+    window.HakuNeko.DownloadManager.Queue.Subscribe(syncTasks);
+    onDestroy(() => {
+        window.HakuNeko.ItemflagManager.EntryFlagEventChannel.Unsubscribe(onFlagChanged);
+        window.HakuNeko.DownloadManager.Queue.Unsubscribe(syncTasks);
+        for (const task of taskSubscriptions.values()) {
+            task.Status.Unsubscribe(onTaskStatusChanged);
+        }
+        taskSubscriptions.clear();
+    });
+
+    // (Re)populate the flag/task maps whenever the displayed media changes.
+    $effect(() => {
+        items;
+        refreshFlags();
+        syncTasks();
+    });
 
     $effect(() => {
         const position = filteredItems.indexOf(UI.selectedItem);
@@ -97,13 +220,17 @@
                         itemNameFilter.toLowerCase(),
                     ) !== -1,
                 );
-            if (langFilter) conditions.push(item.Tags.Value.includes(langFilter));
+            if (selectedLanguageIDs.length > 0)
+                conditions.push(
+                    selectedLanguageIDs.some((tag) =>
+                        item.Tags.Value.includes(tag),
+                    ),
+                );
             return conditions.every((condition) => condition);
         });
     });
     let showItems = $derived(reverseSortOrder ? filteredItems.toReversed() : filteredItems);
 
-    let itemsdiv: HTMLElement = $state();
 
     let MediaLanguages: Tag[] = $derived(
         items.reduce((detectedLangaugeTags: Tag[], item) => {
@@ -115,21 +242,24 @@
             return [...detectedLangaugeTags, ...undetectedLangaugeTags];
         }, [])
     );
-    let langComboboxItems =
-        $derived(MediaLanguages.length > 0
-            ? [
-                { id: '*', text: '*' },
-                ...MediaLanguages.map((lang) => {
-                    return { id: lang, text: GlobalSettings.Locale[lang.Title]() };
-                }),
-            ]
-            : [{ id: '*', text: '*' }]);
+    let langComboboxItems = $derived(
+        MediaLanguages.map((lang) => {
+            return { id: lang, text: GlobalSettings.Locale[lang.Title]() };
+        })
+    );
 
-    let langFilterID: '*' | Tag = $state('*');
-    let langFilter = $derived(langFilterID === '*' ? null : langFilterID);
-    //Media Changed and the langFilter is no longer valid.
-    $effect(()=>{
-        if(items.length>0 && !MediaLanguages.includes(langFilter)) langFilterID = '*';
+    let selectedLanguageIDs: Tag[] = $state([]);
+    // Media changed: drop selections for languages that are no longer available.
+    $effect(() => {
+        if(items.length > 0) {
+            const available = selectedLanguageIDs.filter((tag) =>
+                MediaLanguages.includes(tag),
+            );
+            // Only reassign when a selection was actually dropped, to avoid effect feedback.
+            if(available.length !== selectedLanguageIDs.length) {
+                selectedLanguageIDs = available;
+            }
+        }
     });
 
     /*
@@ -278,6 +408,22 @@
         items.forEach(item => window.HakuNeko.DownloadManager.Enqueue(item as StoreableMediaContainer<MediaItem>));
     }
     /**
+     * Merges the selected chapters into a single volume file ("collection / omnibus"
+     * export) using the configured export format (CBZ/EPUB/PDF).
+     *
+     * @param items - The chapters to merge into one volume.
+     */
+    async function downloadCollection(items: MediaContainer<MediaItem>[]) {
+        try {
+            await HakuNeko.SettingsManager.OpenScope().Get<Directory>(GlobalKey.MediaDirectory).EnsureAccess();
+        } catch(error) {
+            alert(error?.message ?? error);
+            return;
+        }
+        await window.HakuNeko.DownloadManager.EnqueueCollection(items as Chapter[], 'Omnibus');
+    }
+
+    /**
      * Enqueues all items that have not been viewed or are not currently being viewed.
      *
      * @param items - The media items to filter and enqueue.
@@ -314,6 +460,10 @@
                 labelText="Download {selectedItems.length} selecteds"
                 shortcutText="⌘S"
                 onclick={() => downloadItems(selectedItems.toReversed())}
+            />
+            <ContextMenuOption
+                labelText="Download as volume (omnibus)"
+                onclick={() => downloadCollection(selectedItems.toReversed())}
             />
         {/if}
         <ContextMenuOption
@@ -387,10 +537,10 @@
             iconDescription="Languages"
         />
 
-        <Dropdown
+        <MultiSelect
             disabled={MediaLanguages.length === 0}
-            placeholder="Select a language"
-            bind:selectedId={langFilterID}
+            placeholder="Select languages"
+            bind:selectedIds={selectedLanguageIDs}
             size="sm"
             items={langComboboxItems}
         />
@@ -398,32 +548,19 @@
     <div id="ItemFilter">
         <Search id="ItemFilterSearch" size="sm" bind:value={itemNameFilter} />
     </div>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div 
-        id="ItemList" 
-        class="list" 
-        bind:this={itemsdiv} 
-        onmouseup={(event) => { if (event.target === event.currentTarget && event.button === 0) resetSelection(); }}
+    <div
+        id="ItemList"
+        class="list"
+        bind:this={itemsdiv}
+        onclick={(e) => { if (!(e.target as HTMLElement).closest(".listitem")) resetSelection(); }}
     >
         {#await loadItem}
             <div class="loading center">
                 <div><Loading withOverlay={false} /></div>
                 <div>... items</div>
             </div>
-        {:then}
-            {#each showItems as item (item)}
-                <MediaComponent
-                    {item}
-                    multilang={!langFilter && MediaLanguages.length > 1}
-                    selected={selectedItems.includes(item)}
-                    hover={item === contextItem}
-                    onView={(event) => onItemView(item)(event)}
-                    onmousedown={mouseHandler(item)}
-                    onmouseup={mouseHandler(item)}
-                    onmouseenter={mouseHandler(item)}
-                    oncontextmenu={() => { contextItem = item }}
-                />
-            {/each}
         {:catch error}
             <div class="error">
                 <InlineNotification
@@ -439,11 +576,26 @@
                 </InlineNotification>
             </div>
         {/await}
+        {#each showItems as item (itemKey(item))}
+                {@const key = itemKey(item)}
+                <MediaComponent
+                    {item}
+                    flag={flagMap.get(key)}
+                    task={taskMap.get(key)}
+                    taskStatus={taskStatusMap.get(key)}
+                    selected={selectedItems.includes(item)}
+                    hover={item === contextItem}
+                    onView={(event) => onItemView(item)(event)}
+                    onmousedown={mouseHandler(item)}
+                    onmouseup={mouseHandler(item)}
+                    onmouseenter={mouseHandler(item)}
+                />
+            {/each}
     </div>
     {#if items?.length > 0}
         <div id="DownloadButtons">
             {#if selectedItems.length > 0}
-                <MenuButton labelText="Download" size="sm" intrinsicAlign="end">
+                <MenuButton labelText="Download ({selectedItems.length})" size="sm" intrinsicAlign="end">
                     {#if selectedItems.length === 1}
                         <MenuItem on:click={() => downloadItems(selectedItems)}>Selected (1)</MenuItem>
                     {:else }
@@ -453,6 +605,7 @@
                         on:click={() => downloadUnviewedItems(filteredItems.toReversed())}
                     >All unviewed</MenuItem>
                     <MenuItem on:click={() => downloadItems(filteredItems.toReversed())}>All</MenuItem>
+
                 </MenuButton>
             {:else}
                 <Button

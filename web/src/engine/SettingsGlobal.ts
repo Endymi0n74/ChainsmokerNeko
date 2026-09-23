@@ -12,6 +12,8 @@ export const enum Key {
     MediaDirectory = 'media-directory',
     UseWebsiteSubDirectory = 'website-subdirectory',
     MangaExportFormat = 'manga-export-format',
+    PDFTheme = 'pdf-theme',
+    PDFDoublePage = 'pdf-double-page',
     DescramblingFormat = 'descrambling-format',
     DescramblingQuality = 'descrambling-quality',
     UserAgent = 'UserAgent',
@@ -19,6 +21,7 @@ export const enum Key {
     PostCommand = 'post-command',
     CheckNewContent = 'check-new-content',
     CheckNewContentPeriod = 'check-new-content-period',
+    CheckNewContentSilent = 'check-new-content-silent',
     NotifyNewContent = 'notify-new-content',
     RPCEnabled = 'RPCEnabled',
     RPCPort = 'RPCPort',
@@ -69,6 +72,21 @@ export async function Initialize(settingsManager: SettingsManager, frontends: IF
             { key: MangaExportFormat.PDF, label: R.Settings_Global_MangaExportFormat_PortableDocumentFormat },
         ),
         new Choice(
+            Key.PDFTheme,
+            R.Settings_Global_PDFTheme,
+            R.Settings_Global_PDFThemeInfo,
+            'white',
+            { key: 'white', label: R.Settings_Global_PDFTheme_White },
+            { key: 'sepia', label: R.Settings_Global_PDFTheme_Sepia },
+            { key: 'dark', label: R.Settings_Global_PDFTheme_Dark },
+        ),
+        new Check(
+            Key.PDFDoublePage,
+            R.Settings_Global_PDFDoublePage,
+            R.Settings_Global_PDFDoublePageInfo,
+            false
+        ),
+        new Choice(
             Key.DescramblingFormat,
             R.Settings_Global_DescramblingFormat,
             R.Settings_Global_DescramblingFormatInfo,
@@ -106,6 +124,23 @@ export async function Initialize(settingsManager: SettingsManager, frontends: IF
             R.Settings_NewContent_Check,
             R.Settings_NewContent_CheckInfo,
             false
+        ),
+        new Check(
+            Key.CheckNewContentSilent,
+            R.Settings_NewContent_CheckSilent,
+            R.Settings_NewContent_CheckSilentInfo,
+            // Défaut : silencieux — la vérification ignore les sites qui
+            // nécessitent une fenêtre navigateur (ex. CrunchyScan).
+            true
+        ),
+        new Numeric(
+            Key.CheckNewContentPeriod,
+            R.Settings_NewContent_CheckPeriod,
+            R.Settings_NewContent_CheckPeriodInfo,
+            // Défaut : 1 vérification par jour (1440 min) ; min 5 min ; max 1 semaine.
+            1440,
+            5,
+            10080
         ),
         new Check(
             Key.RPCEnabled,

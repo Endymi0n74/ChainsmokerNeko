@@ -3,10 +3,12 @@
 .cache
 cache
 build
+app/electron/.tmp/
+app/electron/.user-data/
 bundle
 deploy
 dist
 node_modules
-package-lock.json
 junit.xml
-web/vite.config.ts.timestamp*
+**/.npmrc
+.tmp

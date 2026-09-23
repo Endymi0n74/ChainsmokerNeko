@@ -1,0 +1,679 @@
+# Changelog
+
+Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
+Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
+
+## [3.0.4] - 2026-09-05
+
+### Ajouté
+
+- **Restructuration du fork en deux branches** : `master` redevient un miroir pristine d'`manga-download/haruneko` (synchronisation = `git pull` fast-forward, sans jamais de conflit) ; la ligne produit v3 (v3.0.x, plateforme Cloudflare/Electron, sites conservés) vit désormais sur `chainsmoker`. `SYNC.md` documente le workflow et la procédure de fusion fork-first.
+- **Intégration de l'amont** (depuis v3.0.3) via deux fusions fork-first (`7d94f3a14`, `41431fcc8`) : refonte UI classique (migration Svelte 5, préchargement de l'item suivant dans le viewer, fondu accéléré des quickactions…), nouveaux connecteurs (Batcave, LeerManhwas, Onisaga, WhyToon, AeroToon, MerlinShoujo, ManhwaNex, RinkoComics, RawFree, template NovelDex…), dizaines de recodes/fixes de sites, suppression des sites morts, mise à jour des dépendances.
+- **Sites conservés malgré leur suppression chez l'amont** : MangaFury, ManhwaHub, JManga — politique fork-first : on garde et on maintient ce que l'amont abandonne.
+
+### Fix
+
+- **svelte-check à 0 erreur / 0 warning** : port du réglage `ViewerPreloadNextItem` (clé enum + registre + bloc de réglage) manquant dans le store `Settings` — utilisé par `ImageViewer.svelte`/`viewer/Settings.svelte` ; `MediaSelect.svelte` : `scrollTop` rendu réactif (`$state`) et `on:scroll` déprécié remplacé par `onscroll`.
+- **13 locales Crowdin réalignées sur l'amont** (`check:rules` interdit de les modifier à la main) ; les clés propres au fork restent dans `en_US.ts` — repli sur le nom de clé en attendant la traduction Crowdin.
+
+### Modifié
+
+- **Validation complète** : check:ts/eslint/svelte-check/vue-tsc/rules/versions verts sur les 3 workspaces, 2155+ tests unitaires web passés, builds web + electron OK et app démarrée en test de boot.
+- **Sécurité** : aucun historique perdu — l'ancien tip fork `70b2ccb89`/`7d94f3a14` reste couvert par les tags `3.0.0`–`3.0.3`, `archive/*` et la branche `chainsmoker`.
+
+> *Note (2026-09-05) : après la sortie de la v3.0.4, les tags `3.0.0`–`3.0.3` et `archive/*` ont été retirés du fork ; l'historique reste joignable via la branche `chainsmoker` et les SHA préservés dans `SYNC.md`.*
+
+## [3.0.3] - 2026-09-04
+
+### Ajouté
+
+- **JapScan - extraction reader-first des volumes** (`JapScan.DRM.preload.ts`, `JapScan.Extract.ts`) :
+  une seule fenêtre visible reader avec le bootstrap DRM en preload ; le script protégé du site
+  décode la liste des pages via CustomEvent une fois le puzzle résolu — suppression de la 2e fenêtre
+  DRM parallèle qui bloquait (budget 30s toujours dépassé par `captcha_d.js` async).
+- **JapScan - page-selector walk** : quand le lazy-load du reader plafonne (~110 images) alors que
+  le sélecteur de pages annonce le vrai total, les pages restantes sont récupérées via les URLs du
+  sélecteur (3 workers, 15s/timeout, 100s budget).
+- **JapScan - diagnostics source-breakdown** : `ReaderExtraction` expose `drm`/`dom`/`selector`/
+  `probe` + durées de phase (`puzzle`/`drain`/`walk`/`scroll`) et `reader diag` JSON (scroll real,
+  inventaire img, resource-timing, sélecteur, overlay) — log `[JapScan] /path/ -> N pages (...)`.
+- **JapScan - récupération complète des volumes via probe preload** (`DRM_URL_PROBE_PRELOAD`) :
+  un probe installé AVANT tout script page capture les URLs CDN construites par le site à l'init
+  (204/204 pages sur Dreamland vol-24, 156/156 sur Saint Seiya Dark Wing vol-7). Le site construit
+  toutes les URLs en un seul burst déterministe, mais n'en monte que ~110 (virtualisation reader) ;
+  le probe récupère les ~90-94 manquantes.
+
+### Fix
+
+- **JapScan - timeout « Chapter update … timed out after 120000ms »** : `CHAPTER_UPDATE_TIMEOUT_MS`
+  porté de 120s à 300s (budget réel du pipeline puzzle + drain + walk) dans `DownloadTask.ts` et
+  `CollectionDownloadTask.ts` ; le stall par page reste borné à 15s.
+- **JapScan - overlay résiduel bloquant la collecte** : la collecte ne démarre plus tant que le
+  puzzle `#jc-overlay` est affiché et ne reste plus bloquée si l'overlay persiste dans le DOM après
+  résolution.
+- **JapScan - page parasite N+1** : les runs adoptés par le probe ne renvoient plus `total+1` pages
+  (une image chrome du site ou un remount token-refreshé était apposé à la liste) — filtres `www.*`
+  et marqueurs `_banner_`/`e44j82.jpg` sur l'append.
+- **JapScan - garde d'adoption du probe robuste** : ancrage sur les 5 premières URLs DOM, match sans
+  query (variantes token/redirect), détection forward/reversed, overlap ≥ 50%, deadline dure 240s
+  (`EXTRACT_DEADLINE`) pour ne plus jamais dépasser le budget hôte de 300s.
+
+## [3.0.2] - 2026-08-31
+
+### Fix
+
+- **JapScan - puzzle non proposé au changement de volume** : le puzzle anti-bot
+  `#jc-overlay` est rendu de façon asynchrone (appel AJAX quelques secondes après
+  DOMReady, typiquement sur la 2e requête du lecteur consécutive — télécharger un
+  volume puis en demander un autre). La détection unique au DOMReady renvoyait
+  `None` trop tôt : l'extraction démarrait sur une page sur le point d'être
+  verrouillée. Ajout d'une période de grâce dans `FetchWindowPreloadScript`
+  (sites fork-handled + fenêtre visible) : re-polling de la détection site toutes
+  les 2 s pendant 16 s, upgrade vers le traitement Interactive/Automatic dès que
+  le puzzle apparaît. Lint : parenthèses redondantes retirées dans la condition
+  `cleared` (précédence `&&`/`||` inchangée).
+- **JapScan - pages manquantes + 404 CDN** : la collecte s'arrêtait sur `atBottom`
+  OU stabilité sans attendre la fin du lazy-load (images en attente perdues), et
+  tournait sur une page verrouillée par le puzzle. Désormais : pause de la collecte
+  tant que le puzzle est affiché (l'utilisateur le résout dans la fenêtre visible)
+  avec sortie anticipée si de vraies images (`decodedBodySize > 10 ko`) sont
+  re-décodées (l'overlay peut persister dans le DOM après résolution, comme le
+  Turnstile) ; fin de collecte = bas de page ATTEINT et stable (8 rounds) ;
+  collecte élargie aux holders génériques `data-src`.
+
+## [3.0.1] - 2026-08-28
+
+### Fix
+
+- **Cloudflare PollForChallengeResolution** : revert du garde hadWidget qui bloquait
+  les challenges manages (CrunchyScan). Retour au widgetGone original qui fonctionne
+  pour tous les sites. Delai initial du poll augmente de 2s a 4s pour laisser le
+  Turnstile se charger.
+- **JapScan - pages manquantes** : les gros chapitres (150+ images) perdaient des pages
+  car le scroll sarretait trop tot. Extraction DRM + scroll lancees en parallele,
+  resultats fusionnes et deduplicates. Limite scroll augmente de 80 a 500 steps,
+  detection de stabilite ajoutee (20 steps sans nouvelles images), timeout porte a 300s.
+## [3.0.0] - 2026-08-26
+
+> **Majeure.** Correction de non-régression, nouveaux connecteurs, fix Cloudflare avancé,
+> virtual scroll bookmarks et cleanup complet du repo.
+
+### Ajouté
+
+- **Connecteur MangaNova** : listing, chapitres, pages (93 pages testées), logo WebP.
+- **17 connecteurs câblés** dans `_index.ts` : Alphapolis, JapScan, MangaLi, MangaLink,
+  MangaTR, MangaTilkisi, MangaTube, RainDropFansub, TruyenQQ — opt-in fork challenge
+  handling pour la détection Cloudflare personnalisée.
+- **Test de régression e2e MangaNova** : 7 tests (catalogue, chapitres, pages, image).
+- **Test de régression e2e ScanManga** : 5 tests (chapter, pages, image).
+- **Test de régression e2e Cloudflare** : flux complet manga → chapitres → pages → image
+  pour MangaFire, Comix, MangaDrama.
+- **Fix VirtualList bookmarks** : le composant VirtualList ne s'active plus quand le
+  plugin Bookmarks est sélectionné — les bookmarks s'affichent tous sans scroll forcé.
+
+### Fix
+
+- **ScanManga — sentinel cookies** : le serveur ne sert les chapitres qu'aux requêtes
+  sans cookies. Nouveau sentinel `Cookie: __hkn_no_session_cookies__` consommé dans
+  `FetchProvider` Electron.
+- **ScanManga — API lecteur** : nouveau endpoint `bqj.scan-manga.com/lel/<idc>.json`
+  avec token `yf`, fingerprint WebGL/connection, décodage gzip. Pagescript réécrit.
+- **ScanManga — injection cookies** : les cookies de session ne sont plus injectés dans
+  les requêtes des fenêtres distantes (elles gardent leurs cookies natifs).
+- **CrunchyScan — cache DRM** : les résultats du DRM sont cachés par URL de chapitre,
+  empêchant les fenêtres multiples.
+- **Classification Cloudflare** : les détections de site (AddAntiScrapingDetection) sont
+  testées en priorité avant l'heuristique DOM générique (ChallengeReload).
+- **CDP timeout** : `protocolTimeout` augmenté à 300s sur le `connect()` puppeteer de
+  la fixture e2e, absorber les lenteurs réseau sur les gros listings (mangafire).
+
+### Modifié
+
+- **Injection cookies restreinte** : dans `FetchProvider`, l'injection des cookies de
+  session fusionnés n'est appliquée qu'aux requêtes du renderer de l'app, pas aux
+  fenêtres distantes.
+- **Opt-in fork challenge** : 8 sites à détection custom (Alphapolis, JapScan, etc.)
+  utilisent le fork challenge handling.
+
+## [2.2.0] - 2026-08-22
+
+### Retiré
+
+- **VirtualList** : retiré des listes bookmarks et chapitres. Le composant
+  n'était pas câblé dans l'upstream et causait un affichage tronqué
+  (scrollTop=0 sans overflow-y:auto). Revenu au {#each} classique.
+
+## [2.1.2] - 2026-08-22
+
+### Fixed
+
+- **MangaDrama FetchPages** : remplacer regex literals par string checks pour corriger "Script failed to execute".
+- **FetchProviderCommon** : logs diagnostiques [KUMO] pour erreurs runScript et redirect.
+
+## [2.1.1] - 2026-08-20
+
+### Ajouté
+
+- **Auto-update** : un bouton "Install v…" dans la notification de mise à jour
+  télécharge le zip de la plateforme depuis GitHub Releases, remplace l'app
+  et la redémarre automatiquement. Fallback vers le lien GitHub en NW.js.
+- **Scroll persistence amélioré** : la position de scroll exacte (pixel)
+  est sauvegardée par chapitre en plus de l'index d'image, pour une
+  restauration précise sur les webtoons/long strips.
+- **Connecteurs upstream** : DivaScans, RawFree, Voratoon, WhyToon câblés
+  (cherry-picked depuis upstream). +8 sites disponibles.
+- **Package Linux .deb** : ajouté au workflow de release pour les distros
+  Debian/Ubuntu (dpkg-deb).
+
+## [2.1.0] - 2026-08-20
+
+### Amélioré
+
+- **MangaFire — chargement de la liste** : la limite par page de l'API est
+  passée de 100 à 500 titres, réduisant le nombre de requêtes de ~702 à
+  ~141. Le temps de chargement passe d'environ 77 s à ~15 s (estimé).
+  Dégradation gracieuse si le serveur impose une limite inférieure.
+- **PR upstream relancées** : rebasées sur upstream/master (18 commits
+  en retard) — PR #1797 (Cloudflare fixes) et #1798 (perf optimizations)
+  prêtes pour review.
+
+## [2.0.7] - 2026-08-20
+
+### Corrigé
+
+- **JapScan — fichier `.bin` résiduel** : le téléchargement produisait un
+  fichier `01.bin` vide (0 octet) à côté des vraies images. Cause : la
+  première URL collectée par le reader renvoyait un blob vide → fingerprint
+  MIME échouait → extension `.bin`. Fix en deux couches : (1) filtre
+  d'extension image (`.jpg/.png/.webp/...`) sur les URLs du CDN JapScan,
+  (2) `DownloadTask` ignore les blobs vides (`size === 0`) et ré-indexe
+  les fichiers restants pour une numérotation contiguë (01, 02, …).
+
+### Amélioré
+
+- **Recherche floue Fuse.js** : options resserrées (`threshold: 0.4`,
+  `minMatchCharLength: 2`, `fieldNormWeight: 0.3`) — beaucoup moins de
+  faux positifs en mode flou sur les 70k titres MangaFire.
+- **Relecture persistée** : la position de lecture (image courante) est
+  sauvegardée par chapitre dans `localStorage` et restaurée à
+  l'ouverture — reprendre là où on s'était arrêté.
+- **Doc Cloudflare** : guide pas-à-pas pour JapScan (puzzle anti-bot,
+  warm-up initial) et CrunchyScan (même principe) ajoutés dans
+  `CLOUDFLARE.md` §§7-8.
+- **Build simplifié** : script unique `bash scripts/bundle-x64.sh`
+  (web + electron + zip x64 en une commande, PATH npm géré).
+
+## [2.0.6] - 2026-08-19
+
+### Corrigé
+
+- **JapScan — téléchargement des images** : `FetchPages` ouvre désormais le
+  lecteur dans une **fenêtre visible**, le fait défiler pour déclencher le
+  chargement paresseux, puis collecte les URLs du CDN image `*.japscan.foo`
+  (`<img>` + timeline réseau, dédoublonnées) — avec `CreateImageLinks` (DRM) en
+  repli. Le `Referer` est celui du **chapitre** (au lieu de la racine) — cause
+  du 403 hotlink. `@Common.ImageAjax(true)` détecte le type par octets
+  (fichiers `.jpg`, plus d'image noire).
+- **Challenge interactif sans navigation** : en mode `Interactive`, la fenêtre
+  s'affiche puis l'extraction est relancée dès que le challenge est levé
+  (polling borné) — corrige le spinner infini des puzzles « in-place » comme
+  celui de JapScan (`#jc-overlay`).
+- **Diagnostics** : nouveau canal IPC `Diagnostics::WriteLog` qui écrit dans
+  `userdata/diagnostics.log` (borné à 5 Mo, silencieux en cas d'erreur).
+- Reste un `.bin` résiduel en tête de chapitre (URL non-image non reconnue) —
+  cosmétique, sans impact sur la lecture.
+
+## [2.0.5] - 2026-08-18
+
+### Ajouté
+
+- **Bump de version atomique** : nouveau script `scripts/bump-version.mjs`
+  (alias `npm run bump:version`) — met à jour les trois `package.json`
+  versionnés et insère l'entrée CHANGELOG en un seul pas, en refusant toute
+  exécution si les manifests sont désalignés, si la version existe déjà ou si
+  le format semver est invalide (`--dry-run` pour prévisualiser). Élimine la
+  cause du désalignement de versions que le garde-fou CI détecte.
+
+## [2.0.4] - 2026-08-18
+
+### Ajouté
+
+- **Tests de non-régression MangaDrama** : 12 tests unitaires verrouillent la
+  logique de verrouillage/déverrouillage des chapitres selon `is_purchased`.
+  La règle est extraite dans une fonction pure `MapMangaDramaChapter`,
+  partagée entre le connecteur et les tests — le cadenas 🔒 ne peut plus
+  régresser sans faire échouer la suite.
+- **Garde-fou CI des versions** : les trois `package.json` versionnés (racine,
+  web, electron) doivent partager la même version avant tout build/release.
+  Un désalignement fait échouer `push-ci` et `create-release` dès le départ.
+
+## [2.0.3] - 2026-08-18
+
+### Corrigé
+
+- **MangaDrama** : les chapitres **non achetés** affichent à nouveau le cadenas
+  🔒 et le prix en coins — l'overlay DOM introduit en 2.0.1 écrasait l'état REST
+  (les items DOM ne portent que `id`/`title`, donc leur état de verrou était
+  toujours faux) et déverrouillait visuellement tous les chapitres. L'app fait
+  désormais confiance au champ `is_purchased` de l'API, correctement rempli par
+  la session connectée : verrouillé si non acheté, déverrouillé si acheté.
+
+## [2.0.2] - 2026-08-18
+
+### Ajouté
+
+- **Suggestions** : bouton « Vérifier les nouveaux chapitres maintenant » sur la
+  tuile Suggestions — déclenche le scan des bookmarks sans attendre la période
+  configurée (respecte toujours le réglage « silencieux » qui ignore les sites
+  nécessitant une fenêtre navigateur).
+
+### Corrigé
+
+- **Bundle snap Linux** : les dossiers de staging snapcraft (`parts/`, `stage/`,
+  `prime/`, créés en root) sont supprimés après le build — le workflow de
+  release 3 OS ne plante plus en tentant d'attacher un dossier à la release.
+
+## [2.0.1] - 2026-08-18
+
+### Corrigé
+
+- **MangaDrama** : les chapitres achetés (coins) ne sont plus affichés comme
+  verrouillés dans la liste — l'état de verrouillage respecte désormais le champ
+  `is_purchased` de l'API et la page rendue (l'état réel pour l'utilisateur
+  connecté), au lieu du seul `lock_type`.
+
+### Ajouté
+
+- **Installateur NSIS Windows** (per-user, bilingue FR/EN, Add/Remove Programs,
+  raccourcis menu Démarrer, désinstallateur) : `hakuneko-electron-v2.0.1-win32-{ia32,x64,arm64}-setup.exe`
+  en plus des zips portables.
+- **Bundle Linux snap** (`.snap`) en plus de l'AppImage, attaché à la release
+  GitHub (l'upload vers le Snap Store reste opt-in via `SNAPCRAFT_STORE_CREDENTIALS`).
+
+## [2.0.0] - 2026-08-18
+
+> **Majeure.** ChainsmokerNeko n'est plus un simple fork d'HakuNeko : cette
+> version acte le passage au produit autonome — suite complète de contournement
+> Cloudflare, optimisations de performance massives, distribution 3 OS et
+> releases bilingues.
+
+### Ajouté
+
+- **Suite Cloudflare complète** : import du cookie `cf_clearance` depuis
+  Chrome/Edge (déchiffrement v10/v20 + DPAPI, fallthrough multi-navigateurs),
+  collage manuel en secours, persistance du cookie entre les redémarrages,
+  bouton « Clear Cloudflare cache », fenêtre visible uniquement quand un
+  widget réel est présent.
+- **MangaDrama** : connexion au compte, affichage du prix en coins sur les
+  chapitres verrouillés, déverrouillage des chapitres achetés.
+- **Scan de nouveau contenu configurable** : récurrence (défaut 1440 min),
+  paresseux (déclenché à l'ouverture de la vue Suggestions, plus jamais au
+  boot) et silencieux (ignore les sites nécessitant une fenêtre visible —
+  CrunchyScan, JapScan, MangaFire, MangaLink, MangaTilkisi, MangaTR,
+  RainDropFansub).
+- **Téléchargement automatique** des nouveaux chapitres de moins de 48 h des
+  bookmarks (versions anglaises uniquement).
+- **Mise à jour automatique** (electron-updater) avec notification et bouton
+  dans l'app.
+- **Avertissement localisé « environnement sans Electron »** quand un
+  connecteur requiert une vraie fenêtre navigateur sur un runtime qui n'en
+  fournit pas.
+- **Drapeaux de pays** devant les noms des chapitres.
+- **Version affichée** dans la barre latérale, le pied de page du lecteur, le
+  splash screen et les paramètres.
+- **Distribution 3 OS** : bundles Windows (ia32/x64/arm64), macOS (dmg),
+  Linux (snap) construits par CI ; exécutable renommé `hakuneko(.exe)`.
+- **Releases bilingues FR/EN**, badges version/téléchargements, changelog et
+  feuille de route (`ROADMAP.md`).
+
+### Modifié
+
+- **Performance** : liste des chapitres virtualisée (VirtualList, abonnements
+  centralisés), store MediaLists shardé avec diff à la volée (fini le blob
+  mono-clé de 91k entrées), recherche floue Fuse.js déplacée dans un Web
+  Worker, débounce du filtre avec tri unique, singleton IndexedDB partagé.
+- **Accent corail `#e5484d`** (sémantique danger conservée).
+- **UA par défaut conservée** (segment `Electron`) — élimine le challenge
+  MangaFire.
+- **Scan des bookmarks** : plus aucune fenêtre Cloudflare au lancement.
+
+### Corrigé
+
+- Boucles Cloudflare MangaFire / Comix / CrunchyScan (UA, poller de reload,
+  contrôle du widget réel).
+- Login MangaDrama (session non partagée).
+- Persistance des réglages à la fermeture de l'app.
+- Import v10 : `RangeError expires_utc` (Edge fermé) et préfixe 32 octets des
+  cookies Chromium.
+- Scan du nouveau contenu qui ouvrait la fenêtre à chaque démarrage ; un site
+  en échec (ex. CrunchyScan sans `cf_clearance`) ne bloque plus la
+  mémorisation de la vérification.
+
+## [0.1.15] - 2026-08-18
+
+### Modifié
+
+- **Scan du nouveau contenu paresseux** : la vérification des bookmarks ne
+  s'exécute plus au démarrage de l'app — elle ne tourne que quand la vue
+  Suggestions est affichée, et au plus une fois par période
+  (`check-new-content-period`, défaut 1440 min). Plus de fenêtre Cloudflare
+  CrunchyScan qui s'ouvre au lancement.
+- **Réglage « Vérifier les nouveaux chapitres sans ouvrir de fenêtre »**
+  (activé par défaut) : pendant la vérification, les sites dont le
+  fonctionnement nécessite une fenêtre navigateur visible (CrunchyScan) sont
+  ignorés — aucune fenêtre ne s'ouvre pendant le scan. Désactivable dans
+  Paramètres → Général.
+
+## [0.1.14] - 2026-08-17
+
+### Ajouté
+
+- **Avertissement localisé « environnement sans Electron »** : quand un
+  connecteur requiert une vraie fenêtre navigateur (`FetchWindowScript`) sur un
+  runtime qui n'en fournit pas (aperçu web, Deno, Node…), l'app affiche un
+  message clair et localisé au lieu de l'`InternalError` opaque. Traduit dans
+  les 14 locales, couvert par 6 tests unitaires. Comportement desktop
+  (Electron/NW.js) inchangé.
+
+### Corrigé
+
+- **CI remis au vert** : trois problèmes introduits par le rewrite 3-OS corrigés
+  — caractères non-ASCII dans des commentaires YAML de workflows (runs fantômes
+  en échec 0 s), `${{ runner.temp }}` dans un bloc `env:` de job interdit, et
+  import top-level d'`extract-zip` cassant le job bundles Windows (passé en
+  import lazy, macOS/Linux uniquement).
+
+### Documentation
+
+- Guide **pas-à-pas du réchauffage CrunchyScan** (CLOUDFLARE.md §7) + script de
+  test live vérifiant le snapshot `cf_clearance` (valeur, domaine, persistance).
+- **Badges de release** (version + téléchargements de la dernière version) dans
+  les README français et anglais ; liens de téléchargement vérifiés (HTTP 200/206).
+
+## [0.1.13] - 2026-08-17
+
+### Ajouté
+
+- **Bouton « Clear Cloudflare cache »** dans Paramètres → Général → Cloudflare
+  bypass : efface en un clic le snapshot `cloudflare-clearance.json` et tous les
+  cookies `cf_clearance` de la session partagée (à utiliser quand le cookie est
+  périmé et que le site rechallenge). Retourne un résumé du nettoyage.
+
+### Documentation
+
+- **README bilingue** : ajout de `README.en.md` (traduction anglaise complète)
+  avec sélecteur de langue en tête des deux fichiers. Les releases suivent la
+  même convention FR + EN.
+
+## [0.1.12] - 2026-08-17
+
+### Ajouté
+
+- **Notification de mise à jour** : au lancement, l'app vérifie la dernière
+  release GitHub du fork (`Endymi0n74/ChainsmokerNeko` via le champ `repository`
+  du manifest) et affiche un toast non bloquant « Update available — vX.Y.Z »
+  avec un lien de téléchargement vers la release. Vérification silencieuse en
+  cas d'échec (hors-ligne, rate-limit, panne réseau) — jamais d'erreur bloquante.
+  Comparaison semver (préfixe `v` toléré), timeout 15 s, un seul appel à l'API
+  GitHub par lancement.
+
+## [0.1.11] - 2026-08-17
+
+### Ajouté
+
+- **Persistance du cookie `cf_clearance`** : le cookie obtenu en résolvant un
+  challenge Cloudflare (flux « open the site » ou import) est désormais
+  sauvegardé dans `cloudflare-clearance.json` (dossier userData) et réinjecté au
+  démarrage avec une expiration fraîche de 30 jours. Plus besoin de réchauffer
+  Cloudflare à chaque lancement ; un cookie devenu invalide (révoqué côté
+  serveur ou lié à une autre IP/UA) retombe automatiquement sur le flux
+  challenge normal qui re-peuple le snapshot.
+
+### Corrigé
+
+- Le `cf_clearance` posé par le site en **cookie de session** (sans expiration)
+  était perdu à la fermeture de l'app → l'échauffement repartait de zéro à
+  chaque redémarrage.
+
+## [0.1.10] - 2026-08-17
+
+### Ajouté
+
+- **Import `cf_clearance` multiplateforme** : l'import automatique fonctionne
+  désormais sur **Windows, macOS et Linux** (récupération de la clé AES propre à
+  la plateforme : DPAPI / Keychain + PBKDF2 / passphrase `peanuts` + keyring),
+  sans dépendance externe. Les profils Edge/Chrome (et Chromium sur Linux) sont
+  détectés selon l'OS ; les cookies se déchiffrent en v10 AES-256-GCM (Windows)
+  ou v10/v11 AES-128-CBC (macOS/Linux). Algorithmes vérifiés contre la source
+  Chromium. Le chemin Windows est validé en réel (Edge v20 → Chrome v10, valeur
+  injectée exacte, aucune régression).
+- **Bouton « Test now »** dans Paramètres → Général → Cloudflare bypass :
+  vérifie en un clic si le `cf_clearance` injecté débloque réellement le site
+  (fetch via la session partagée + détection du challenge Cloudflare).
+
+### Modifié
+
+- Documentation Cloudflare (`CLOUDFLARE.md` + section README) traduite en
+  anglais pour les utilisateurs non francophones.
+
+## [0.1.9] - 2026-08-17
+
+### Corrigé
+
+- **Import `cf_clearance` v10 — préfixe d'intégrité retiré** : Chromium 130+
+  préfixe les valeurs de cookies d'un bloc d'intégrité de 32 octets avant le
+  chiffrement AES-256-GCM. Le décryptage v10 ne le retirait pas → la valeur
+  injectée contenait 32 octets parasites. Le préfixe est désormais retiré après
+  décryptage (validé en réel sur Chrome for Testing : import Edge v20 → Chrome
+  v10, valeur injectée propre).
+
+## [0.1.8] - 2026-08-17
+
+### Amélioré
+
+- **Import `cf_clearance` multi-navigateur** : si Edge échoue (verrouillé ou
+  App-Bound Encryption v20), l'import essaie désormais **Chrome** avant
+  d'abandonner. Documentation ajoutée (README + texte d'aide des paramètres) :
+  l'auto-lecture v10 ne fonctionne qu'avec **Chrome** ou **Edge sans ABE** ;
+  le collage manuel reste le fallback universel.
+
+## [0.1.7] - 2026-08-17
+
+### Corrigé
+
+- **Import `cf_clearance` — crash corrigé** : `expires_utc` (microsecondes
+  depuis 1601) dépasse `Number.MAX_SAFE_INTEGER` → node:sqlite levait un
+  `RangeError` dès que l'auto-lecture lisait un cookie (Edge/Chrome fermé).
+  Le timestamp est désormais casté en TEXT dans la requête et parsé en BigInt.
+
+## [0.1.6] - 2026-08-17
+
+### Ajouté
+
+- **Import du `cf_clearance` depuis le navigateur réel** : nouvelle section
+  « Cloudflare bypass » dans Paramètres → Général. Un bouton lit le cookie
+  `cf_clearance` d'Edge/Chrome (décryptage DPAPI + AES-256-GCM du store
+  SQLite) et l'injecte dans la session partagée de l'app ; un champ de
+  **collage manuel** reste disponible quand le navigateur est ouvert (store
+  verrouillé) ou protégé par l'App-Bound Encryption (v20, détecté avec un
+  message explicite).
+
+## [0.1.5] - 2026-08-17
+
+### Corrigé
+
+- **CrunchyScan — boucle Cloudflare résolue** : trois problèmes chaînés
+  bloquaient le listing sur le challenge « Un instant… » :
+  - le cookie `cf_clearance` n'est émis que lorsque la fenêtre distante est
+    **visible** → la fenêtre s'affiche désormais pour les sites opt-in du
+    reload (CrunchyScan), sans flash pour les autres sites (MangaFire,
+    MangaDrama, Comix restent cachés) ;
+  - `cf_clearance` est **httpOnly** → le poller le lit via le debugger CDP
+    (`Network.getCookies`) au lieu de `document.cookie` (toujours vide) ;
+  - budget de reload **borné globalement à 3** (au lieu d'une boucle
+    non-bornée : ~35 navigations en 40 s) et arrêt de tous les pollers au
+    `destroy()`.
+
+## [0.1.4] - 2026-08-17
+
+### Ajouté
+
+- **Connexion MangaDrama dans l'app** : le connecteur vérifie la session via
+  l'API REST (`/wp-json/wp/v2/users/me`). Si l'utilisateur n'est pas connecté,
+  une **fenêtre visible s'ouvre sur `/my-account/`** pour se connecter depuis
+  l'app — les cookies de session persistent dans la session partagée et les
+  **chapitres achetés (coins) se déverrouillent** (`is_purchased`,
+  `InitMangaEncryptedChapter`). La fenêtre se ferme automatiquement dès que la
+  session est authentifiée (poll 5 s, max ~5 min).
+
+### Modifié
+
+- **MangaDrama — prix en coins visible** : les chapitres verrouillés par coins
+  affichent désormais leur coût dans la liste (ex. « Chapter 76 - Title
+  (3 coins) »), information fournie par l'API (`lock_type`/`lock_value`).
+
+## [0.1.3] - 2026-08-16
+
+### Modifié
+
+- **Débounce adaptatif du filtre mangas** : le délai passe à **120 ms en mode
+  sous-chaîne** (défaut) au lieu de 200 ms — la latence E2E saisie → mise à jour de
+  la liste mesurée en réel passe de **~313 ms à ~192 ms** (voir `BENCHMARKS.md`
+  §1). Le mode **flou** (opt-in) garde 200 ms : la recherche Fuse.js (~205 ms)
+  tourne en Web Worker et un délai plus long évite d'empiler les recherches.
+
+## [0.1.2] - 2026-08-16
+
+### Modifié
+
+- **Mise à jour différentielle des listes de mangas (`MediaLists`)** : lors d'un
+  refresh, seuls les lots (`#0`, `#1`, …) dont le contenu a réellement changé sont
+  réécrits (comparaison `id` + `title`), au lieu de réécrire la totalité des lots à
+  chaque mise à jour. Chaque lot est comparé **un par un à la volée** (lecture puis
+  éventuelle écriture), sans jamais matérialiser toute l'ancienne liste en mémoire.
+- **Mesure du gain (live, IndexedDB réel — voir `BENCHMARKS.md` §2)** : sur une
+  liste de 70 000 entrées, les écritures par refresh passent de **70** (réécriture
+  complète des shards, v0.1.1) / 1 blob de 70 k (mono-clé, v0.1.0) à **0** sur une
+  liste inchangée et **1–2** avec quelques changements. La durée mur-à-mur reste
+  ~30 ms sur NVMe (le fetch réseau des 70 k titres, ~77 s, domine le refresh) — le
+  gain est structurel : pas de réécriture/clone systématique, écritures en
+  O(modifications) au lieu de O(liste), et l'ancienne liste n'est plus matérialisée
+  en mémoire. Tests de régression couvrant aussi le rétrécissement (purge des shards
+  périmés sans réécrire les shards inchangés).
+
+## [0.1.1] - 2026-08-16
+
+### Ajouté
+
+- **Téléchargement automatique des nouveaux chapitres** dans les paramètres (onglet
+  Général) : un bouton détecte les chapitres publiés dans les **48 dernières heures**
+  parmi les **bookmarks**, filtre les **versions anglaises** et les ajoute à la file de
+  téléchargement.
+- Champ `PublishedAt` sur le modèle `Chapter` : date de publication remontée depuis le
+  site (MangaFire fournit `createdAt` par chapitre) et utilisée par le filtre « 48h ».
+- Test unitaire du channel IPC `ApplicationWindow::GetVersion`
+  (`ApplicationWindow_test.ts`, avec `app.getVersion` mocké).
+- **Drapeaux de langue devant les chapitres** : le drapeau du pays (emoji) est
+  désormais affiché devant le nom de chaque chapitre doté d'un tag de langue,
+  pour distinguer les versions (auparavant réservé au mode multilingue).
+- **Version dans la barre de titre et le titre de fenêtre** : la version de l'app
+  (ex. `v0.1.1`) est affichée à côté du nom dans l'AppBar et dans le titre de la
+  fenêtre (`document.title`).
+- **Version en pied de page du lecteur** : en mode plein écran (lecture d'images),
+  un pied de page discret affiche `v0.1.1` en bas à gauche.
+- **Splash screen fonctionnel avec version** : la fenêtre de chargement Electron
+  (`OpenSplash`) s'affiche réellement au démarrage (elle était ignorée par
+  `ShowWindow` côté main) et affiche la version lue via IPC. La fenêtre est
+  recréée proprement à chaque affichage (correction du `Object has been destroyed`
+  sur rechargement).
+- **Durée minimale du splash screen** : réglage « Splash screen » dans l'onglet
+  Général des paramètres qui maintient l'écran de démarrage visible au moins la
+  durée indiquée (0 = pas de minimum).
+
+### Modifié
+
+- Exécutables des bundles renommés **`hakuneko`** sur toutes les plateformes
+  (`hakuneko.exe` sous Windows, binaire `hakuneko` dans le .app macOS et le snap
+  Linux) au lieu de `hakuneko-electron` : l'appli tourne sous un nom de processus
+  distinct d'`electron.exe`, ce qui évite de la fermer en tuant les sondes de test.
+- **Recherche de mangas fluidifiée** : la saisie est débouncée (200 ms) et la liste
+  n'est triée qu'une seule fois au chargement au lieu d'être re-triée à chaque frappe
+  (le filtrage préserve l'ordre déjà trié).
+- **Liste des chapitres virtualisée** : la liste des éléments d'un manga utilise
+  désormais `VirtualList` (seules les lignes visibles sont rendues, au lieu des
+  ~1 200 nœuds DOM d'une longue série). Les abonnements aux flags et à la file de
+  téléchargement sont **centralisés dans la liste** (un par liste) et l'état est
+  passé aux items en props, au lieu de ~2 abonnements par chapitre (milliers au total).
+- **Liste des mangas shardée (`MediaLists`)** : la liste d'un site (ex. ~70 000
+  entrées MangaFire) n'est plus chargée/réécrite en un seul blob mono-clé ; elle est
+  découpée en lots de 1 000 entrées (clés `#0`, `#1`, … + méta `#meta`), avec repli
+  sur l'ancien format mono-clé et purge des lots obsolètes lors d'une mise à jour.
+- **Recherche floue dans un Web Worker** : l'indexation et la recherche Fuse.js
+  tournent désormais dans un worker (`FuseSearchWorker`) au lieu du thread UI — la
+  recherche (jusqu'à ~200 ms sur 70 000 titres) ne bloque plus l'interface. Le
+  worker indexe les titres et renvoie des indices, remappés ensuite vers les items.
+
+### Retiré
+
+- Action **« Save all images »** du lecteur d'images (bouton superposé retiré : jugée
+  superflue par rapport au téléchargement standard des chapitres).
+
+### Corrigé
+
+- **Réglages/bookmarks perdus à la fermeture** : le serveur local choisissait un
+  **port aléatoire** à chaque lancement (`listen(0)`), ce qui changeait l'origin
+  `http://127.0.0.1:<port>` et réinitialisait IndexedDB/localStorage (donc les
+  réglages et les bookmarks) entre deux sessions. Le serveur écoute désormais un
+  **port stable** (64210, avec repli 64211–64225 puis port libre en cas de collision),
+  ce qui conserve l'origin et la persistance d'une session à l'autre.
+
+## [0.1.0] - 2026-08-16
+
+### Ajouté
+
+- Version propre du projet (`0.1.0`) : les bundles sont désormais nommés
+  `hakuneko-electron-v0.1.0-<plateforme>-<arch>.zip` au lieu de porter la version
+  d'Electron (`v43.3.0`) ; la version est aussi propagée au manifest embarqué et au snap.
+- La version de l'app est affichée dans les paramètres (« HakuNeko v0.1.0 ») et dans le
+  menu « À propos » de la barre latérale (« Using version 0.1.0 »), lue depuis le manifest
+  via le channel IPC `ApplicationWindow::GetVersion`.
+
+- Connecteurs **CrunchyScan** et **MangaDrama** (scrapers + WAF), panneau « Nouveaux chapitres » et UX du lecteur améliorée.
+- Connecteur **Comix** entièrement reconstruit **sans DRM** (~91 000 mangas, chapitres et pages via scripts axios du site).
+- 17 nouveaux connecteurs.
+- Menu contextuel du lecteur d'images : enregistrer / copier l'image.
+- Bouton de téléchargement des éléments dans l'interface classique + affichage de la source en cas d'échec de la liste.
+- Test e2e de régression de listing pour les sites Cloudflare (`web/src/engine/websites/CloudflareList_e2e.ts`).
+
+### Corrigé
+
+- **Challenges Cloudflare infinis** (MangaFire, Comix, CrunchyScan) :
+  - UA standard conservée : retrait du token produit (`hakuneko-electron/…`) de l'user-agent au lieu du segment `Electron`.
+  - Session Electron partagée avec les fenêtres distantes + cookies partitionnés (`cf_clearance`) inclus dans l'injection fetch.
+  - Auto-résolution des challenges « managés » en arrière-plan : suppression du `win.Hide()` (qui mettait le challenge en pause) et délai de grâce avant inspection de la page.
+  - Reload **opt-in** des challenges bloqués (`ChallengeReload.ts`, utilisé par CrunchyScan).
+- Téléchargements CrunchyScan : retry (3×) avec backoff + timeout par tentative contre les 403 Cloudflare intermittents.
+- Scrapers **MangaFire** et **MangaDrama**.
+- CrunchyScan déplacé vers `crunchyscan.org`.
+
+### Modifié
+
+- La web app est servie par un **serveur HTTP local embarqué** dans le client Electron.
+- Installation déterministe : `package-lock.json` committé + `npm ci` dans la CI.
+- CI : typecheck + lint + svelte-check + vue-tsc + build (web/electron/nw) à chaque push, avec cache npm et binaire Electron.
+- Retrait du workflow de déploiement Cloudflare hérité de l'upstream.
+
+---
+
+## Historique amont
+
+L'historique complet (3 900+ commits) provient de [HaruNeko](https://github.com/manga-download/haruneko)
+et de [HakuNeko](https://github.com/manga-download/hakuneko). Ce changelog ne couvre que les
+modifications propres à ce fork.
+
+
+## Crédits / Credits
+
+Développé en vibe coding avec l'assistance de **Codebuff (Kumo)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.
+
+Developed with vibe coding, assisted by **Codebuff (Kumo)** — 🤖 Generated with Codebuff · Co-Authored-By: Codebuff <noreply@codebuff.com>.

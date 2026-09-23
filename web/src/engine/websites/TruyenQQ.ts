@@ -8,11 +8,13 @@ import { RateLimit } from '../taskpool/RateLimit';
 import { Numeric } from '../SettingsManager';
 import { WebsiteResourceKey as R } from '../../i18n/ILocale';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
+import { AddForkChallengeHandling } from '../platform/ChallengeReload';
 
 AddAntiScrapingDetection(async (invoke) => {
     const result = await invoke<string[]>(`[...document.querySelectorAll('script')].map(script => script.text)`);
     return result.some(script => /window\.captcha\s*=/.test(script) && /chaitin\.cn\/captcha\/api/.test(script)) ? FetchRedirection.Automatic : undefined;
 }, /^https:\/\/truyenqqko\.com/);
+AddForkChallengeHandling(/^https:\/\/truyenqqko\.com/);
 
 function PageExtractor(element: HTMLElement): string {
     return element.dataset.original;

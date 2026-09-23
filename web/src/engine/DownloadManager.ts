@@ -1,8 +1,12 @@
 import { DownloadTask, Status } from './DownloadTask';
+import { CollectionDownloadTask } from './CollectionDownloadTask';
+import type { Chapter } from './providers/MangaPlugin';
 import { ObservableArray, type IObservable } from './Observable';
 import type { StoreableMediaContainer, MediaItem } from './providers/MediaPlugin';
 import type { StorageController } from './StorageController';
 import { Delay, SetTimeout } from './BackgroundTimers';
+
+const PROCESS_STALL_TIMEOUT_MS = 20_000;
 
 export class DownloadManager {
 
@@ -44,6 +48,22 @@ export class DownloadManager {
     }
 
     /**
+     * Add a "collection / omnibus" task to the download queue: every page of the
+     * given {@link chapters} is downloaded and merged into a single volume file.
+     * Only chapters that are not already part of a queued task are added.
+     */
+    public async EnqueueCollection(chapters: Chapter[], volumeTitle = 'Omnibus'): Promise<void> {
+        if (chapters.length === 0) {
+            return;
+        }
+        await this.InvokeQueueTransaction(() => {
+            const task = new CollectionDownloadTask(chapters, volumeTitle, this.storageController);
+            this.queue.Push(task);
+        });
+        this.Process();
+    }
+
+    /**
      * Remove the given {@link tasks} from the download queue.
      * Only tasks that are present in the download queue will be removed.
      */
@@ -70,7 +90,7 @@ export class DownloadManager {
             try {
                 const task = await this.InvokeQueueTransaction(() => this.queue.Value.find(task => task.Status.Value === Status.Queued));
                 if(task) {
-                    await task.Run();
+                    await this.RunWithStallGuard(task);
                 } else {
                     await new Promise<void>(resolve => SetTimeout(resolve, 750));
                 }
@@ -78,5 +98,29 @@ export class DownloadManager {
         }
 
         this.processing = false;
+    }
+
+    private async RunWithStallGuard(task: DownloadTask): Promise<void> {
+        let lastStatus = task.Status.Value;
+        let lastProgress = task.Progress.Value;
+        let lastActivity = Date.now();
+        const poll = async (): Promise<void> => {
+            while (task.Status.Value === Status.Queued || task.Status.Value === Status.Downloading || task.Status.Value === Status.Processing) {
+                await Delay(1000);
+                if (task.Status.Value !== lastStatus || task.Progress.Value !== lastProgress) {
+                    lastStatus = task.Status.Value;
+                    lastProgress = task.Progress.Value;
+                    lastActivity = Date.now();
+                } else if (Date.now() - lastActivity >= PROCESS_STALL_TIMEOUT_MS) {
+                    task.Abort();
+                    return;
+                }
+            }
+        };
+        await Promise.race([task.Run(), poll()]);
+        if (task.Status.Value === Status.Downloading || task.Status.Value === Status.Processing) {
+            task.Abort();
+            await Delay(1000);
+        }
     }
 }

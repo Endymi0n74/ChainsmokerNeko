@@ -7,10 +7,13 @@
     interface Props {
         item: MediaContainer<MediaItem>;
         currentImageIndex: number;
+        savedScrollPx?: number;
         wide: boolean;
         onNextItem: () => void;
         onPreviousItem: () => void;
         onClose: () => void;
+        onCloseReader: () => void;
+        onScrollUpdate?: (scrollPx: number) => void;
     };
 
     // UI
@@ -39,9 +42,17 @@
         viewer?.removeEventListener('scroll', onScroll);
     });
 
-    let { item, currentImageIndex, wide = $bindable(), onNextItem, onPreviousItem, onClose }: Props = $props();
+    let { item, currentImageIndex, savedScrollPx = 0, wide = $bindable(), onNextItem, onPreviousItem, onClose, onCloseReader, onScrollUpdate }: Props = $props();
     let entries = $derived(item.Entries.Value);
     let viewer: HTMLElement;
+
+    // Version de l'app affichée en pied de page discret du lecteur (mode plein écran).
+    let appVersion = $state('');
+    $effect(() => {
+        UI.WindowController?.GetVersion()
+            .then(version => appVersion = version)
+            .catch(() => { /* ignore */ });
+    });
 
     function viewerclose() {
         wide = false;
@@ -127,6 +138,8 @@
     }
 
     async function onScroll() {
+        // Report scroll position for persistence
+        onScrollUpdate?.(viewer.scrollTop);
         const scrollableHeight = viewer.scrollHeight - viewer.clientHeight;
         if (viewer.scrollTop >= scrollableHeight) {
             if (!autoNextItem) onNextItemCallback();
@@ -155,11 +168,17 @@
     // Drag and drop scroll
     let pos = { top: 0, left: 0, x: 0, y: 0 };
 
-    // Entering wide mode : scroll to image
+    // Entering wide mode : scroll to saved position (image index or exact px offset)
     $effect(() => {
         if (wide) {
-            if (currentImageIndex != -1) {
-                // delay because of smooth transition
+            if (savedScrollPx > 0 && currentImageIndex != -1) {
+                // Restore exact scroll position (strip/longstrip mode)
+                setTimeout(() => {
+                    viewer.scrollTop = savedScrollPx;
+                    currentImageIndex = -1;
+                }, 200);
+            } else if (currentImageIndex != -1) {
+                // Restore by image index (paginated mode)
                 setTimeout(() => {
                     const targetScrollImage =
                         viewer.querySelectorAll('#ImageViewer>button>img')[
@@ -190,6 +209,7 @@
         {onNextItem}
         {onPreviousItem}
         onClose={viewerclose}
+        {onCloseReader}
     />
 {/if}
 <div
@@ -236,6 +256,9 @@
         </button>
     {/each}
 </div>
+{#if wide && appVersion}
+    <div class="viewer-version" transition:fade>v{appVersion}</div>
+{/if}
 {#if autoNextItem && UI.selectedItemNext !== undefined}
     <div  style="z-index: 20000; position: fixed; bottom: 2em; right: 2em;" transition:fade>
         <InlineNotification
@@ -310,4 +333,17 @@
     #ImageViewer.wide.paginated.reverse {
         flex-flow: row-reverse;
     }
+    .viewer-version {
+        position: fixed;
+        bottom: 0.5em;
+        left: 0.75em;
+        z-index: 10000;
+        font-size: 0.72em;
+        font-weight: 400;
+        color: var(--cds-text-secondary, #6f6f6f);
+        opacity: 0.55;
+        pointer-events: none;
+        user-select: none;
+    }
+
 </style>

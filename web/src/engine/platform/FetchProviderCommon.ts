@@ -3,16 +3,64 @@ import { Exception, InternalError } from '../Error';
 import { EngineResourceKey as R } from '../../i18n/ILocale';
 import { CreateRemoteBrowserWindow } from './RemoteBrowserWindow';
 import { CheckAntiScrapingDetection, FetchRedirection } from './AntiScrapingDetection';
+import { ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from './ChallengeReload';
 import type { FeatureFlags } from '../FeatureFlags';
 import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
-import { ConcealedCookieHeaderName, type FetchConcealedRequest } from './FetchConcealedRequest';
-import { MergeCookiesIntoHeader, ParseCookiesFromHeader } from './CookieHelper';
+
+/**
+ * Exponential backoff helper for challenge polling: `base * 2^attempt`, capped.
+ */
+function BackoffDelay(attempt: number, base = 2000, cap = 10_000): number {
+    return Math.min(base * 2 ** attempt, cap);
+}
+
+/**
+ * Selectors covering the real interactive widgets across Cloudflare Turnstile
+ * variants, reCAPTCHA and hCaptcha (the iframe/checkbox is the interactive
+ * widget; hidden response inputs are always present and must NOT match).
+ */
+const ChallengeWidgetSelectors = [
+    // Turnstile (various site-key/wrapper layouts)
+    '.cf-turnstile iframe',
+    'iframe[src*="challenges.cloudflare.com/turnstile"]',
+    'iframe[src*="challenges.cloudflare.com"]',
+    '#challenge-stage iframe',
+    '#challenge-stage input[type="checkbox"]',
+    '.challenge-form [type="checkbox"]',
+    '#turnstile-wrapper iframe',
+    '[data-turnstile-sitekey] iframe',
+    'div[class*="turnstile"] iframe',
+    'input[type="checkbox"][name="turnstile"]',
+    // reCAPTCHA v2
+    '.g-recaptcha iframe',
+    'iframe[src*="recaptcha"]',
+    '#recaptcha iframe',
+    '[data-sitekey] iframe',
+    // hCaptcha
+    '.h-captcha iframe',
+    'iframe[src*="hcaptcha"]',
+].join(', ');
+
+/**
+ * DOM/body markers that identify a Cloudflare challenge interstitial page.
+ */
+const ChallengePageSelectors = [
+    '.cf-turnstile',
+    '#challenge-stage',
+    '.challenge-form',
+    '#turnstile-wrapper',
+    '[data-turnstile-sitekey]',
+    '.g-recaptcha',
+    '#recaptcha',
+    '.h-captcha',
+    '[name="cf-turnstile-response"]',
+].join(', ');
 
 export abstract class FetchProvider {
 
     private featureFlags: FeatureFlags;
 
-    private async ValidateResponse(response: Response): Promise<void> {
+    protected async ValidateResponse(response: Response): Promise<void> {
         if (/challenge/i.test(response.headers.get('CF-Mitigated'))) {
             throw new Exception(R.FetchProvider_Fetch_CloudFlareChallenge, response.url);
         }
@@ -37,29 +85,12 @@ export abstract class FetchProvider {
      */
     public abstract Fetch(request: Request): Promise<Response>;
 
-    protected async FetchConcealed(request: FetchConcealedRequest, sessionCookies: CookieList): Promise<Response> {
-        if (request.credentials === 'omit') {
-            request.headers.delete(ConcealedCookieHeaderName);
-            request.headers.delete('Authorization');
-        } else {
-            const cookie = MergeCookiesIntoHeader(
-                sessionCookies,
-                ParseCookiesFromHeader(request.headers.get(ConcealedCookieHeaderName) ?? ''));
-            request.headers.set(ConcealedCookieHeaderName, cookie);
-            //console.log('Merged Session Cookies:', cookie);
-        }
-        // Fetch API defaults => https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-        const response = await fetch(request);
-        await this.ValidateResponse(response);
-        return response;
-    }
-
     /**
      * Fetch and parse the remote HTML content into a virtual {@link Document} for further processing.
      * @param request - The request used to fetch the remote content.
      * @returns A virtual DOM with limited capabilities:
-     *   - Since the document is detached it will not be rendered, therefore certain behavior may not be as expected (e.g., innerText is the same as textContent)
-     *   - The document uses the base URL of the application instead of `request.url`, which affects all expanded links in the document
+     *    - Since the document is detached it will not be rendered, therefore certain behavior may not be as expected (e.g., innerText is the same as textContent)
+     *    - The document uses the base URL of the application instead of `request.url`, which affects all expanded links in the document
      */
     public async FetchHTML(request: Request): Promise<Document> {
         const mime = 'text/html';
@@ -158,7 +189,12 @@ export abstract class FetchProvider {
         }
         const response = await fetch(request);
         const data = await response.text();
-        return Array.from(data.matchAll(regex), match => match.at(1));
+        const result: string[] = [];
+        let match = undefined;
+        while (match = regex.exec(data)) {
+            result.push(match.at(1));
+        }
+        return result;
     }
 
     /**
@@ -226,52 +262,208 @@ export abstract class FetchProvider {
     }
 
     /**
-     * Open the given {@link request} in a new browser window and inject the given {@link script}.
-     * @param request - ...
-     * @param script - The JavaScript or function that will be evaluated within the browser window
-     * @param delay - The time [ms] to wait after the window was fully loaded and before the {@link script} will be injected
-     * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
+     * Polls a Cloudflare challenge page and reloads it when the challenge is "managed" (no real widget rendered)
+     * and a cf_clearance cookie is already present. This works around stalls where the page stays on
+     * "Just a moment..." indefinitely because the invisible challenge never auto-resolves.
      */
-    public async FetchWindowScript<T extends void | JSONElement>(request: Request, script: string, delay?: number, timeout?: number): Promise<T> {
-        return this.FetchWindowPreloadScript<T>(request, ``, script, delay, timeout);
+    private async ReloadStalledCloudFlareChallenge(
+        win: ReturnType<typeof CreateRemoteBrowserWindow>,
+        url: string,
+        budget: { remaining: number; lastReloadedClearance: string; reloadInFlight: boolean },
+        invocations: { name: string; info: string }[]
+    ): Promise<() => void> {
+        const maxReloads = 3;
+        const interval = 5000;
+        let stopped = false;
+
+        const checkScript = `
+            (() => {
+                const hasRealWidget = !!document.querySelector('${ChallengeWidgetSelectors}');
+                const title = (document.title || '').toLowerCase();
+                const bodyText = (document.body?.innerText || '').toLowerCase();
+                const isChallenge = title.includes('just a moment')
+                    || title.includes('un instant')
+                    || bodyText.includes('checking your browser')
+                    || bodyText.includes('verify you are human')
+                    || bodyText.includes('attention required')
+                    || !!document.querySelector('${ChallengePageSelectors}');
+                return {
+                    isChallenge,
+                    hasRealWidget
+                };
+            })()
+        `;
+
+        const doCheck = async () => {
+            if (stopped || budget.remaining <= 0 || budget.reloadInFlight) return;
+            try {
+                const result = await win.ExecuteScript<{
+                    isChallenge: boolean;
+                    hasRealWidget: boolean;
+                }>(checkScript);
+
+                if (result?.isChallenge && !result?.hasRealWidget) {
+                    // NOTE: `cf_clearance` is httpOnly, so `document.cookie` can never see it.
+                    // Read the cookie through the debugger (CDP) instead — same session, httpOnly visible.
+                    const cookies = await win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] });
+                    const cfClearance = cookies?.cookies?.find(cookie => cookie.name === 'cf_clearance');
+                    // Do not reload repeatedly with the same clearance. A stale or
+                    // IP-bound cookie can keep the page on the challenge forever; reloading
+                    // it on every DOMReady creates the visible loop reported on CrunchyScan.
+                    if (budget.remaining > 0 && cfClearance?.value && cfClearance.value !== budget.lastReloadedClearance) {
+                        budget.remaining--;
+                        budget.lastReloadedClearance = cfClearance.value;
+                        budget.reloadInFlight = true;
+                        invocations.push({
+                            name: 'ReloadStalledCloudFlareChallenge',
+                            info: `Reload #${maxReloads - budget.remaining} (managed challenge, no widget, cf_clearance=${cfClearance.value.length})`
+                        });
+                        try {
+                            await win.ExecuteScript('window.location.reload()');
+                        } finally {
+                            budget.reloadInFlight = false;
+                        }
+                    }
+                }
+            } catch {
+                // Ignore errors from ExecuteScript on a navigating/closed window
+            }
+        };
+
+        let timeoutId: number;
+        let scheduleAttempt = 0;
+        const schedule = async () => {
+            await doCheck();
+            if (!stopped && budget.remaining > 0) {
+                // Back off exponentially (5s → 10s → 20s → … capped at 1 min) instead of
+                // hammering the window on a fixed 5s interval, so a slow managed challenge
+                // is given time to resolve without spinning the CPU.
+                timeoutId = await SetTimeout(schedule, BackoffDelay(scheduleAttempt++, interval, 60_000));
+            }
+        };
+        timeoutId = await SetTimeout(schedule, interval);
+
+        return () => {
+            stopped = true;
+            if (timeoutId) ClearTimeout(timeoutId);
+        };
     }
 
     /**
-     * Open the given {@link request} in a new browser window and inject the given {@link script}.
-     * @param request - ...
-     * @param preload - The JavaScript or function that will be evaluated within the browser window before page is loaded
-     * @param script - The JavaScript or function that will be evaluated within the browser window
-     * @param delay - The time [ms] to wait after the window was fully loaded and before the {@link script} will be injected
-     * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
+     * Polls a window that was shown for an Interactive challenge until the challenge clears,
+     * then runs the extraction script on the now-usable page. Used when the challenge resolves
+     * in place (no navigation) — e.g. JapScan's own `#jc-overlay` puzzle — so `DOMReady` never
+     * fires again and the script would otherwise never run.
      */
-    public async FetchWindowPreloadScript<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000): Promise<T> {
+    private async PollForChallengeResolution(
+        win: ReturnType<typeof CreateRemoteBrowserWindow>,
+        url: string,
+        cloudflareDetectionScript: string,
+        runScript: () => Promise<void>,
+        isSettled: () => boolean,
+        stopPollers: (() => void)[],
+        invocations: { name: string; info: string }[]
+    ): Promise<void> {
+        let pollerId: number;
+        const stop = () => {
+            if (pollerId) ClearTimeout(pollerId);
+        };
+        stopPollers.push(stop);
 
+        let pollAttempts = 0;
+        let lastClearance = '';
+        const MAX_POLL_ATTEMPTS = 40;
+        const poll = async () => {
+            if (isSettled()) return;
+            if (++pollAttempts > MAX_POLL_ATTEMPTS) {
+                console.warn("[KUMO] PollForChallengeResolution: max attempts reached for", url);
+                return;
+            }
+            let cleared = false;
+            try {
+                const cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
+                // A Turnstile widget disappearing from the DOM means the challenge was solved,
+                // even if residual challenge text remains in the body (e.g. MangaFire).
+                // Do not treat a challenge with no detectable widget as solved immediately:
+                // CrunchyScan renders Turnstile in a child frame, while JapScan may render its
+                // own overlay asynchronously. The cookie check below is the authoritative signal.
+                const widgetGone = cloudflare?.isChallenge && !cloudflare?.hasRealWidget && !/crunchyscan\.org|japscan\./i.test(url);
+                // Always run site-specific detection (JapScan overlay, CrunchyScan subframe, etc.)
+                const antiScraping = await CheckAntiScrapingDetection(win, url);
+                // Turnstile widget gone = CF solved. Site detection resolved = site own challenge solved.
+                cleared = widgetGone || cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
+                // Subframe / interactive Turnstile: DOM parent may never see the widget cleared.
+                // Detect resolution via cf_clearance cookie change through CDP, with a short
+                // timeout so we never block the loading screen if the debugger is not ready.
+                if (!cleared) {
+                    // Retry the CDP cookie read with backoff: the debugger is often not
+                    // ready right after the window opens, and a transient failure must not
+                    // cost the whole poll cycle.
+                    for (let attempt = 0; attempt < 3 && !cleared; attempt++) {
+                        try {
+                            const cdpTimeout = 5_000;
+                            const cdpResult = await Promise.race([
+                                win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] }),
+                                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('CDP getCookies timeout')), cdpTimeout)),
+                            ]);
+                            const cf = cdpResult?.cookies?.find(c => c.name === 'cf_clearance');
+                            if (cf?.value && cf.value.length > 200 && cf.value !== lastClearance) {
+                                lastClearance = cf.value;
+                                cleared = true;
+                                invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
+                            }
+                        } catch { /* CDP not available yet — back off and retry */ }
+                        if (!cleared && attempt < 2) {
+                            await Delay(BackoffDelay(attempt, 500, 2_000));
+                        }
+                    }
+                }
+            } catch (error) {
+                if (error?.message?.includes("Failed to find window") || pollAttempts > 5) {
+                    console.warn("[KUMO] PollForChallengeResolution: stopping poller for", url, error?.message);
+                    return;
+                }
+            }
+            if (cleared) {
+                invocations.push({ name: "ChallengeResolved", info: "Interactive challenge cleared, running extraction script" });
+                try {
+                    await runScript();
+                } catch (error) {
+                    console.warn('[KUMO] challenge resolution script failed:', error);
+                }
+                return;
+            }
+            if (isSettled()) return;
+            pollerId = await SetTimeout(poll, BackoffDelay(pollAttempts, 2000, 10_000));
+        };
+        pollerId = await SetTimeout(poll, 4000);
+    }
+
+    private async FetchWindowPreloadScriptUpstream<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000): Promise<T> {
         const invocations: {
             name: string;
             info: string;
         }[] = [];
 
         const win = CreateRemoteBrowserWindow();
-
-        win.BeforeWindowNavigate.Subscribe(async uri => {
-            invocations.push({ name: 'BeforeNavigate', info: `URL: ${uri.href}` });
-            return this.featureFlags.VerboseFetchWindow.Value ? null : win.Hide();
-        });
+        let destroyed = false;
 
         const destroy = async () => {
+            if (destroyed) return;
+            destroyed = true;
             try {
                 if (this.featureFlags.VerboseFetchWindow.Value) {
                     console.log('FetchWindow()::invocations', invocations);
                 } else {
-                    win.Close();
+                    await win.Close();
                 }
             } catch (error) {
                 console.warn(error);
             }
         };
 
-        return new Promise<T>((resolve, reject) => {
-            let cancellation = SetTimeout(async () => {
+        return new Promise<T>(async (resolve, reject) => {
+            let cancellation = await SetTimeout(async () => {
                 await destroy();
                 reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
             }, timeout);
@@ -282,27 +474,22 @@ export abstract class FetchProvider {
                     const redirect = await CheckAntiScrapingDetection(win, request.url);
                     invocations.push({ name: 'performRedirectionOrFinalize()', info: `Mode: ${FetchRedirection[ redirect ]}` });
                     switch (redirect) {
-                        case FetchRedirection.Interactive: {
-                            // NOTE: Allow the user to solve the captcha within 2.5 minutes before rejecting the request with an error
-                            ClearTimeout(await cancellation);
-                            cancellation = SetTimeout(() => {
+                        case FetchRedirection.Interactive:
+                            ClearTimeout(cancellation);
+                            cancellation = await SetTimeout(() => {
                                 destroy();
                                 reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
                             }, 150_000);
                             await win.Show();
-                            return;
-                        }
-                        case FetchRedirection.Automatic: {
-                            return;
-                        }
-                        default: {
-                            ClearTimeout(await cancellation);
+                            break;
+                        case FetchRedirection.Automatic:
+                            break;
+                        default:
+                            ClearTimeout(cancellation);
                             await Delay(delay);
                             const result = await win.ExecuteScript<T>(script);
                             await destroy();
                             resolve(result);
-                            return;
-                        }
                     }
                 } catch {
                     await destroy();
@@ -310,7 +497,312 @@ export abstract class FetchProvider {
             });
 
             invocations.push({ name: 'Open', info: `Request URL: ${request.url}` });
-            win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+            try {
+                await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+            } catch (error) {
+                await destroy();
+                ClearTimeout(cancellation);
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Open the given {@link request} in a new browser window and inject the given {@link script}.
+     * @param request - ...
+     * @param script - The JavaScript or function that will be evaluated within the browser window
+     * @param delay - The time [ms] to wait after the window was fully loaded and before the {@link script} will be injected
+     * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
+     */
+    public async FetchWindowScript<T extends void | JSONElement>(request: Request, script: string, delay?: number, timeout?: number, show = false): Promise<T> {
+        return this.FetchWindowPreloadScript<T>(request, ``, script, delay, timeout, show);
+    }
+
+    /**
+     * Open the given {@link request} in a new browser window and inject the given {@link script}.
+     * @param request - ...
+     * @param preload - The JavaScript or function that will be evaluated within the browser window before page is loaded
+     * @param script - The JavaScript or function that will be evaluated within the browser window
+     * @param delay - The time [ms] to wait after the window was fully loaded and before the {@link script} will be injected
+     * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
+     */
+    public async FetchWindowPreloadScript<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000, show = false): Promise<T> {
+        if (!ShouldUseForkChallengeHandling(request.url)) {
+            return this.FetchWindowPreloadScriptUpstream(request, preload, script, delay, timeout);
+        }
+
+        const invocations: {
+            name: string;
+            info: string;
+        }[] = [];
+
+        const win = CreateRemoteBrowserWindow();
+        let destroyed = false;
+
+        win.BeforeWindowNavigate.Subscribe(async uri => {
+            invocations.push({ name: 'BeforeNavigate', info: `URL: ${uri.href}` });
+            return null;
+        });
+
+        const stopPollers: (() => void)[] = [];
+        // CrunchyScan's managed challenge can issue a fresh but unusable clearance on
+        // every reload. Allow one automatic retry only, then leave the window stable for
+        // a manual intervention instead of showing a visible challenge loop.
+        const reloadBudget = {
+            remaining: /crunchyscan\.org/i.test(request.url) ? 1 : 3,
+            lastReloadedClearance: '',
+            reloadInFlight: false,
+        };
+
+        const destroy = async () => {
+            if (destroyed) return;
+            destroyed = true;
+            try {
+                for (const stop of stopPollers) {
+                    stop();
+                }
+                stopPollers.length = 0;
+                if (this.featureFlags.VerboseFetchWindow.Value) {
+                    console.log('FetchWindow()::invocations', invocations);
+                } else {
+                    await win.Close().catch(() => {});
+                }
+            } catch (error) {
+                console.warn(error);
+            }
+        };
+
+        return new Promise<T>(async (resolve, reject) => {
+            let settled = false;
+
+            let cancellation = await SetTimeout(async () => {
+                settled = true;
+                await destroy();
+                reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
+            }, timeout);
+
+            const runScript = async () => {
+                if (settled) return;
+                settled = true;
+                try {
+                    // Some readers (e.g. JapScan) only paint their pages once the window is
+                    // actually visible (IntersectionObserver/lazy loaders pause in a hidden
+                    // window). Show the window before running the extraction script.
+                    if (show) {
+                        await win.Show();
+                        await Delay(1500);
+                    }
+                    await Delay(delay);
+                    const result = await win.ExecuteScript<T>(script);
+                    ClearTimeout(cancellation);
+                    await destroy();
+                    resolve(result);
+                } catch (error) {
+                    ClearTimeout(cancellation);
+                    await destroy();
+                    if (error?.message?.includes("Failed to find window")) {
+                        console.warn("[KUMO] runScript: window already destroyed, resolving empty for", request?.url);
+                        resolve(undefined as T);
+                    } else {
+                        console.warn("[KUMO] runScript error:", request?.url, error?.message || error);
+                        reject(error);
+                    }
+                }
+            };
+
+            win.DOMReady.Subscribe(async () => {
+                invocations.push({ name: 'DOMReady', info: `Window: ${win}` });
+                // A navigation creates a new DOMReady while the previous challenge poller may
+                // still be waiting. Keep only the poller for the current document; otherwise
+                // several reload timers race and make CrunchyScan appear to loop forever.
+                for (const stop of stopPollers) {
+                    stop();
+                }
+                stopPollers.length = 0;
+
+                let redirect: FetchRedirection;
+
+                // Only wait for managed-challenge auto-resolution on sites that opt into stalled-challenge
+                // reload. Other sites do not pay this latency penalty.
+                if (ShouldReloadStalledChallenge(request.url)) {
+                    await Delay(2500);
+                }
+
+                // The challenge may auto-resolve (and thus navigate) right around the grace delay, which
+                // tears down the execution context and makes `ExecuteScript` fail. Poll the read-only
+                // Cloudflare check until the page settles instead of giving up on the first navigation race.
+                const cloudflareDetectionScript = `
+                    (() => {
+                        const title = (document.title || '').toLowerCase();
+                        const body = (document.body?.innerText || '').toLowerCase();
+                        const isChallenge = title.includes('just a moment')
+                            || title.includes('un instant')
+                            || body.includes('checking your browser')
+                            || body.includes('verify you are human')
+                            || body.includes('attention required')
+                            || body.includes('cf-chl-')
+                            || !!document.querySelector('${ChallengePageSelectors}');
+                        const hasRealWidget = !!document.querySelector('${ChallengeWidgetSelectors}');
+                        return { isChallenge, hasRealWidget };
+                    })()
+                `;
+
+                let cloudflare: { isChallenge: boolean; hasRealWidget: boolean } | undefined;
+                // The grace delay above protects Cloudflare's proof phase. Do not keep
+                // probing for 20 seconds after it: CrunchyScan needs its visible window
+                // before the caller's listing timeout expires. Retry transient navigation
+                // races with exponential backoff instead of a fixed delay.
+                for (let attempt = 0; attempt < 4 && cloudflare === undefined; attempt++) {
+                    try {
+                        cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
+                    } catch {
+                        if (attempt < 3) await Delay(BackoffDelay(attempt, 500, 2_000));
+                    }
+                }
+
+                // Site-specific anti-scraping detections are authoritative: they know the challenge
+                // mechanics of their own site (e.g. CrunchyScan's Turnstile lives in a subframe and
+                // never shows a widget in the parent DOM, JapScan's #jc-overlay puzzle, MangaLink's
+                // reCAPTCHA form). Run them BEFORE the generic DOM heuristic, otherwise a subframe
+                // challenge would be misclassified as Automatic and the interactive window (which is
+                // what actually issues the session cookie) would never open.
+                try {
+                    redirect = await CheckAntiScrapingDetection(win, request.url);
+                } catch (error) {
+                    // The obfuscated anti-scraping detections can throw on pages whose DOM they do
+                    // not expect (e.g. `removeChild` on a node missing after the reader hydrates).
+                    // A failing detection must not block scraping: treat it as "no challenge".
+                    console.warn('CheckAntiScrapingDetection failed, assuming no challenge:', error);
+                    redirect = FetchRedirection.None;
+                }
+
+                // No site-specific detection fired: fall back to the generic Cloudflare DOM heuristic
+                // so challenges on sites without a custom detection (MangaFire, Comix, …) still
+                // auto-resolve in the background without flashing a window.
+                if (redirect === FetchRedirection.None && cloudflare?.isChallenge) {
+                    redirect = cloudflare.hasRealWidget ? FetchRedirection.Interactive : FetchRedirection.Automatic;
+                    invocations.push({ name: 'CloudflareDetected', info: cloudflare.hasRealWidget ? 'Interactive (real widget)' : 'Automatic (managed, wait for auto-resolve)' });
+                }
+
+                console.warn("[KUMO] redirect:", FetchRedirection[redirect], "url:", request?.url);
+                invocations.push({ name: 'performRedirectionOrFinalize()', info: `Mode: ${FetchRedirection[ redirect ]}` });
+
+                // Start poller only for sites that opted into the stalled-challenge reload
+                // (reloading other sites' challenges — e.g. MangaFire's custom WAF — loops forever)
+                const stalledReloadEnabled = ShouldReloadStalledChallenge(request.url);
+                if (stalledReloadEnabled && reloadBudget.remaining > 0) {
+                    stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations));
+                }
+
+                const enterInteractive = async () => {
+                    // NOTE: Allow the user to solve the captcha within 2.5 minutes before rejecting the request with an error
+                    ClearTimeout(cancellation);
+                    cancellation = await SetTimeout(() => {
+                        if (!settled) {
+                            settled = true;
+                            void destroy();
+                            reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
+                        }
+                    }, 150_000);
+                    await win.Show();
+                    // In-place challenges (e.g. JapScan's `#jc-overlay` puzzle) resolve without
+                    // a navigation, so DOMReady never fires again and the extraction script would
+                    // never run. Poll until the challenge clears, then run the script on the
+                    // now-usable reader page.
+                    this.PollForChallengeResolution(win, request.url, cloudflareDetectionScript, runScript, () => settled, stopPollers, invocations);
+                };
+
+                const enterAutomatic = () => {
+                    // CrunchyScan's managed challenge only issues its clearance cookie
+                    // while the remote window is visible. Keep this visibility scoped to
+                    // the explicit stalled-reload opt-in; other fork-handled sites remain
+                    // fully backgrounded.
+                    if (stalledReloadEnabled) {
+                        void win.Show().then(() => this.PollForChallengeResolution(
+                            win,
+                            request.url,
+                            cloudflareDetectionScript,
+                            runScript,
+                            () => settled,
+                            stopPollers,
+                            invocations,
+                        ));
+                    } else if (ShouldUseForkChallengeHandling(request.url)) {
+                        void this.PollForChallengeResolution(
+                            win,
+                            request.url,
+                            cloudflareDetectionScript,
+                            runScript,
+                            () => settled,
+                            stopPollers,
+                            invocations,
+                        );
+                    }
+                };
+
+                switch (redirect) {
+                    case FetchRedirection.Interactive:
+                        await enterInteractive();
+                        break;
+                    case FetchRedirection.Automatic:
+                        enterAutomatic();
+                        break;
+                    default:
+                        // Site-specific challenges may be rendered asynchronously, AFTER the
+                        // DOMReady that triggered this classification: JapScan's own anti-bot
+                        // decides via an AJAX call (a few seconds after the page loaded) whether
+                        // its `#jc-overlay` puzzle is required — typically on the SECOND reader
+                        // request in a row (e.g. downloading one volume and immediately asking
+                        // for the next one). A single detection at DOMReady therefore reports
+                        // `None` too early and the extraction starts on a page that is about to
+                        // be locked by the puzzle, silently yielding an incomplete page list.
+                        // For visible fetches on fork-handled sites (the reader extraction),
+                        // show the window and re-run the site detection for a short grace
+                        // period; upgrade to the Interactive/Automatic handling as soon as the
+                        // puzzle shows up during that window.
+                        if (ShouldUseForkChallengeHandling(request.url) && show && !settled) {
+                            const grace = 16_000;
+                            const step = 2_000;
+                            await win.Show();
+                            invocations.push({ name: 'AsyncChallengeGrace', info: `Re-polling site detection for ${grace / 1000}s` });
+                            let upgraded = FetchRedirection.None;
+                            for (let waited = 0; waited < grace && !settled; waited += step) {
+                                await Delay(step);
+                                if (settled) break;
+                                try {
+                                    upgraded = await CheckAntiScrapingDetection(win, request.url);
+                                } catch {
+                                    // Transient navigation race: keep polling
+                                    upgraded = FetchRedirection.None;
+                                }
+                                if (upgraded !== FetchRedirection.None) break;
+                            }
+                            if (upgraded !== FetchRedirection.None) {
+                                console.warn("[KUMO] redirect (grace re-check):", FetchRedirection[upgraded], "url:", request?.url);
+                                invocations.push({ name: 'AsyncChallengeDetected', info: `Mode: ${FetchRedirection[ upgraded ]}` });
+                            }
+                            if (upgraded === FetchRedirection.Interactive) {
+                                await enterInteractive();
+                                break;
+                            }
+                            if (upgraded === FetchRedirection.Automatic) {
+                                enterAutomatic();
+                                break;
+                            }
+                        }
+                        await runScript();
+                }
+            });
+
+            invocations.push({ name: 'Open', info: `Request URL: ${request.url}` });
+            try {
+                await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
+            } catch (error) {
+                await destroy();
+                settled = true;
+                ClearTimeout(cancellation);
+                reject(error);
+            }
         });
     }
 }

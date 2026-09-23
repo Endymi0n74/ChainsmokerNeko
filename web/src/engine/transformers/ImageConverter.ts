@@ -7,11 +7,4 @@ export async function ConvertBitmap(bitmap: ImageBitmap, type: ImageType = 'imag
     return canvas.convertToBlob({ type, quality });
 }
 
-export async function ConvertImage(source: ImageBitmapSource, type: ImageType = 'image/png', quality = 1.0): Promise<Blob> {
-    const bitmap = await createImageBitmap(source);
-    try {
-        return ConvertBitmap(bitmap, type, quality);
-    } finally {
-        bitmap.close();
-    }
-}
+/* ConvertImage removed: dead code (knip: unused export) — use ConvertBitmap directly */

@@ -1,5 +1,5 @@
 import type { VariantResource } from '../ILocale';
-// HACK: Import a reference to the en-US translation itself, so the auto-generated translation files are based on the en-US translation
+// HACK: Import a reference to the en-US tranlsation itself, so the auto-generated translation files are based on the en-US translation
 import enUS from './en_US';
 
 /**
@@ -93,6 +93,8 @@ const translations: VariantResource = {
   Frontend_Classic_Settings_ViewerDoublePageInfo: 'Show two pages/images at once (like in tradional Manga)',
   Frontend_Classic_Settings_ViewerPreloadNextItem: 'Preload Next Item',
   Frontend_Classic_Settings_ViewerPreloadNextItemInfo: 'Start loading the next chapter/item once all images of the current one are loaded',
+  Frontend_Classic_Settings_ViewerFlagCurrentOnClose: 'Mark as current on close',
+  Frontend_Classic_Settings_ViewerFlagCurrentOnCloseInfo: 'Automatically flag the chapter as current reading position when closing the reader',
   Frontend_Classic_Sidenav_Home: 'Home',
   Frontend_Classic_Sidenav_Settings_General: 'General',
   Frontend_Classic_Sidenav_Settings_Interface: 'Interface',
@@ -198,6 +200,13 @@ const translations: VariantResource = {
   Settings_Global_MangaExportFormat_ComicBookArchive: 'Comic Book Archive (*.cbz)',
   Settings_Global_MangaExportFormat_ElectronicPublication: 'E-Book Publication (*.epub)',
   Settings_Global_MangaExportFormat_PortableDocumentFormat: 'Portable Document Format (*.pdf)',
+  Settings_Global_PDFTheme: 'PDF Page Theme',
+  Settings_Global_PDFThemeInfo: 'The background theme applied to every PDF page (dark theme adds a border so white pages stay visible)',
+  Settings_Global_PDFTheme_White: 'White',
+  Settings_Global_PDFTheme_Sepia: 'Sepia',
+  Settings_Global_PDFTheme_Dark: 'Dark',
+  Settings_Global_PDFDoublePage: 'PDF Double-Page Layout',
+  Settings_Global_PDFDoublePageInfo: 'Place two consecutive pages side by side on a single PDF page (spread layout, like a printed manga volume)',
   Settings_Global_DescramblingFormat: 'De-Scrambling Format',
   Settings_Global_DescramblingFormatInfo: 'Select the output image format for websites hosting puzzled images (this will NOT apply to wesites already providing valid images)',
   Settings_Global_DescramblingQuality: 'De-Scrambling Quality',
@@ -214,6 +223,8 @@ const translations: VariantResource = {
   Settings_NewContent_Check: 'Enable new content checker',
   Settings_NewContent_CheckInfo: 'Will check if there are new content to available to read',
   Settings_NewContent_CheckPeriod: 'Check new content period (minutes)',
+  Settings_NewContent_CheckSilent: 'Check new chapters without opening a window',
+  Settings_NewContent_CheckSilentInfo: 'Skip websites that require a browser window (e.g. CrunchyScan) when checking for new content.',
   Settings_NewContent_CheckPeriodInfo: 'How many minutes before checking again for new content',
   Settings_NewContent_Notify: 'Enable new content desktop notification',
   Settings_NewContent_NotifyInfo: 'Will send a notification using the OS notification system',
@@ -228,6 +239,8 @@ const translations: VariantResource = {
   Settings_FeatureFlags_Description: 'Advanced/Experimental options especially for HakuNeko developers, contributors and power users',
   Settings_FeatureFlags_ShowSplashScreen_Label: 'Show Splash Screen',
   Settings_FeatureFlags_ShowSplashScreen_Description: 'Toggle the splash screen during application start on/off',
+  Settings_FeatureFlags_SplashScreenMinimumDuration_Label: 'Splash Screen Minimum Duration [ms]',
+  Settings_FeatureFlags_SplashScreenMinimumDuration_Description: 'Keep the splash screen visible for at least this duration during application start (0 = no minimum, restart required)',
   Settings_FeatureFlags_ShowFetchBrowserWindows_Label: 'Show FetchBrowser Windows',
   Settings_FeatureFlags_ShowFetchBrowserWindows_Description: 'This developer focused option toggles the visibility of the browser windows for fetching data in the background on/off',
   Settings_FeatureFlags_CrowdinTranslationMode_Label: 'Enable In-Context Translation',
@@ -243,6 +256,7 @@ const translations: VariantResource = {
   FetchProvider_Fetch_CloudFlareChallenge: 'The request to "{0}" was rejected by CloudFlare Anti-Bot detection.\nMake sure to bypass CloudFlare before accessing the content of this website (e.g., with the HakuNeko Assistant browser extension).',
   FetchProvider_Fetch_VercelChallenge: 'The request to "{0}" was rejected by Vercel Attack Challenge Mode.\nMake sure to bypass Vercel before accessing the content of this website.',
   FetchProvider_Fetch_Forbidden: 'The access to "{0}" was denied.\nMake sure the website is available and accessible (e.g., VPN to bypass region lock, manual login via website link).',
+  FetchProvider_FetchWindow_UnsupportedEnvironmentError: 'This website requires a full browser window, which is only available in the desktop application (Electron/NW.js). The current environment ({0}) does not provide this capability.',
   //
   BookmarkPlugin_ConvertToSerializedBookmark_UnsupportedFormatError: 'The provided data seems to be invalid/corrupted and could not be successfully de-serialized to a bookmark!',
 

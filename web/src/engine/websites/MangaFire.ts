@@ -1,32 +1,16 @@
 import { Tags } from '../Tags';
 import icon from './MangaFire.webp';
 import { FetchJSON } from '../platform/FetchProvider';
-import { DecoratableMangaScraper, Manga, Chapter, Page, type MangaPlugin } from '../providers/MangaPlugin';
-import * as Common from './decorators/Common';
 import { GetBytesFromBase64, GetBytesFromUTF8, GetURLBase64FromBytes } from '../BufferEncoder';
-
-type APIResults<T> = {
-    items: T[];
-};
-
-type APIManga = {
-    hid: string;
-    title: string;
-};
-
-type APIChapter = {
-    id: number;
-    number: number;
-    name: string;
-    language: string;
-    type: string;
-    pages: {
-        url: string;
-    }[];
-};
-
-type APIMangas = APIResults<APIManga>;
-type APIChapters = APIResults<APIChapter>;
+import {
+    DecoratableMangaScraper,
+    Manga,
+    Chapter,
+    Page,
+    type MangaPlugin
+} from '../providers/MangaPlugin';
+import * as Common from './decorators/Common';
+import { AddStalledChallengeReload } from '../platform/ChallengeReload';
 
 const chapterLanguageMap = new Map([
     ['en', Tags.Language.English],
@@ -34,11 +18,15 @@ const chapterLanguageMap = new Map([
     ['es-la', Tags.Language.Spanish],
     ['fr', Tags.Language.French],
     ['ja', Tags.Language.Japanese],
+    ['pt', Tags.Language.Portuguese],
     ['pt-br', Tags.Language.Portuguese]
 ]);
 
-// Raw Base64 stage data from MangaFire protection code
-const STAGE_DATA: Array<{ tableB64: string; keyB64: string; iv: number }> = [
+function GetHID(identifier: string): string {
+    return identifier.split('-', 2)[0];
+}
+
+const STAGE_DATA: { tableB64: string; keyB64: string; iv: number }[] = [
     {
         tableB64:
             'yINlmUNho8VYJT+ibTIP+9ESiULpVEtMOoD6U6lRE0R/xwXo/Xp9NrUgC4cw/' +
@@ -80,13 +68,26 @@ const STAGES = STAGE_DATA.map(({ tableB64, keyB64, iv }) => ({
     iv: iv,
 }));
 
+AddStalledChallengeReload(/^https:\/\/(?:www\.)?mangafire\.to/);
+
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
 
-    private readonly apiURL = `${this.URI.origin}/api/`;
-
     public constructor() {
-        super('mangafire', 'MangaFire', 'https://mangafire.to', Tags.Language.English, Tags.Language.French, Tags.Language.Japanese, Tags.Language.Portuguese, Tags.Language.Spanish, Tags.Media.Manga, Tags.Media.Manhwa, Tags.Media.Manhua, Tags.Source.Aggregator);
+        super(
+            'mangafire',
+            'MangaFire',
+            'https://mangafire.to',
+            Tags.Language.English,
+            Tags.Language.French,
+            Tags.Language.Japanese,
+            Tags.Language.Portuguese,
+            Tags.Language.Spanish,
+            Tags.Media.Manga,
+            Tags.Media.Manhwa,
+            Tags.Media.Manhua,
+            Tags.Source.Aggregator
+        );
     }
 
     public override get Icon() {
@@ -94,55 +95,54 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override ValidateMangaURL(url: string): boolean {
-        return new RegExpSafe(`^${this.URI.origin}/title/[^/]+$`).test(url);
+        return new RegExpSafe(
+            `^${this.URI.origin}/title/[^/]+$`
+        ).test(url);
     }
 
     public override async FetchMangas(provider: MangaPlugin): Promise<Manga[]> {
-        type This = typeof this;
-        return Array.fromAsync(async function* (this: This) {
-            for (let page = 1, run = true; run; page++) {
-                const { items } = await this.FetchAPI<APIMangas>(`./titles?page=${page}&limit=100`);
-                const mangas = items.map(({ hid, title }) => new Manga(this, provider, hid, title));
-                mangas.length > 0 ? yield* mangas : run = false;
+        const mangas: Manga[] = [];
+        for (let page = 1; ; page++) {
+            const { items } = await this.FetchAPI<{ items: { hid: string; title: string }[] }>(`./titles?page=${page}&limit=100`);
+            for (const { hid, title } of items ?? []) {
+                if (!hid || !title) continue;
+                mangas.push(new Manga(this, provider, hid, title));
             }
-        }.call(this));
+            if ((items ?? []).length === 0) break;
+        }
+        return mangas;
     }
 
     public override async FetchManga(provider: MangaPlugin, url: string): Promise<Manga> {
-        const { data: { hid, title } } = await this.FetchAPI<{ data: APIManga }>(`./titles/${url.match(/\/title\/([^-]+)/).at(1)}`);
-        return new Manga(this, provider, hid, title);
+        const match = url.match(/\/title\/([^/?#]+)/);
+        const identifier = match?.at(1) ?? '';
+        if (!identifier) throw new Error(`Invalid MangaFire title URL: ${url}`);
+        const hid = GetHID(identifier);
+        const { data: { title } } = await this.FetchAPI<{ data: { hid: string; title: string } }>(`./titles/${hid}`);
+        return new Manga(this, provider, identifier, title);
     }
 
     public override async FetchChapters(manga: Manga): Promise<Chapter[]> {
-        const { items } = await this.FetchAPI<APIChapters>(`./titles/${manga.Identifier}/volumes`);
-        const volumes = items.map(({ id, language, name, number }) => new Chapter(this, manga, `volumes/${id}`, [`Vol. ${number}`, name, `(${language})`].joinTitleSegments(), ...[chapterLanguageMap.get(language)].filter(Boolean)));
-
-        type This = typeof this;
-        const chapters = await Array.fromAsync(async function* (this: This) {
-            for (let page = 1, run = true; run; page++) {
-                const { items } = await this.FetchAPI<APIChapters>(`./titles/${manga.Identifier}/chapters?sort=number&order=desc&page=${page}&limit=200`);
-                const chapters = items.map(({ id, language, name, number, type }) => new Chapter(this, manga, `chapters/${id}`, [`Ch. ${number}`, name, `(${type})`, `(${language})`].joinTitleSegments(),
-                    ...[chapterLanguageMap.get(language)].filter(Boolean)));
-                chapters.length > 0 ? yield* chapters : run = false;
-            }
-        }.call(this));
-        return [...chapters, ...volumes];
+        const hid = GetHID(manga.Identifier);
+        const { items } = await this.FetchAPI<{ items: { id: string; number: number; name: string; language: string; type: string; createdAt: number | null }[] }>(`./titles/${hid}/chapters?sort=number&order=desc&limit=200`);
+        return (items ?? []).map(({ id, number, name, language, type, createdAt }) => {
+            const tag = chapterLanguageMap.get(language);
+            return new Chapter(
+                this, manga, `chapters/${id}`,
+                [`Ch. ${number}`, name, type && `(${type})`, `(${language})`].joinTitleSegments(),
+                ...tag ? [tag] : [],
+                createdAt ? new Date(createdAt * 1000) : undefined
+            );
+        });
     }
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {
-        const { data: { pages } } = await this.FetchAPI<{ data: APIChapter }>(`./${chapter.Identifier}`);
+        const { data: { pages } } = await this.FetchAPI<{ data: { pages: { url: string }[] } }>(`./${chapter.Identifier}`);
         return pages.map(({ url }) => new Page(this, chapter, new URL(url), { Referer: this.URI.href }));
     }
 
-    private async FetchAPI<T extends JSONElement>(endpoint: string): Promise<T> {
-        const baseURL = new URL(endpoint, this.apiURL);
-        baseURL.searchParams.set('vrf', this.ComputeVrf(baseURL));
-        return FetchJSON<T>(new Request(baseURL));
-    }
+    private readonly apiURL = `${this.URI.origin}/api/`;
 
-    /**
-     * Apply feedback substitution stage.
-     */
     private EncryptStage(data: Uint8Array, table: Uint8Array, key: Uint8Array, iv: number): Uint8Array {
         const output = new Uint8Array(data.length);
         let previous = iv;
@@ -153,17 +153,19 @@ export default class extends DecoratableMangaScraper {
         return output;
     }
 
-    /**
-     * Computes the VRF token directly for a given URL/path and optional extra params.
-     */
     private ComputeVrf(baseURL: URL): string {
         const url = new URL(baseURL);
         url.searchParams.sort();
-
         let data: Uint8Array = GetBytesFromUTF8(`${baseURL.pathname.replace(/^\/api\//, '/')}${url.search}`);
         for (const stage of STAGES) {
             data = this.EncryptStage(data, stage.table, stage.key, stage.iv);
         }
         return GetURLBase64FromBytes(data);
+    }
+
+    private async FetchAPI<T extends JSONElement>(endpoint: string): Promise<T> {
+        const baseURL = new URL(endpoint, this.apiURL);
+        baseURL.searchParams.set('vrf', this.ComputeVrf(baseURL));
+        return FetchJSON<T>(new Request(baseURL));
     }
 }

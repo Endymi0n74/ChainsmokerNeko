@@ -4,6 +4,12 @@ import { RPCServer } from '../../src/rpc/Server';
 import { RemoteProcedureCallContract } from './ipc/RemoteProcedureCallContract';
 import { RemoteProcedureCallManager } from './ipc/RemoteProcedureCallManager';
 
+type Manifest = {
+    url: string;
+    //'user-agent': undefined | string;
+    //'chromium-args': undefined | string;
+};
+
 type CLIOptions = {
     origin?: string;
 }
@@ -23,7 +29,7 @@ function ParseCLI(): CLIOptions {
 
 function GetDefaultURL(): string | undefined {
     try {
-        return nw.App.manifest.url;
+        return (nw.App.manifest as Manifest).url;
     } catch {
         return undefined;
     }

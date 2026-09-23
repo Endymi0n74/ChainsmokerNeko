@@ -4,6 +4,7 @@ import { type Chapter, DecoratableMangaScraper, Page, type MangaPlugin, type Man
 import * as Common from './decorators/Common';
 import { FetchJSON, FetchWindowScript } from '../platform/FetchProvider';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
+import { AddForkChallengeHandling } from '../platform/ChallengeReload';
 import { GetBase64FromBytes, GetBytesFromBase64 } from '../BufferEncoder';
 import type { Priority } from '../taskpool/DeferredTask';
 import DeScramble from '../transformers/ImageDescrambler';
@@ -32,6 +33,7 @@ AddAntiScrapingDetection(async (invoke) => {
     const result = await invoke<boolean>(`document.documentElement.innerHTML.includes('window.awsWafCookieDomainList')`);
     return result ? FetchRedirection.Automatic : undefined;
 }, /https:\/\/(?:www\.)?alphapolis\.co\.jp/);
+AddForkChallengeHandling(/https:\/\/(?:www\.)?alphapolis\.co\.jp/);
 
 @Common.MangaCSS(/^{origin}\/manga\/(official|\d+)\/\d+$/, 'div#breadcrumbs span:last-of-type')
 @Common.ChaptersSinglePageJS(`

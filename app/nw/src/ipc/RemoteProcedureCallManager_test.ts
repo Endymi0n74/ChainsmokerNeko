@@ -1,13 +1,14 @@
 import { vi, describe, it, expect } from 'vitest';
-import { type IPC, Channels } from './InterProcessCommunication';
+import type { IPC } from './InterProcessCommunication';
 import type { RPCServer } from '../../../src/rpc/Server';
 import { RemoteProcedureCallManager } from './RemoteProcedureCallManager';
+import { RemoteProcedureCallManager as Channels } from '../../../src/ipc/Channels';
 
 class TestFixture {
 
     public readonly mockIPC = {
-        Handle: vi.fn(),
-    } as unknown as IPC;
+        Listen: vi.fn(),
+    } as unknown as IPC<string, string>;
 
     private readonly mockRPC = <RPCServer>{};
 
@@ -24,9 +25,9 @@ describe('RemoteProcedureCallManager', () => {
             const fixture = new TestFixture();
             const testee = fixture.CreatTestee();
             expect(testee).toBeDefined();
-            expect(fixture.mockIPC.Handle).toHaveBeenCalledTimes(2);
-            expect(fixture.mockIPC.Handle).toHaveBeenCalledWith(Channels.RemoteProcedureCallManager.Stop, expect.anything());
-            expect(fixture.mockIPC.Handle).toHaveBeenCalledWith(Channels.RemoteProcedureCallManager.Restart, expect.anything());
+            expect(fixture.mockIPC.Listen).toHaveBeenCalledTimes(2);
+            expect(fixture.mockIPC.Listen).toHaveBeenCalledWith(Channels.App.Stop, expect.anything());
+            expect(fixture.mockIPC.Listen).toHaveBeenCalledWith(Channels.App.Restart, expect.anything());
         });
     });
 });

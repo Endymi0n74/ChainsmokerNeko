@@ -44,6 +44,10 @@
     let isSettingsModalOpen =  $state(false);
     let isPluginModalOpen = $state(false);
     let isBookmarksImportModalOpen =  $state(false);
+    let appVersion = $state('');
+    $effect(() => {
+        UI.WindowController?.GetVersion().then(version => appVersion = version).catch(() => appVersion = '');
+    });
 </script>
 
 <PluginSelect bind:isPluginModalOpen on:close={() => (isPluginModalOpen = false)} />
@@ -171,7 +175,14 @@
                     )}
             />
             <SideNavLink
-                text="Using version X.X.X"
+                text="Vibe coding with Codebuff (Kumo) 🤖"
+                icon={Events}
+                class="clik-item"
+                onclick={() =>
+                    window.open('https://github.com/Endymi0n74/ChainsmokerNeko')}
+            />
+            <SideNavLink
+                text={appVersion ? `Using version ${appVersion}` : 'Using version'}
                 icon={App}
                 class="clik-item"
                 onclick={() => window.open('https://todo.com')}

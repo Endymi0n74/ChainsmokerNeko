@@ -54,9 +54,11 @@ export function StaticLinkGenerator(...endpoints: string[]): LinkGenerator {
  * @param start - The start for the sequence of incremental numbers which are applied to the {@link endpoint} pattern
  * @param increment - The amount by which the sequence shall be incremented for each iteration
  */
-export function PatternLinkGenerator<T extends MediaContainer<MediaChild>>(endpoint: string, start = 1, increment = 1): LinkGenerator<T> {
+export function PatternLinkGenerator<T extends MediaContainer<MediaChild>>(endpoint: string, start = 1, increment = 1, maxPages = 0): LinkGenerator<T> {
     return function* (this: MangaScraper, media: T): Generator<URL> {
-        for (let page = start; true; page += increment) {
+        let generated = 0;
+        for (let page = start; maxPages <= 0 || generated < maxPages; page += increment) {
+            generated++;
             yield new URL(endpoint.replace('{id}', media.Identifier).replace('{page}', `${page}`), this.URI);
         }
     };
@@ -295,13 +297,17 @@ export function MangasSinglePageCSS<E extends HTMLElement>(resource: string, que
  * @param throttle - A delay [ms] for each request (only required for rate-limited websites)
  * @param extract - A function to extract the manga identifier and title from a single element (found with {@link query})
  */
-export async function FetchMangasMultiPageCSS<E extends HTMLElement>(this: MangaScraper, provider: MangaPlugin, query: string, generate: LinkGenerator<MangaPlugin>, throttle = 0, extract: InfoExtractor<E> = DefaultElementInfoExtractor): Promise<Manga[]> {
+export async function FetchMangasMultiPageCSS<E extends HTMLElement>(this: MangaScraper, provider: MangaPlugin, query: string, generate: LinkGenerator<MangaPlugin>, throttle = 0, extract: InfoExtractor<E> = DefaultElementInfoExtractor, maxPages = 0): Promise<Manga[]> {
     const mangaList: Manga[] = [];
     let reducer = Promise.resolve();
+    let pageCount = 0;
     for (const uri of generate.call(this, provider)) {
         await reducer;
         reducer = throttle > 0 ? Delay(throttle) : Promise.resolve();
         const mangas = await FetchMangasSinglePageCSS.call(this, provider, uri.href, query, extract);
+        if (mangas.length === 0 || maxPages > 0 && ++pageCount >= maxPages) {
+            break;
+        }
         if (generate.isExhaustive || mangaList.isMissingLastItemFrom(mangas)) {
             mangaList.push(...mangas); // TODO: Broadcast event that mangalist for provider has been updated?
         } else {
@@ -320,12 +326,12 @@ export async function FetchMangasMultiPageCSS<E extends HTMLElement>(this: Manga
  * @param throttle - A delay [ms] for each request (only required for rate-limited websites)
  * @param extract - A function to extract the manga identifier and title from a single element (found with {@link query})
  */
-export function MangasMultiPageCSS<E extends HTMLElement>(query: string, generate: LinkGenerator<MangaPlugin>, throttle = 0, extract: InfoExtractor<E> = DefaultElementInfoExtractor) {
+export function MangasMultiPageCSS<E extends HTMLElement>(query: string, generate: LinkGenerator<MangaPlugin>, throttle = 0, extract: InfoExtractor<E> = DefaultElementInfoExtractor, maxPages = 0) {
     return function DecorateClass<T extends Constructor>(ctor: T, context?: ClassDecoratorContext): T {
         ThrowOnUnsupportedDecoratorContext(context);
         return class extends ctor {
             public async FetchMangas(this: MangaScraper, provider: MangaPlugin): Promise<Manga[]> {
-                return FetchMangasMultiPageCSS.call(this, provider, query, generate, throttle, extract as InfoExtractor<HTMLElement>);
+                return FetchMangasMultiPageCSS.call(this, provider, query, generate, throttle, extract as InfoExtractor<HTMLElement>, maxPages);
             }
         };
     };

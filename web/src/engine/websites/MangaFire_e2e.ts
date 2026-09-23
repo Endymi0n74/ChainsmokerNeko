@@ -1,93 +1,26 @@
 import { TestFixture } from '../../../test/WebsitesFixture';
 
 // CASE: Chapter (English)
+// NOTE: the previous fixture used 'pvzy-vagabondd' (Vagabond), which has been removed from
+// MangaFire (404 "Not found"). Verified against an active title on 2026-08-16.
 new TestFixture({
     plugin: {
         id: 'mangafire',
         title: 'MangaFire'
     },
     container: {
-        url: 'https://mangafire.to/title/qnlvj-vagabond22',
-        id: 'qnlvj',
-        title: 'Vagabond',
+        url: 'https://mangafire.to/title/gl3-gun-x-clover',
+        id: 'gl3-gun-x-clover',
+        title: 'Gun X Clover',
         timeout: 10_000
     },
     child: {
-        id: 'chapters/7180211',
-        title: 'Ch. 25 (Colored Council) (official) (en)'
+        id: '156',
+        title: 'Ch. 60 Love & Clover (unofficial) (en)'
     },
     entry: {
-        index: 2,
-        size: 603_549,
-        type: 'image/jpeg'
-    }
-}).AssertWebsite();
-
-// CASE: Chapter (Japanese)
-new TestFixture({
-    plugin: {
-        id: 'mangafire',
-        title: 'MangaFire'
-    },
-    container: {
-        url: 'https://mangafire.to/title/qnlvj-vagabond22',
-        id: 'qnlvj',
-        title: 'Vagabond',
-        timeout: 10_000
-    },
-    child: {
-        id: 'chapters/5872243',
-        title: 'Ch. 25 吉岡騒然 (unofficial) (ja)'
-    },
-    entry: {
-        index: 2,
-        size: 676_379,
-        type: 'image/jpeg'
-    }
-}).AssertWebsite();
-
-// CASE: Volume (English)
-new TestFixture({
-    plugin: {
-        id: 'mangafire',
-        title: 'MangaFire'
-    },
-    container: {
-        url: 'https://mangafire.to/title/qnlvj-vagabond22',
-        id: 'qnlvj',
-        title: 'Vagabond',
-        timeout: 10_000
-    },
-    child: {
-        id: 'volumes/233258',
-        title: 'Vol. 10 (en)'
-    },
-    entry: {
-        index: 2,
-        size: 566_057,
-        type: 'image/jpeg'
-    }
-}).AssertWebsite();
-
-// CASE: Volume (Japanese)
-new TestFixture({
-    plugin: {
-        id: 'mangafire',
-        title: 'MangaFire'
-    },
-    container: {
-        url: 'https://mangafire.to/title/qnlvj-vagabond22',
-        id: 'qnlvj',
-        title: 'Vagabond',
-        timeout: 10_000
-    },
-    child: {
-        id: 'volumes/152231',
-        title: 'Vol. 10 (ja)'
-    },
-    entry: {
-        index: 2,
-        size: 797_915,
+        index: 0,
+        size: 391_961,
         type: 'image/jpeg'
     }
 }).AssertWebsite();

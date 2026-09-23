@@ -18,10 +18,6 @@ export class AnimePlugin extends MediaContainer<Anime> {
         super(scraper.Identifier, scraper.Title);
     }
 
-    private get EntriesKey() {
-        return `animes.${this.Identifier}`;
-    }
-
     public async Initialize(): Promise<void> {
         await this.scraper.Initialize();
         return super.Initialize();

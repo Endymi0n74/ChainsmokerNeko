@@ -11,7 +11,6 @@ type Payload = { action: string } & Record<string, any>;
 
 const worker = new BackgroundTimersWorker();
 const timeoutCallbacks = new Map<number, Action>();
-const intervalCallbacks = new Map<number, Action>();
 
 function GenerateUID() {
     return `${Date.now()}${Math.random()}`;
@@ -20,7 +19,6 @@ function GenerateUID() {
 worker.addEventListener('message', event => {
     switch(event.data.action) {
         case 'BackgroundTimers::TickTimeout': return TickTimeout(event.data.timerID);
-        case 'BackgroundTimers::TickInterval': return TickInterval(event.data.timerID);
     }
 });
 
@@ -28,12 +26,6 @@ function TickTimeout(timerID: number): void {
     if(timeoutCallbacks.has(timerID)) {
         timeoutCallbacks.get(timerID).call(undefined);
         timeoutCallbacks.delete(timerID);
-    }
-}
-
-function TickInterval(timerID: number): void {
-    if(intervalCallbacks.has(timerID)) {
-        intervalCallbacks.get(timerID).call(undefined);
     }
 }
 
@@ -74,30 +66,4 @@ export function ClearTimeout(timerID: number): void {
     worker.postMessage({ action: 'Worker::ClearTimeout', timerID });
 }
 
-/**
- * {@inheritDoc setInterval}
- * @see {@link setInterval}
- */
-export function SetInterval(callback: Action, ms: number): Promise<number> {
-    return new Promise<number>(resolve => {
-        const _uid = GenerateUID();
-        function responseListener(event: MessageEvent<Payload>) {
-            if(event.data.action === _uid) {
-                worker.removeEventListener('message', responseListener);
-                intervalCallbacks.set(event.data.timerID, callback);
-                resolve(event.data.timerID);
-            }
-        }
-        worker.addEventListener('message', responseListener);
-        worker.postMessage({ action: 'Worker::SetInterval', ms, _uid });
-    });
-}
-
-/**
- * {@inheritDoc clearInterval}
- * @see {@link clearInterval}
- */
-export function ClearInterval(timerID: number): void {
-    intervalCallbacks.delete(timerID);
-    worker.postMessage({ action: 'Worker::ClearInterval', timerID });
-}
+/* SetInterval/ClearInterval removed: dead code — no consumer (knip) */

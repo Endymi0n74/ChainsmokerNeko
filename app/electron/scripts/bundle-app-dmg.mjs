@@ -38,14 +38,14 @@ async function replacePlist(blinkDeploymentTemporaryDirectory) {
     const file = path.join(blinkDeploymentTemporaryDirectory, 'Electron.app', 'Contents', 'Info.plist');
     const xml = await fs.readFile(file, 'utf8');
     const meta = plist.parse(xml);
-    meta.CFBundleExecutable = pkgConfig.name;
+    meta.CFBundleExecutable = pkgConfig.productName ?? pkgConfig.name;
     meta.CFBundleName = pkgConfig.title;
     meta.CFBundleDisplayName = pkgConfig.title;
     meta.CFBundleIdentifier = pkgConfig.name;
     //meta.CFBundleVersion = ''; // 4472.77 => ???
     //meta.CFBundleShortVersionString = ''; // 91.0.4472.77 => ???
     await fs.writeFile(file, plist.build(meta), 'utf8');
-    await fs.rename(binary, binary.replace(/Electron$/i, pkgConfig.name));
+    await fs.rename(binary, binary.replace(/Electron$/i, pkgConfig.productName ?? pkgConfig.name));
 }
 
 async function cleanup(blinkDeploymentTemporaryDirectory) {
@@ -64,7 +64,12 @@ async function cleanup(blinkDeploymentTemporaryDirectory) {
 
 async function createDiskImage(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
     const poster = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.png');
-    const osascript = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.scpt');
+    const osascriptSrc = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.scpt');
+    // Create a temporary copy of the script with placeholders replaced
+    const osascript = path.join(blinkDeploymentTemporaryDirectory, '.setup.scpt');
+    let script = await fs.readFile(osascriptSrc, 'utf8');
+    script = script.replace(/__VOL__/g, product).replace(/__APP__/g, product + '.app');
+    await fs.writeFile(osascript, script, 'utf8');
     await fs.cp(poster, path.join(blinkDeploymentTemporaryDirectory, '.images', 'setup.png'));
     await run(`hdiutil create -volname '${product}' -srcfolder '${blinkDeploymentTemporaryDirectory}' -fs 'HFS+' -fsargs '-c c=64,a=16,e=16' -format 'UDRW' '${blinkDeploymentTemporaryDirectory}'`);
     await run(`hdiutil attach -readwrite -noverify -noautoopen '${blinkDeploymentTemporaryDirectory}.dmg'`);
@@ -74,7 +79,8 @@ async function createDiskImage(blinkApplicationResourcesDirectory, blinkDeployme
     await wait(5000);
     await run(`hdiutil detach '/Volumes/${product}'`);
     await wait(5000);
-    const artifact = path.join(blinkDeploymentOutputDirectory, path.basename(blinkDeploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + '.dmg');
+    const suffix = process.platform === 'darwin' ? ' (untested)' : '';
+    const artifact = path.join(blinkDeploymentOutputDirectory, path.basename(blinkDeploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + suffix + '.dmg');
     try {
         await fs.unlink(artifact);
     } catch(error) {/**/}

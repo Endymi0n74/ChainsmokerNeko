@@ -1,5 +1,5 @@
 import { Observable, type IObservable } from '../../Observable';
-import type { IAppWindow } from '../AppWindow';
+import type { IAppWindow, IUpdateInfo } from '../AppWindow';
 
 export default class implements IAppWindow {
 
@@ -81,5 +81,35 @@ export default class implements IAppWindow {
 
     public Close(): void {
         this.nwWindow.close();
+    }
+
+    public async GetVersion(): Promise<string> {
+        // NW.js exposes the app manifest (package.json) via nw.App
+        const manifest = nw.App.manifest as { version?: string };
+        return manifest?.version ?? '';
+    }
+
+    public async ImportCloudFlareClearance(_host: string): Promise<string> {
+        return 'Cloudflare cookie import is only available in the Electron build.';
+    }
+
+    public async SetCloudFlareClearance(_host: string, _value: string): Promise<string> {
+        return 'Cloudflare cookie injection is only available in the Electron build.';
+    }
+
+    public async TestCloudFlareClearance(_host: string): Promise<string> {
+        return 'Cloudflare bypass testing is only available in the Electron build.';
+    }
+
+    public async ClearCloudFlareCache(): Promise<string> {
+        return 'Clearing the Cloudflare cache is only available in the Electron build.';
+    }
+
+    public async CheckForUpdates(): Promise<IUpdateInfo | null> {
+        return null;
+    }
+
+    public async DownloadAndInstall(_version: string): Promise<string> {
+        return 'Auto-update is only available in the Electron build.';
     }
 }

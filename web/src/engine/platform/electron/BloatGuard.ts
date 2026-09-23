@@ -1,14 +1,12 @@
 import type { IBloatGuard } from '../BloatGuard';
-import { GetIPC } from './InterProcessCommunication';
-import { Channels } from '../../../../../app/electron/src/ipc/InterProcessCommunicationChannels';
+import type { IPC } from '../InterProcessCommunication';
+import { BloatGuard as Channels } from '../../../../../app/src/ipc/Channels';
 
 export default class implements IBloatGuard {
 
-    private readonly ipc = GetIPC();
-
-    constructor (private readonly patterns: Array<string>) { }
+    constructor(private readonly ipc: IPC<Channels.App, Channels.Web>, private readonly patterns: Array<string>) {}
 
     async Initialize(): Promise<void> {
-        return this.ipc.Invoke(Channels.BloatGuard.Initialize, this.patterns);
+        return this.ipc.Send(Channels.App.Initialize, this.patterns);
     }
 }

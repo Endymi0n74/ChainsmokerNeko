@@ -1,10 +1,12 @@
 <script lang="ts">
 
-    import { InlineNotification, Loading } from 'carbon-components-svelte';
+    import { Button, InlineNotification, Loading } from 'carbon-components-svelte';
+    import Misuse from 'carbon-icons-svelte/lib/Misuse.svelte';
     import type { MediaContainer, MediaItem } from '../../../../engine/providers/MediaPlugin';
     import ImageViewer from './ImageViewer.svelte';
     import VideoViewer from './VideoViewer.svelte';
     import { Store as UI } from '../../stores/Stores.svelte';
+    import { Settings } from '../../stores/Settings.svelte';
     import { FlagType } from '../../../../engine/ItemflagManager';
 
     interface Props {
@@ -13,46 +15,98 @@
     }
     let { mode = 'Image', item }: Props = $props();
 
-    let currentItem: MediaContainer<MediaItem> = $state();
+    let displayedItem: MediaContainer<MediaItem> = $state();;
     let currentImageIndex: number = $state(-1);
+    let scrollPx: number = $state(0);
+    let _savedPosition: ReadingPosition = $state({ imageIndex: -1, scrollPx: 0 });
 
-    let updating: Promise<MediaContainer<MediaItem>> = $state();
-    $effect(() => {
-        updating = loadItem(item);
-    });
-
-    async function loadItem(item: MediaContainer<MediaItem>) {
-        if(item.Entries.Value.length > 0){
-            return currentItem = item;
-        }
-        else {
-            try {
-                await item.Update();
-                return currentItem = item;
-            } catch (error) {
-                currentItem = undefined;
-                throw error;
+    // Reading position persistence — save/restore via localStorage
+    // Stores { imageIndex: number, scrollPx: number } per chapter for precise restore
+    const READING_POS_KEY = 'reading-position';
+    interface ReadingPosition { imageIndex: number; scrollPx: number; }
+    function saveReadingPosition(chapterId: string, pos: ReadingPosition) {
+        try {
+            if (pos.imageIndex < 0) return;
+            const data = JSON.parse(localStorage.getItem(READING_POS_KEY) || '{}');
+            data[chapterId] = pos;
+            // Cap at 500 entries to avoid unbounded growth
+            const keys = Object.keys(data);
+            if (keys.length > 500) {
+                for (const k of keys.slice(0, keys.length - 500)) delete data[k];
             }
-        }
+            localStorage.setItem(READING_POS_KEY, JSON.stringify(data));
+        } catch { /* ignore quota errors */ }
     }
+    function loadReadingPosition(chapterId: string): ReadingPosition {
+        try {
+            const raw = JSON.parse(localStorage.getItem(READING_POS_KEY) || '{}');
+            const val = raw[chapterId];
+            // Backward compat: old format stored a plain number
+            if (typeof val === 'number') return { imageIndex: val, scrollPx: 0 };
+            return val ?? { imageIndex: -1, scrollPx: 0 };
+        } catch { return { imageIndex: -1, scrollPx: 0 }; }
+    }
+
+    let updating: Promise<void> = $derived.by(() =>
+        item.Update()
+            .then(() => {
+                displayedItem = item;
+                // Restore saved reading position for this chapter
+                _savedPosition = loadReadingPosition(item.Identifier);
+                if (_savedPosition.imageIndex >= 0) currentImageIndex = _savedPosition.imageIndex;
+            })
+            .catch((error) => { displayedItem = undefined; throw error; })
+    );
 
     function onPreviousItem() {
         currentImageIndex = -1;
         UI.selectedItem = UI.selectedItemPrevious;
     }
     function onNextItem() {
+        saveReadingPosition(item.Identifier, { imageIndex: 0, scrollPx: 0 });
         currentImageIndex = -1;
         if (wide && !UI.selectedItemNext) HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
         UI.selectedItem = UI.selectedItemNext;
     }
     function onClose() {
+        saveReadingPosition(item.Identifier, { imageIndex: currentImageIndex, scrollPx });
         HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
     }
+
+    function onCloseReader() {
+        saveReadingPosition(item.Identifier, { imageIndex: currentImageIndex, scrollPx });
+        if (Settings.ViewerFlagCurrentOnClose.Value) {
+            HakuNeko.ItemflagManager.FlagItem(item, FlagType.Current);
+        }
+        UI.selectedItem = null;
+    }
+
+    // Close the reader (return to the item list) with the Escape key when not in wide mode.
+    $effect(() => {
+        if (wide) return;
+        const handler = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onCloseReader();
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    });
 
     let wide = $state(false);
 </script>
 
 <div id="Viewer" class="{mode} center" class:wide>
+    {#if !wide}
+        <Button
+            class="closereader"
+            kind="ghost"
+            size="small"
+            icon={Misuse}
+            iconDescription="Close reader"
+            tooltipPosition="bottom"
+            tooltipAlignment="end"
+            onclick={onCloseReader}
+        />
+    {/if}
     {#await updating}
         <div class="info loading">
             <div class="center"><Loading withOverlay={false} /></div>
@@ -65,16 +119,19 @@
         class="info error"
         />
     {/await}
-    {#if currentItem}
-        {#key currentItem}
+    {#if displayedItem}
+        {#key displayedItem}
             {#if mode === 'Image'}
                 <ImageViewer
-                    item={currentItem}
+                    item={displayedItem}
                     {currentImageIndex}
+                    savedScrollPx={_savedPosition.scrollPx}
                     bind:wide
                     {onNextItem}
                     {onPreviousItem}
                     {onClose}
+                    {onCloseReader}
+                    onScrollUpdate={(px) => scrollPx = px}
                 />
             {:else if mode === 'Video'}
                 <VideoViewer />
@@ -87,6 +144,7 @@
 
 <style>
     #Viewer {
+        position: relative;
         width: 100%;
         height: 100%;
         padding: 0.5em;
@@ -111,6 +169,16 @@
     #Viewer .info {
         position: absolute;
         z-index: 10001;
+    }
+    :global(#Viewer .closereader) {
+        position: absolute;
+        top: 0.4em;
+        right: 0.4em;
+        z-index: 10001;
+        opacity: 0.65;
+    }
+    :global(#Viewer .closereader:hover) {
+        opacity: 1;
     }
     .error {
         color: red;

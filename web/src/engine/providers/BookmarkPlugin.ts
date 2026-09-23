@@ -1,11 +1,28 @@
 import type { PluginController } from '../PluginController';
 import { MediaContainer, type MediaChild } from './MediaPlugin';
+import { MangaPlugin } from './MangaPlugin';
 import { type StorageController, Store } from '../StorageController';
 import type { InteractiveFileContentProvider } from '../InteractiveFileContentProvider';
 import { ConvertToSerializedBookmark } from '../transformers/BookmarkConverter';
 import { Bookmark, MissingWebsite, type BookmarkSerialized } from './Bookmark';
 import { MissingInfoTracker } from '../trackers/IMediaInfoTracker';
 import { NotImplementedError } from '../Error';
+import { Key as GlobalKey } from '../SettingsGlobal';
+import { type Check, type Numeric } from '../SettingsManager';
+
+/**
+ * localStorage key holding the timestamp (ms) of the last bookmark new-content
+ * check, so the lazy scan (Suggestions view) runs only once per period.
+ */
+export const CheckNewContentTimestampKey = 'check-new-content-last-run';
+
+/**
+ * True when the bookmark new-content check should run again: either it never
+ * ran, or the configured period (in minutes) has elapsed since the last run.
+ */
+export function ShouldRefreshContentFlags(lastRun: number, now: number, periodMinutes: number): boolean {
+    return !lastRun || now - lastRun >= periodMinutes * 60_000;
+}
 
 export type BookmarkImportResult = {
     cancelled: boolean;
@@ -60,10 +77,54 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
         this.entries.Value = bookmarks.map(bookmark => this.Deserialize(bookmark));
     }
 
-    public async RefreshAllFlags() {
+    public async RefreshAllFlags(skipWindowSites = false) {
         for (const media of super.Entries.Value) {
-            await media.Update();
-            HakuNeko.ItemflagManager.LoadContainerFlags(media);
+            if (skipWindowSites && this.RequiresVisibleWindow(media)) continue;
+            try {
+                await media.Update();
+                HakuNeko.ItemflagManager.LoadContainerFlags(media);
+            } catch {
+                // Skip bookmarks whose site is unreachable (e.g. CrunchyScan
+                // without cf_clearance). Prevents one failing site from
+                // aborting the entire new-content scan.
+                continue;
+            }
+        }
+    }
+
+    private RequiresVisibleWindow(bookmark: Bookmark): boolean {
+        return bookmark.Parent instanceof MangaPlugin && bookmark.Parent.Scraper.RequiresVisibleBrowserWindow;
+    }
+
+    /**
+     * Lazy replacement for the old boot-time flag preload: refreshes the flags of
+     * all bookmarks only when the Suggestions view is opened AND the configured
+     * period (check-new-content-period, default 1440 min) has elapsed. Fetching a
+     * bookmark's chapters opens a real browser window for Cloudflare-protected
+     * sites (e.g. CrunchyScan), so this must not run on every app launch.
+     */
+    /**
+     * Refreshes the new-content flags of all bookmarks when the configured period
+     * has elapsed, or immediately when `force` is set (manual trigger from the
+     * Suggestions view).
+     */
+    public async RefreshFlagsIfDue(force = false): Promise<void> {
+        const settings = HakuNeko.SettingsManager.OpenScope();
+        if (!settings.Get<Check>(GlobalKey.CheckNewContent).Value) return;
+        const periodMinutes = settings.Get<Numeric>(GlobalKey.CheckNewContentPeriod).Value;
+        const lastRun = Number(window.localStorage.getItem(CheckNewContentTimestampKey) ?? 0);
+        if (force || ShouldRefreshContentFlags(lastRun, Date.now(), periodMinutes)) {
+            // When manually triggered (force), always check all bookmarks
+            // including window-required sites like CrunchyScan.
+            const silent = !force && settings.Get<Check>(GlobalKey.CheckNewContentSilent).Value;
+            try {
+                await this.RefreshAllFlags(silent);
+            } finally {
+                // Mémorise le scan même si un site échoue (ex. CrunchyScan sans
+                // cf_clearance lève pendant Update) — sinon le scan retenterait
+                // à chaque affichage de la vue Suggestions.
+                window.localStorage.setItem(CheckNewContentTimestampKey, `${Date.now()}`);
+            }
         }
     }
 

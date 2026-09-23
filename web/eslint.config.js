@@ -3,6 +3,7 @@ import stylistic from '@stylistic/eslint-plugin';
 import tsdoc from 'eslint-plugin-tsdoc';
 
 export default tseslint.config({
+    ignores: [ "src/**/*.svelte", "src/**/*.vue" ],
     files: [
         'src/**/*.js',
         'src/**/*.ts',

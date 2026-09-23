@@ -98,6 +98,11 @@ async function LaunchElectron(): Promise<puppeteer.Browser> {
         ],
         userDataDir: userDir,
         dumpio: true,
+        // A single CDP command (e.g. the long `page.evaluate` listing a large Cloudflare-
+        // protected catalogue) can exceed puppeteer's 180 s default protocol timeout.
+        // Keep it above the test timeouts (240 s) so network slowness is bounded by the
+        // test's own timeout instead of being cut short by the CDP layer.
+        protocolTimeout: 300_000,
     });
     console.log(new Date().toISOString(), '➔', 'Electron CLI:', browser.process().spawnfile, browser.process().spawnargs);
     browser.on('targetcreated', CloseSplashScreen);

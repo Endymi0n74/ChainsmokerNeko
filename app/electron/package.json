@@ -1,7 +1,10 @@
 {
-    "name": "hakuneko-electron",
-    "title": "HakuNeko",
+    "name": "ChainsmokerNeko",
+    "productName": "hakuneko",
+    "version": "3.0.4",
+    "title": "ChainsmokerNeko",
     "description": "Manga, Anime & Novel Downloader (Electron based desktop client)",
+    "repository": "Endymi0n74/ChainsmokerNeko",
     "type": "module",
     "main": "main.js",
     "url": "https://app.hakuneko.download",
@@ -14,15 +17,15 @@
         "websocket-rpc": "github:manga-download/websocket-rpc#v1.2.7"
     },
     "devDependencies": {
-        "extract-zip": "2.0.1",
-        "electron": "44.1.1",
+        "electron": "43.3.0",
         "plist": "5.0.0"
     },
     "scripts": {
         "check:ts": "tsc --noEmit --pretty",
         "check": "npm run check:ts && eslint",
-        "build": "node ./scripts/build-app.mjs && vite build",
+        "build": "node ./scripts/build-app.mjs && vite build && vite build --config vite.preload.config.ts",
         "bundle": "npm run build && node ./scripts/deploy-app.mjs",
+        "bundle:x64": "node ./scripts/bundle-x64.mjs",
         "test": "vitest run",
         "launch:dev": "npm run build && electron ./build --origin=https://localhost:3000 --ignore-certificate-errors",
         "launch:prod": "npm run build && electron ./build --origin=https://localhost:5000 --ignore-certificate-errors"

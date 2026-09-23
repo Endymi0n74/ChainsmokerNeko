@@ -4,6 +4,7 @@ import { Chapter, DecoratableMangaScraper, Manga, Page, type MangaPlugin } from 
 import * as Common from './decorators/Common';
 import { FetchJSON, FetchWindowScript } from '../platform/FetchProvider';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
+import { AddForkChallengeHandling } from '../platform/ChallengeReload';
 
 type APIResult<T> = {
     success: boolean;
@@ -43,6 +44,7 @@ AddAntiScrapingDetection(async (invoke) => {
     const result = await invoke<boolean>(`window.__challange ? true : false;`);
     return result ? FetchRedirection.Automatic : undefined;
 }, /-^https:\/\/manga-tube\.me/);
+AddForkChallengeHandling(/^https:\/\/manga-tube\.me/);
 
 @Common.ImageAjax()
 export default class extends DecoratableMangaScraper {

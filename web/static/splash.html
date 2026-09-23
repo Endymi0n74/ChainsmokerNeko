@@ -273,6 +273,14 @@
                 font-weight: 600;
                 text-align: center;
             }
+
+            .credit {
+                margin-top: 8px;
+                color: #888;
+                font-size: 0.55rem;
+                width: 100%;
+                text-align: center;
+            }
 </style>
     </head>
     <body>
@@ -287,7 +295,24 @@
                     <div class="back"></div>
                 </div>
             </div>
-            <div class="text">loading HakuNeko...</div>
+            <div class="text">loading HakuNeko<span id="version"></span>...</div>
         </div>
+        <div class="credit">vibe coding with Codebuff (Kumo) 🤖</div>
+        <script>
+            (async function () {
+                let version = '';
+                try {
+                    if (window.ipcRenderer && window.ipcRenderer.invoke) {
+                        version = (await window.ipcRenderer.invoke('ApplicationWindow::GetVersion')) || '';
+                    } else if (window.nw && nw.App && nw.App.manifest) {
+                        version = nw.App.manifest.version || '';
+                    }
+                } catch (error) { /* ignore */ }
+                const node = document.getElementById('version');
+                if (node && version) {
+                    node.textContent = ' v' + version;
+                }
+            })();
+        </script>
     </body>
 </html>
