@@ -3,6 +3,22 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.5] - 2026-09-23
+
+### Ajouté
+
+- **Sync amont 91 commits** `e41bbc95f..d22ac64b2` (`manga-download/haruneko` #1823-#1842) : tri `DESC` chapitres (`b986a4c11`), `forward electron stdout` (`480992720`), bumps `web/package.json`/`app/electron` (pdfkit, svelte, fluentui), domaines, nouveaux sites `MistScans/Inkapk/VioletScans/MangaToon/WebComicsApp`, renames `Atikrost→HentaiVN`/`ManhuaNext→Inkapk`/`MeianPlus→Komiko`.
+- **Nettoyage code mort** `knip 6.37` + `tsc --noUnusedLocals` : `VirtualList.svelte`/`Console.svelte`/`Network.svelte`/`mock.ts`, `RandomUTF8`, `ConvertImage`, `SetInterval/ClearInterval` + `BackgroundTimersWorker` — `+5 -376` lignes, `check`/`build`/`vitest 2153` verts.
+
+### Modifié
+
+- **JapScan préservé** : 0 commit JapScan dans le range amont — couche `JapScan.DRM.preload.ts`/`JapScan.Extract.ts` intacte (probe preload, reader-first, walk selector) — politique `SYNC.md` fork-first.
+- **Fusion `chainsmoker` fork-first** : `_index.ts` régénéré après renames amont + suppressions fork (`ArthurScan` etc hors fork), `WordPressMadara_e2e` filtré, `package-lock.json` régénéré (`--engine-strict=false --package-lock-only`).
+
+### Fix
+
+- **Conflits `_index`/`WordPressMadara_e2e`** après renames amont : filtrage par existence fichier pour éviter `TS2307` sur sites supprimés côté fork.
+
 ## [3.0.4] - 2026-09-05
 
 ### Ajouté

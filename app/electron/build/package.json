@@ -1,0 +1,17 @@
+{
+    "name": "ChainsmokerNeko",
+    "version": "3.0.5",
+    "main": "main.js",
+    "url": "./web/index.html",
+    "node-remote": [
+        "http://localhost/*",
+        "https://localhost/*",
+        "https://app.hakuneko.ovh/*",
+        "https://app.hakuneko.download/*",
+        "https://*.hakuneko.workers.dev/*",
+        "https://app.hakuneko.download/*"
+    ],
+    "user-data-dir": null,
+    "user-agent": null,
+    "repository": "Endymi0n74/ChainsmokerNeko"
+}
