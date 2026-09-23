@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 6 septembre 2026 — état courant **v3.0.4** ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
+> Dernière mise à jour : 23 septembre 2026 — état courant **v3.0.5** ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
 > 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
-> Dernière mise à jour (état) : 6 septembre 2026 (v3.0.4 — fusion upstream fork-first + restructuration 2 branches + suite de checks verte)
+> Dernière mise à jour (état) : 23 septembre 2026 (v3.0.5 — sync amont 91 commits + dead-code + release, voir §12 addendum)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
 
@@ -35,7 +35,7 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version courante** : **3.0.4** (5 septembre 2026) — bumpé dans les 3 manifests (`package.json`, `web/package.json`, `app/electron/package.json`) + CHANGELOG ; tag 3.0.4 poussé sur `fork/chainsmoker` (release GitHub publiée automatiquement par la CI au push d'un tag `3.*` — voir push-ci.yml)
+- **Version courante** : **3.0.5** (23 septembre 2026) — sync amont 91 commits (`e41bbc95f..d22ac64b2`), nettoyage code mort (knip), tag 3.0.5 + release GitHub (zip win32-x64 manuel, JapScan intact) ; voir §12 addendum.
 - **Release courante** : [ChainsmokerNeko 3.0.4](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.4) — 10 artefacts CI (3 zips + 3 NSIS Windows, AppImage, .deb, 2 DMG) ; releases 3.0.0→3.0.3 retirées le 5 sept (SHA préservés dans SYNC.md §1)
 
 ## 2. Chemins & remotes
@@ -258,3 +258,10 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 - Les settings du viewer fork (ex: `ViewerPreloadNextItem`) doivent être déclarés dans
   `stores/Settings.svelte.ts` (enum Key + Initialize + SettingStore) ET dans `en_US.ts`, sinon
   svelte-check échoue sur ImageViewer/Settings.svelte.
+
+### Addendum 23 sept. — v3.0.5, dead-code, CI
+
+- **Sync amont + release 3.0.5** (`2b408c48e`, `a129ea9c6`) : 91 commits upstream, dead-code knip (`+5 -376`), tag + release `3.0.5` (zip win32-x64 buildé localement, JapScan 0 touch).
+- **Push CI rouge → vert** (`86511e874`) : le merge avait committé 84 marqueurs `<<<<<<<` dans `package-lock.json` (conflit add/add avec `4dd09da76`) → `npm ci` EUSAGE. Fix : regen `--package-lock-only`, JSON valide, 3.0.5 sync.
+- **Jobs nettoyés** : `Continuous Deployment` déjà supprimé d'upstream (plus de fichier sur master) ; `Website Status/Metrics` désactivé via API le 23 sept. (schedule rouge 2×/sem., bug npm `edgesOut` sur master sans lockfile — irréparable sans toucher master pristine). Restent actifs : `Push (CI)`, `Pull Request (CI)`.
+- **Clé `CatharsisWorld.ts:91` (alerte secret GitHub)** : clé API publique du site héritée d'upstream (`cd4a4e19c`), pas un credential privé — alerte à dismiss en faux positif, rien à purger.
