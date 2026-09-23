@@ -13,7 +13,7 @@ export default class implements IPC<string, string> {
         chrome.runtime.onMessage.addListener(this.OnMessage.bind(this));
     }
 
-    private OnMessage(message: Message, sender: chrome.runtime.MessageSender, callback: (response: void) => void): boolean {
+    private OnMessage(message: Message, _sender: chrome.runtime.MessageSender, callback: (response: void) => void): boolean {
         if(this.subscriptions.has(message.channel)) {
             const promises = this.subscriptions.get(message.channel).map(method => method(...message.parameters));
             Promise.allSettled(promises).then(() => callback());

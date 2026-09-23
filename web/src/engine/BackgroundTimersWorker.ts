@@ -7,8 +7,6 @@ addEventListener('message', (event: MessageEvent<Payload>) => {
     switch(payload.action) {
         case 'Worker::SetTimeout': return SetTimeout(payload._uid, payload.ms);
         case 'Worker::ClearTimeout': return ClearTimeout(payload.timerID);
-        case 'Worker::SetInterval': return SetInterval(payload._uid, payload.ms);
-        case 'Worker::ClearInterval': return ClearInterval(payload.timerID);
     }
 });
 
@@ -19,13 +17,4 @@ function SetTimeout(uid: string, ms: number): void {
 
 function ClearTimeout(timerID: number): void {
     clearTimeout(timerID);
-}
-
-function SetInterval(uid: string, ms: number): void {
-    const timerID = setInterval(() => postMessage({ action: 'BackgroundTimers::TickInterval', timerID }), ms);
-    postMessage({ action: uid, timerID });
-}
-
-function ClearInterval(timerID: number): void {
-    clearInterval(timerID);
 }

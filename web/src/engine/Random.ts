@@ -10,10 +10,6 @@ export function RandomBytes(length: number): Uint8Array<ArrayBuffer> {
     return crypto.getRandomValues(new Uint8Array(length));
 }
 
-export function RandomUTF8(length: number) {
-    return RandomBytes(length).join('').slice(0, length);
-}
-
 export function RandomHex(length: number) {
     const bytes = RandomBytes(length);
     return Array.from(bytes).map(byte => byte.toString(16)).join('').slice(0, length);
