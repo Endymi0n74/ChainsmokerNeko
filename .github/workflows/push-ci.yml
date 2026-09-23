@@ -47,7 +47,10 @@ jobs:
       - name: Configure Git (HTTPS)
         run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - name: Install NPM Packages
-        run: npm ci
+        # --ignore-scripts: le postinstall nw@sdk (yauzl/@node-rs/crc32 natif) casse
+        # sur les runners ubuntu et aucun script d'install n'est utilisé en CI
+        # (zips Electron via cache dédié, binaires toujours linkés).
+        run: npm ci --ignore-scripts
       - name: Typecheck (Web)
         run: npm run check:ts --workspace=web
       - name: Lint (Web)
@@ -139,7 +142,10 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - name: Install NPM Packages
-        run: npm ci
+        # --ignore-scripts: le postinstall nw@sdk (yauzl/@node-rs/crc32 natif) casse
+        # sur les runners ubuntu et aucun script d'install n'est utilisé en CI
+        # (zips Electron via cache dédié, binaires toujours linkés).
+        run: npm ci --ignore-scripts
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
@@ -183,7 +189,10 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - name: Install NPM Packages
-        run: npm ci
+        # --ignore-scripts: le postinstall nw@sdk (yauzl/@node-rs/crc32 natif) casse
+        # sur les runners ubuntu et aucun script d'install n'est utilisé en CI
+        # (zips Electron via cache dédié, binaires toujours linkés).
+        run: npm ci --ignore-scripts
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
