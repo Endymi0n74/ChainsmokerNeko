@@ -27,7 +27,11 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 24.0.0
+          node-version: 24
+          # Node 24 latest (npm 11.6+) : applique le champ racine `allowScripts`
+          # (prepare websocket-rpc autorisé, postinstall nw/carbon bloqués).
+          # Épinglé 24.0.0 avant → npm 11.3.0 ignorait allowScripts et lançait
+          # le postinstall nw (crash @node-rs/crc32 natif sur ubuntu).
       - name: Verify Manifest Versions
         run: npm run check:versions
       - name: Cache NPM Packages
@@ -47,10 +51,7 @@ jobs:
       - name: Configure Git (HTTPS)
         run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - name: Install NPM Packages
-        # --ignore-scripts: le postinstall nw@sdk (yauzl/@node-rs/crc32 natif) casse
-        # sur les runners ubuntu et aucun script d'install n'est utilisé en CI
-        # (zips Electron via cache dédié, binaires toujours linkés).
-        run: npm ci --ignore-scripts
+        run: npm ci
       - name: Typecheck (Web)
         run: npm run check:ts --workspace=web
       - name: Lint (Web)
@@ -86,7 +87,11 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 24.0.0
+          node-version: 24
+          # Node 24 latest (npm 11.6+) : applique le champ racine `allowScripts`
+          # (prepare websocket-rpc autorisé, postinstall nw/carbon bloqués).
+          # Épinglé 24.0.0 avant → npm 11.3.0 ignorait allowScripts et lançait
+          # le postinstall nw (crash @node-rs/crc32 natif sur ubuntu).
       - name: Cache Electron
         uses: actions/cache@v4
         with:
@@ -128,7 +133,11 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 24.0.0
+          node-version: 24
+          # Node 24 latest (npm 11.6+) : applique le champ racine `allowScripts`
+          # (prepare websocket-rpc autorisé, postinstall nw/carbon bloqués).
+          # Épinglé 24.0.0 avant → npm 11.3.0 ignorait allowScripts et lançait
+          # le postinstall nw (crash @node-rs/crc32 natif sur ubuntu).
       - name: Cache Electron
         uses: actions/cache@v4
         with:
@@ -142,10 +151,7 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - name: Install NPM Packages
-        # --ignore-scripts: le postinstall nw@sdk (yauzl/@node-rs/crc32 natif) casse
-        # sur les runners ubuntu et aucun script d'install n'est utilisé en CI
-        # (zips Electron via cache dédié, binaires toujours linkés).
-        run: npm ci --ignore-scripts
+        run: npm ci
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
@@ -175,7 +181,11 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 24.0.0
+          node-version: 24
+          # Node 24 latest (npm 11.6+) : applique le champ racine `allowScripts`
+          # (prepare websocket-rpc autorisé, postinstall nw/carbon bloqués).
+          # Épinglé 24.0.0 avant → npm 11.3.0 ignorait allowScripts et lançait
+          # le postinstall nw (crash @node-rs/crc32 natif sur ubuntu).
       - name: Cache Electron
         uses: actions/cache@v4
         with:
@@ -189,10 +199,7 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - name: Install NPM Packages
-        # --ignore-scripts: le postinstall nw@sdk (yauzl/@node-rs/crc32 natif) casse
-        # sur les runners ubuntu et aucun script d'install n'est utilisé en CI
-        # (zips Electron via cache dédié, binaires toujours linkés).
-        run: npm ci --ignore-scripts
+        run: npm ci
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
