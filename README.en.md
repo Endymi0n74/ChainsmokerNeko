@@ -4,6 +4,8 @@
 ![Release](https://img.shields.io/github/v/release/Endymi0n74/ChainsmokerNeko?display_name=tag)
 ![Downloads](https://img.shields.io/github/downloads/Endymi0n74/ChainsmokerNeko/latest/total)
 
+[🇫🇷 Français](README.md) · **🇬🇧 English**
+
 **Fork of [HaruNeko](https://github.com/manga-download/haruneko)** — desktop manga downloader.
 
 ## 📥 Download
