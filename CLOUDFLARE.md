@@ -39,7 +39,7 @@ loads. The app therefore has **two layers**:
 | **Standard user-agent preserved** | The app keeps the `Electron/x.y.z` segment instead of stripping it (stripping triggered the challenge on MangaFire). |
 | **Shared session** | Remote windows share the app session; cookies (including `cf_clearance`) are injected into fetch requests, and the `partitioned` flag is removed from `Set-Cookie`. |
 | **Auto-resolution of managed challenges** | The challenge resolves itself in the background without a window flash (the window is hidden only for widget-less sites). |
-| **Opt-in per-site reload** | Only sites that opt in (CrunchyScan) reload the page while the challenge is stuck — budget capped at **3 navigations**, cookie read via the CDP debugger (`Network.getCookies`) because `cf_clearance` is **httpOnly**. |
+| **Opt-in per-site reload** | Only sites that opt in (CrunchyScan) reload the page while the challenge is stuck — budget capped at **3 navigations** (**1** for CrunchyScan), and only when a **fresh** `cf_clearance` was issued by the current document (a baseline read via CDP on every `DOMReady`; reloading with an unchanged cookie is useless and only resets the widget). Cookie read via the debugger (`Network.getCookies`) because `cf_clearance` is **httpOnly**. |
 
 These mechanisms are enough for MangaFire and Comix (validated live). For
 CrunchyScan, the widget-less "managed" challenge may not resolve from an

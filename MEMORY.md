@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 23 septembre 2026 — état courant **v3.0.5** ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
+> Dernière mise à jour : 27 septembre 2026 — état courant **v3.0.5** ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
 > 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
-> Dernière mise à jour (état) : 23 septembre 2026 (v3.0.5 — sync amont 91 commits + dead-code + release, voir §12 addendum)
+> Dernière mise à jour (état) : 27 septembre 2026 (fix boucle Cloudflare CrunchyScan — voir addendum ci-dessous ; v3.0.5 en place)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
 
@@ -265,3 +265,15 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 - **Push CI rouge → vert** (`86511e874`, `0206d27a3`, `d856bc03e`, `138f1cd33`, run `35842839549` SUCCESS 12m11s le 23 sept.) : (1) le merge avait committé 84 marqueurs `<<<<<<<` dans `package-lock.json` → `npm ci` EUSAGE ; (2) postinstall `nw@0.116.0-sdk` (`yauzl-promise`/`@node-rs/crc32` natif) crashait sur ubuntu — fausses pistes `--ignore-scripts` (cassait le `prepare` de `websocket-rpc`) et Node 24 latest (npm ignore `allowScripts`) ; vraie cause : lock régénéré sous Windows sans les variantes Linux/macOS → `npm update @node-rs/crc32` (1.10.6→1.10.8, 13 plateformes enregistrées). Leçon : régénérer un lock multi-plateforme se vérifie par audit des `optionalDependencies`, pas au jugé.
 - **Jobs nettoyés** : `Continuous Deployment` déjà supprimé d'upstream (plus de fichier sur master) ; `Website Status/Metrics` désactivé via API le 23 sept. (schedule rouge 2×/sem., bug npm `edgesOut` sur master sans lockfile — irréparable sans toucher master pristine). Restent actifs : `Push (CI)`, `Pull Request (CI)`.
 - **Clé `CatharsisWorld.ts:91` (alerte secret GitHub)** : clé API publique du site héritée d'upstream (`cd4a4e19c`), pas un credential privé — alerte à dismiss en faux positif, rien à purger.
+
+---
+
+## Addendum 27 sept. — CrunchyScan : boucle Cloudflare (flash + timeouts en série)
+
+**Symptôme remonté (release 3.0.5 installée)** : la fenêtre challenge Cloudflare « clignote » et les tentatives s'enchaînent en timeouts (~150 s).
+
+1. **Flash = baseline `cf_clearance` manquante** (`web/src/engine/platform/FetchProviderCommon.ts`) : le poller comparait le cookie à `budget.lastReloadedClearance = ''`, donc l'ancien cookie **persisté** passait pour « frais » dès le 1er check (~5 s) → `window.location.reload()` → le Turnstile repartait de zéro, l'utilisateur ne pouvait plus valider → timeout. Fix : nouvelle `ReadClearance()` (CDP) dont la baseline est **re-lue à chaque `DOMReady`**, reload uniquement si la valeur a changé depuis cette baseline (= clearance émise par ce document). Budget toujours 1 pour CrunchyScan. Historique : `6b0b3a531` avait restreint le reload au mode `Automatic`, `851d04f36` l'avait annulé le soir même — la baseline traite la cause racine (détail dans `LESSONS.md`).
+2. **Série de timeouts = une fenêtre DRM par chapitre** (`web/src/engine/websites/CrunchyScan.ts`) : `CrunchyScan.DRM.CreateImageLinks` ouvre une fenêtre par chapitre, sans garde → N × 150 s. Fix : drapeau `challengeSuspected` posé à l'échec + probe **sans fenêtre** avant toute nouvelle ouverture (403/503, header `CF-Mitigated`, `<title>` interstitiel « Just a moment / Un instant ») : toujours challengé → `Exception(FetchProvider_Fetch_CloudFlareChallenge)` immédiate (message localisé existant) ; session réchauffée (lien URL du plugin = `window.open`, ou import `cf_clearance` en Settings) → la porte se rouvre d'elle-même. `initializePromise` n'est plus cachée en échec (retry possible après réchauffage).
+
+**Validations** : `tsc --noEmit` web ✅ + electron ✅ · `eslint .` ✅ · vitest **2164 passed** ✅ · **`CloudflareList_e2e` 5 passed / 1 skipped** ✅ (mangafire + comix + mangadrama : couvre le code plateforme partagé, rejoué 2× dont 1× après le garde timeout CDP 5 s) · `CrunchyScan_e2e` : 9/10 échecs avec le fix contre **10/10 sur HEAD propre** → échec antérieur, environnemental (IP marquée par Cloudflare, cas déjà `it.skip` dans `CloudflareList_e2e`) — **aucune régression**.
+⚠️ `web/build` reconstruit (nécessaire pour tout e2e) ; fichiers **non committés** : `FetchProviderCommon.ts`, `CrunchyScan.ts`, `LESSONS.md`, `CLOUDFLARE.md`, `MEMORY.md`.

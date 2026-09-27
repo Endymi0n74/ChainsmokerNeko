@@ -6,8 +6,10 @@ import { DecoratableMangaScraper, type Chapter, Page } from '../providers/MangaP
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
 import { AddStalledChallengeReload } from '../platform/ChallengeReload';
-import { FetchWindowScript } from '../platform/FetchProvider';
+import { Fetch, FetchWindowScript } from '../platform/FetchProvider';
 import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
+import { Exception } from '../Error';
+import { EngineResourceKey as R } from '../../i18n/ILocale';
 
 import { DRMProvider } from './CrunchyScan.DRM';
 
@@ -47,6 +49,15 @@ export default class extends DecoratableMangaScraper {
     readonly #drm = new DRMProvider();
     private initializePromise?: Promise<void>;
     private drmCache = new Map<string, Promise<any>>();
+    /**
+     * Set when an attempt died on the Cloudflare challenge. While it is set, every new attempt
+     * first probes the shared session with a plain request: if the site is still challenged, the
+     * call fails fast instead of opening yet another browser window. Without this gate, downloading
+     * N chapters with an unblocked session pops N challenge windows of 150 s each (the reported
+     * "series of timeouts"). The gate opens again by itself once the probe sees the real page
+     * (manual warm-up from the plugin list, or a `cf_clearance` import in Settings).
+     */
+    private challengeSuspected = false;
 
     public override readonly RequiresVisibleBrowserWindow = true;
 
@@ -58,8 +69,52 @@ export default class extends DecoratableMangaScraper {
     public override Initialize(): Promise<void> {
         // Multiple UI actions can initialize the same plugin concurrently. Share one
         // challenge promise so CrunchyScan never opens several Cloudflare windows at once.
-        this.initializePromise ??= FetchWindowScript<void>(new Request(this.URI.href), '');
+        this.initializePromise ??= this.InitializeSession().catch(error => {
+            // Do not cache a failure forever: once the session has been warmed up, the next
+            // attempt must be allowed to open a window again (until then the gate below fails fast).
+            this.initializePromise = undefined;
+            throw error;
+        });
         return this.initializePromise;
+    }
+
+    private async InitializeSession(): Promise<void> {
+        await this.EnsureSessionUsable();
+        await FetchWindowScript<void>(new Request(this.URI.href), '');
+    }
+
+    /**
+     * Cheap, window-less check whether the shared session is currently rejected by Cloudflare.
+     * Only authoritative signals count as "blocked" (blocked status code, mitigation header,
+     * interstitial document title): a false positive would disable the connector, a false
+     * negative merely falls back to the regular window based flow.
+     */
+    private async IsSiteBlocked(): Promise<boolean> {
+        try {
+            const response = await Fetch(new Request(this.URI.href));
+            if (response.status === 403 || response.status === 503) {
+                return true;
+            }
+            const mitigated = response.headers.get('CF-Mitigated');
+            if (mitigated) {
+                return /challenge/i.test(mitigated);
+            }
+            const title = /<title[^>]*>([^<]*)/i.exec(await response.text())?.[1] ?? '';
+            return /just a moment|un instant/i.test(title);
+        } catch {
+            // Inconclusive probe (network hiccup): never block the regular flow because of it.
+            return false;
+        }
+    }
+
+    private async EnsureSessionUsable(): Promise<void> {
+        if (!this.challengeSuspected) {
+            return;
+        }
+        if (await this.IsSiteBlocked()) {
+            throw new Exception(R.FetchProvider_Fetch_CloudFlareChallenge, this.URI.href);
+        }
+        this.challengeSuspected = false;
     }
 
     public override get Icon(): string {
@@ -74,8 +129,17 @@ export default class extends DecoratableMangaScraper {
         const cacheKey = chapterUrl.href;
         let promise = this.drmCache.get(cacheKey);
         if (!promise) {
+            // A window is about to be opened: make sure the session is not (still) challenged,
+            // otherwise this chapter — and every following one — would pop a challenge window
+            // that can only end in a timeout. Re-check the cache after the probe, since another
+            // caller may have filled it in the meantime.
+            await this.EnsureSessionUsable();
+            promise = this.drmCache.get(cacheKey);
+        }
+        if (!promise) {
             promise = this.#drm.CreateImageLinks(chapterUrl).catch(err => {
                 this.drmCache.delete(cacheKey);
+                this.challengeSuspected = true;
                 throw err;
             });
             this.drmCache.set(cacheKey, promise);

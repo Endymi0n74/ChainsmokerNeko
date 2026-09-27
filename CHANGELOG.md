@@ -3,6 +3,13 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.6] - 2026-09-27
+
+### Fix
+
+- **CrunchyScan — fin de la boucle Cloudflare (fenêtre qui clignote)** : le reload du challenge comparait le `cf_clearance` à une baseline vide, si bien que l'ancien cookie **persisté** déclenchait un `window.location.reload()` ~5 s après l'ouverture de la fenêtre → le Turnstile repartait de zéro (flash) et la validation que l'utilisateur était en train d'effectuer était systématiquement annulée → timeout. La baseline est désormais re-lue à chaque `DOMReady` (lecture CDP protégée par un timeout de 5 s) et le reload n'a lieu que si une **nouvelle** clearance a été émise par le document en cours — le cas réel « challenge résolu mais jamais redirigé ». Budget inchangé (1 navigation pour CrunchyScan, 3 pour les autres sites opt-in).
+- **CrunchyScan — fin des échecs en série (timeout)** : chaque chapitre ouvrait sa propre fenêtre DRM (150 s chacune) quand la session n'est pas débloquée → autant de popups Cloudflare que de chapitres téléchargés. Après un échec, une **vérification sans fenêtre** (statut 403/503, en-tête `CF-Mitigated`, titre interstitiel) précède toute nouvelle ouverture : session toujours challengée → échec immédiat avec le message Cloudflare localisé ; session réchauffée (lien URL du plugin ou import `cf_clearance`) → la porte se rouvre d'elle-même. L'échec de `Initialize()` n'est plus conservé en cache pour toute la session, ce qui bloquait le connecteur jusqu'au redémarrage.
+
 ## [3.0.5] - 2026-09-23
 
 ### Ajouté

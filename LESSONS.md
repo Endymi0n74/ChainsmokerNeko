@@ -41,6 +41,7 @@
 - `document.hidden = true` pause le challenge (jamais `win.Hide()`).
 - Délai 2.5s avant extraction: challenge finalize en 1-2s, 1s trop court.
 - Widget réel (iframe) ≠ input caché `cf-turnstile-response` (toujours présent).
+- Recharger un challenge n'est utile **que** si le `cf_clearance` a changé depuis le début du document (baseline re-lue à chaque `DOMReady`) ; recharger avec un cookie inchangé reset le widget en cours = flash loop (voir §CrunchyScan, fix 27 sept).
 
 ### WidgetGone / hadWidget / CDP Cookie Check
 - `widgetGone = isChallenge && !hasRealWidget` fonctionne pour MangaFire (Turnstile disparaît après résolution)
@@ -70,7 +71,9 @@
 - **Fix fenêtres multiples** (`ac6064a0`): cache DRM `drmCache` par URL chapitre
 - FetchImage retry 3× backoff 1s/2s, timeout 30s
 - IP peut être marquée par Cloudflare → validation humaine requise
-- Le `ReloadStalledCloudFlareChallenge` ne doit tourner QUE pour le mode `Automatic`. En mode `Interactive`, un reload reset le Turnstile et crée un loop visible (fenêtre qui clignote). Le reload est maintenant déclenché uniquement dans le case `Automatic` du switch.
+- **Loop « fenêtre qui clignote » = baseline `cf_clearance` manquante** (fix 27 sept) : `ReloadStalledCloudFlareChallenge` comparait le cookie à `budget.lastReloadedClearance` initialisé à `''` → dès le 1er check (~5 s) l'**ancien cookie persisté** passait pour « frais » → `window.location.reload()` → le Turnstile repartait de zéro et l'utilisateur ne pouvait plus finir la validation (→ timeout). Fix : re-baseliner le `cf_clearance` à chaque `DOMReady` (`clearanceBaseline`, lu via CDP) et recharger **uniquement** si la valeur a changé depuis cette baseline (une clearance émise par CE document = le vrai signal « résolu mais jamais redirigé »). Un cookie inchangé ne peut rien débloquer (la requête qui a servi le challenge le contenait déjà).
+- Historique : `6b0b3a531` avait tenté de résoudre le symptôme en restreignant le reload au mode `Automatic`, puis `851d04f36` l'avait annulé le soir même (CrunchyScan est classé `Interactive`, le reload devenait donc jamais déclenché). La baseline traite la cause racine et garde la récupération dans les deux modes.
+- **Série de timeouts = une fenêtre DRM par chapitre sans garde** (fix 27 sept) : `CrunchyScan.DRM.CreateImageLinks` ouvre sa propre fenêtre par chapitre ; session non débloquée → N fenêtres × 150 s. Fix : drapeau `challengeSuspected` posé à l'échec, puis, avant toute nouvelle fenêtre, probe **sans fenêtre** (statut 403/503 + header `CF-Mitigated` + `<title>` interstitiel) : toujours challengé → `Exception(FetchProvider_Fetch_CloudFlareChallenge)` rapide ; session réchauffée (lien URL du plugin ou import `cf_clearance`) → la porte se rouvre toute seule.
 - En mode `Automatic` + `ShouldUseForkChallengeHandling`, il faut `win.Show()` pour que le challenge Cloudflare puisse se résoudre. Sans ça, le challenge tourne en background sans fenêtre → timeout → loop. JapScan et CrunchyScan ont besoin de cette fenêtre.
 - Le CDP cookie check dans `PollForChallengeResolution` détecte la résolution via `cf_clearance` quand le Turnstile vit dans un subframe (DOM parent ne voit jamais le widget).
 - **Validation**: listing + chapitres + pages ✅ (25 août)

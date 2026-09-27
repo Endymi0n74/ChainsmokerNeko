@@ -262,19 +262,44 @@ export abstract class FetchProvider {
     }
 
     /**
+     * Reads the (httpOnly) `cf_clearance` cookie for the given {@link url} through the CDP debugger,
+     * since the cookie is never visible to `document.cookie`.
+     * @returns The cookie value, an empty string when the cookie is absent, or `undefined` when the
+     * debugger could not answer (not ready yet, window navigating or already destroyed). A short
+     * timeout guards the caller: this runs on the critical DOMReady path, where a hanging debugger
+     * command would stall the whole challenge classification.
+     */
+    private async ReadClearance(win: ReturnType<typeof CreateRemoteBrowserWindow>, url: string, timeout = 5_000): Promise<string | undefined> {
+        try {
+            const cookies = await Promise.race([
+                win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] }),
+                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('CDP getCookies timeout')), timeout)),
+            ]);
+            return cookies?.cookies?.find(cookie => cookie.name === 'cf_clearance')?.value ?? '';
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
      * Polls a Cloudflare challenge page and reloads it when the challenge is "managed" (no real widget rendered)
      * and a cf_clearance cookie is already present. This works around stalls where the page stays on
      * "Just a moment..." indefinitely because the invisible challenge never auto-resolves.
+     * @param baseline - The clearance that was already present when the current document became ready;
+     * only a value differing from it (a clearance issued by this document) triggers a reload.
      */
     private async ReloadStalledCloudFlareChallenge(
         win: ReturnType<typeof CreateRemoteBrowserWindow>,
         url: string,
         budget: { remaining: number; lastReloadedClearance: string; reloadInFlight: boolean },
-        invocations: { name: string; info: string }[]
+        invocations: { name: string; info: string }[],
+        baseline?: string
     ): Promise<() => void> {
         const maxReloads = 3;
         const interval = 5000;
         let stopped = false;
+        let clearanceBaseline = baseline;
+        let reloadCount = 0;
 
         const checkScript = `
             (() => {
@@ -305,18 +330,28 @@ export abstract class FetchProvider {
                 if (result?.isChallenge && !result?.hasRealWidget) {
                     // NOTE: `cf_clearance` is httpOnly, so `document.cookie` can never see it.
                     // Read the cookie through the debugger (CDP) instead — same session, httpOnly visible.
-                    const cookies = await win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] });
-                    const cfClearance = cookies?.cookies?.find(cookie => cookie.name === 'cf_clearance');
-                    // Do not reload repeatedly with the same clearance. A stale or
-                    // IP-bound cookie can keep the page on the challenge forever; reloading
-                    // it on every DOMReady creates the visible loop reported on CrunchyScan.
-                    if (budget.remaining > 0 && cfClearance?.value && cfClearance.value !== budget.lastReloadedClearance) {
+                    const clearance = await this.ReadClearance(win, url);
+                    if (clearance === undefined) {
+                        // Debugger not ready (navigation just happened): retry on the next cycle
+                        // instead of falling back to a baseline-less (and thus harmful) reload.
+                        return;
+                    }
+                    if (clearanceBaseline === undefined) {
+                        // First successful read establishes the baseline for this document.
+                        clearanceBaseline = clearance;
+                        return;
+                    }
+                    // Reload ONLY when this document issued a NEW clearance: a stale or IP-bound
+                    // cookie keeps the page on the challenge forever, but reloading it only resets
+                    // the in-progress Turnstile — that is the visible loop reported on CrunchyScan.
+                    if (budget.remaining > 0 && clearance && clearance !== clearanceBaseline && clearance !== budget.lastReloadedClearance) {
                         budget.remaining--;
-                        budget.lastReloadedClearance = cfClearance.value;
+                        budget.lastReloadedClearance = clearance;
                         budget.reloadInFlight = true;
+                        reloadCount++;
                         invocations.push({
                             name: 'ReloadStalledCloudFlareChallenge',
-                            info: `Reload #${maxReloads - budget.remaining} (managed challenge, no widget, cf_clearance=${cfClearance.value.length})`
+                            info: `Reload #${reloadCount}/${maxReloads} (managed challenge, no widget, fresh cf_clearance=${clearance.length})`
                         });
                         try {
                             await win.ExecuteScript('window.location.reload()');
@@ -553,6 +588,15 @@ export abstract class FetchProvider {
             lastReloadedClearance: '',
             reloadInFlight: false,
         };
+        // `cf_clearance` value that was already present when the current document became
+        // ready (re-baselined on every navigation in the DOMReady handler below).
+        // Reloading with an UNCHANGED cookie can never unblock anything — the request that
+        // produced the challenge already carried it, so Cloudflare just re-serves the same
+        // page — but the reload RESETS an in-progress Turnstile, which is exactly the
+        // visible "flash loop" reported on CrunchyScan (and it silently voids a validation
+        // the user is about to complete by hand). Only a clearance issued by the CURRENT
+        // document (the real "solved but never redirected" stall) may trigger a reload.
+        let clearanceBaseline: string | undefined;
 
         const destroy = async () => {
             if (destroyed) return;
@@ -619,6 +663,11 @@ export abstract class FetchProvider {
                     stop();
                 }
                 stopPollers.length = 0;
+
+                // Re-baseline the clearance for the document that just loaded (before any
+                // challenge detection delay), so only a clearance issued from here on can
+                // authorize a reload — see `clearanceBaseline`.
+                clearanceBaseline = await this.ReadClearance(win, request.url);
 
                 let redirect: FetchRedirection;
 
@@ -691,7 +740,7 @@ export abstract class FetchProvider {
                 // (reloading other sites' challenges — e.g. MangaFire's custom WAF — loops forever)
                 const stalledReloadEnabled = ShouldReloadStalledChallenge(request.url);
                 if (stalledReloadEnabled && reloadBudget.remaining > 0) {
-                    stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations));
+                    stopPollers.push(await this.ReloadStalledCloudFlareChallenge(win, request.url, reloadBudget, invocations, clearanceBaseline));
                 }
 
                 const enterInteractive = async () => {

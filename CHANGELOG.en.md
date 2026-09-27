@@ -5,6 +5,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.6] - 2026-09-27
+
+### Fixed
+
+- **CrunchyScan — Cloudflare loop gone (flashing window)**: the challenge reload compared `cf_clearance` against an empty baseline, so the previously **persisted** cookie triggered a `window.location.reload()` about 5 s after the window opened → the Turnstile restarted from scratch (flash) and any validation the user was in the middle of completing was cancelled → timeout. The baseline is now re-read on every `DOMReady` (CDP read guarded by a 5 s timeout) and the reload only happens when a **fresh** clearance was issued by the current document — the real "solved but never redirected" stall. Budget unchanged (1 navigation for CrunchyScan, 3 for the other opt-in sites).
+- **CrunchyScan — no more series of timeouts**: every chapter opened its own DRM window (150 s each) while the session was not warmed up → one Cloudflare popup per downloaded chapter. After a failure, a **window-less probe** (403/503 status, `CF-Mitigated` header, interstitial title) now precedes any new window: still challenged → immediate failure with the localized Cloudflare message; session warmed up (plugin URL link or `cf_clearance` import) → the gate reopens by itself. An `Initialize()` failure is no longer cached for the whole session, which used to keep the connector broken until restart.
+
 ## [3.0.4] - 2026-09-05
 
 ### Added
