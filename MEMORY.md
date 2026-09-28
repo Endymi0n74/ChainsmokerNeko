@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 27 septembre 2026 — état courant **v3.0.6** (release poussée) ; **v3.0.7 en préparation locale** (fix JapScan, en attente de validation) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
+> Dernière mise à jour : 28 septembre 2026 — état courant **v3.0.7** (release poussée **et validée en réel**) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
 > 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
-> Dernière mise à jour (état) : 27 septembre 2026 (fix boucles Cloudflare CrunchyScan **puis JapScan** — voir addenda ci-dessous ; v3.0.6 en place, v3.0.7 bumpée localement)
+> Dernière mise à jour (état) : 28 septembre 2026 (fix boucles Cloudflare CrunchyScan **puis JapScan** — voir addenda ci-dessous ; v3.0.7 poussée, validée au premier coup)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
 
@@ -35,7 +35,7 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version courante** : **3.0.6** (27 septembre 2026) — fix boucles Cloudflare CrunchyScan (baseline `cf_clearance` + probe sans fenêtre), tag + release GitHub avec 10 artefacts CI ; **3.0.7 bumpée localement** (fix boucle Cloudflare JapScan, en attente de validation utilisateur) ; voir §12 addenda.
+- **Version courante** : **3.0.7** (28 septembre 2026) — fix boucle Cloudflare JapScan + cause racine du timeout de téléchargement (stall guard vs `CHAPTER_UPDATE_TIMEOUT_MS`), commit `b448bd64c`, tag + release GitHub (Latest, 10 artefacts CI), CI verte ; validée en réel au premier coup. Versions antérieures : 3.0.6 (27 sept., boucle CrunchyScan) ; voir §12 addenda.
 - **Release courante** : [ChainsmokerNeko 3.0.4](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.4) — 10 artefacts CI (3 zips + 3 NSIS Windows, AppImage, .deb, 2 DMG) ; releases 3.0.0→3.0.3 retirées le 5 sept (SHA préservés dans SYNC.md §1)
 
 ## 2. Chemins & remotes
@@ -301,7 +301,7 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 
 **Validations** : `npm run check` ✅ (tsc web + electron, eslint, `check:rules`, svelte-check 0/0, vue-tsc) · vitest **2185 passed** (+21 au total : 9 `FetchProviderCommon_test`, 4 `JapScan_test` détection, 6 `FilterSiteChrome`, 2 garde `BuildReaderScript`) ✅ · `check:versions` 3.0.7 ✅ · `npm run bundle:x64` ✅ → `app/electron/bundle/hakuneko-electron-v3.0.7-win32-x64.zip` (139 MiB, 104 fichiers), code nouveau vérifié présent dans `build/web/MUJMZ7LB/HakuNeko.js` · app relancée **pid 44144** (log `.tmp/electron-launch.log`, rotation faite). `CloudflareList_e2e` 5 passed / 1 skipped · `JapScan_e2e` 15 failed **= 15 failed sur HEAD propre** → échec antérieur/environnemental (IP marquée par Cloudflare) — **aucune régression**. ⚠️ Validation live **impossible depuis l'environnement** : IP marquée → le puzzle, les vignettes, le budget et les logs `[KUMO]`/`[JapScan]` ne peuvent être observés qu'en local par l'utilisateur (le test de syntaxe du script d'injection, lui, tourne dans la CI).
 
-⚠️ Version **3.0.7 bumpée localement en attente de validation utilisateur** ; `web/build` reconstruit pour les e2e ; fichiers **non committés** : `FetchProviderCommon.ts`, `FetchProviderCommon_test.ts`, `JapScan.ts`, `JapScan_test.ts`, `JapScan.Extract.ts`, `JapScan.Extract_test.ts`, `CHANGELOG.md`, `CHANGELOG.en.md`, `LESSONS.md`, `MEMORY.md`, 4 × `package.json`.
+✅ Version **3.0.7 poussée et validée** : commit `b448bd64c` (19 fichiers, +981/−130), branche `fork/chainsmoker` + tag `3.0.7` léger, **CI verte** sur les deux runs, release **Latest** avec 10 artefacts ; arbre local **propre** (local == remote).
 
 ---
 
@@ -357,4 +357,4 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 
 **Validations** : `npm run check` OK (tsc x2, eslint, check:rules, svelte-check 0/0, vue-tsc) -> vitest **2199 passed** (+4 `StallTimeoutFor` + 2 assertions `message === 'Aborted'`) -> `npm run bundle:x64` OK -> `app/electron/bundle/hakuneko-electron-v3.0.7-win32-x64.zip` (139 MiB, 104 fichiers), nouveau hash **MUKWFCXB** ; code verifie dans le build (`StallTimeoutFor` dans `HakuNeko.js` = `t===Downloading&&r<=0?WA:UA` avec `WA = CHAPTER_UPDATE_TIMEOUT_MS+3e4` ; `new DOMException('Aborted','AbortError')` dans `InterProcessCommunication.js`) -> app relancee **pid 74708**.
 
-**Reste a valider par l'utilisateur** : telecharger un chapitre JapScan de 200+ pages **du premier coup**, sans reclic.
+**Validé par l'utilisateur le 28 sept.** : volume-24 (204 pages) télécharge **du premier coup**, sans reclic — extraction 204/204, drain 4.1 s (vs 39,3 s avant), **0** erreur de tâche, **0** timeout 300 s, **0** `stopping poller` anormal (session pid 74708, `MUKWFCXB`, 09:14:05). Le `[DownloadTask] N error(s)` n'est émis que si `errors.length > 0` : son absence = `Status.Completed` = `Media.Store()` appelé.
