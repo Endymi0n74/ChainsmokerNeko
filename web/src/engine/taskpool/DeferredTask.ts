@@ -29,7 +29,9 @@ export class DeferredTask<T> {
 
     public RejectWhenAborted(): boolean {
         if(this.Signal?.aborted) {
-            this.reject(new DOMException(null, 'AbortError'));
+            // NOT `null`: WebIDL converts it to the literal string "null", which then
+            // surfaced as `null` in the task's error list with no hint of an abort.
+            this.reject(new DOMException('Aborted', 'AbortError'));
             return true;
         }
         return false;

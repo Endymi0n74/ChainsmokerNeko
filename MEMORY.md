@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 27 septembre 2026 — état courant **v3.0.5** ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
+> Dernière mise à jour : 27 septembre 2026 — état courant **v3.0.6** (release poussée) ; **v3.0.7 en préparation locale** (fix JapScan, en attente de validation) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
 > 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
-> Dernière mise à jour (état) : 27 septembre 2026 (fix boucle Cloudflare CrunchyScan — voir addendum ci-dessous ; v3.0.5 en place)
+> Dernière mise à jour (état) : 27 septembre 2026 (fix boucles Cloudflare CrunchyScan **puis JapScan** — voir addenda ci-dessous ; v3.0.6 en place, v3.0.7 bumpée localement)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
 
@@ -35,7 +35,7 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version courante** : **3.0.5** (23 septembre 2026) — sync amont 91 commits (`e41bbc95f..d22ac64b2`), nettoyage code mort (knip), tag 3.0.5 + release GitHub (zip win32-x64 manuel, JapScan intact) ; voir §12 addendum.
+- **Version courante** : **3.0.6** (27 septembre 2026) — fix boucles Cloudflare CrunchyScan (baseline `cf_clearance` + probe sans fenêtre), tag + release GitHub avec 10 artefacts CI ; **3.0.7 bumpée localement** (fix boucle Cloudflare JapScan, en attente de validation utilisateur) ; voir §12 addenda.
 - **Release courante** : [ChainsmokerNeko 3.0.4](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.4) — 10 artefacts CI (3 zips + 3 NSIS Windows, AppImage, .deb, 2 DMG) ; releases 3.0.0→3.0.3 retirées le 5 sept (SHA préservés dans SYNC.md §1)
 
 ## 2. Chemins & remotes
@@ -277,3 +277,84 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 
 **Validations** : `tsc --noEmit` web ✅ + electron ✅ · `eslint .` ✅ · vitest **2164 passed** ✅ · **`CloudflareList_e2e` 5 passed / 1 skipped** ✅ (mangafire + comix + mangadrama : couvre le code plateforme partagé, rejoué 2× dont 1× après le garde timeout CDP 5 s) · `CrunchyScan_e2e` : 9/10 échecs avec le fix contre **10/10 sur HEAD propre** → échec antérieur, environnemental (IP marquée par Cloudflare, cas déjà `it.skip` dans `CloudflareList_e2e`) — **aucune régression**.
 ⚠️ `web/build` reconstruit (nécessaire pour tout e2e) ; fichiers **non committés** : `FetchProviderCommon.ts`, `CrunchyScan.ts`, `LESSONS.md`, `CLOUDFLARE.md`, `MEMORY.md`.
+
+---
+
+## Addendum 27 sept. (2) — JapScan : boucle Cloudflare (puzzle trop souvent + fenêtre qui tourne)
+
+**Symptômes remontés** : « puzzle à résoudre trop souvent » et « fenêtre cloudflare qui tourne en boucle quand on valide ». **Deux causes complémentaires — aucun des deux correctifs ne suffit seul** :
+
+1. **Détection du puzzle par existence au lieu de visibilité** (`web/src/engine/websites/JapScan.ts`) : `!!document.querySelector('#jc-overlay')` alors que le nœud **persiste dans le DOM après résolution** (masqué en CSS — déjà documenté en 3.0.3 pour la *collecte*, mais la **classification** n'avait jamais été alignée). `CheckAntiScrapingDetection` ne retournait donc jamais `None` → dans `PollForChallengeResolution`, `cleared = widgetGone || (isChallenge !== true && antiScraping === None)` restait faux (et `widgetGone` est de toute façon forcé à `false` sur `japscan.`) → **40 tentatives puis timeout de 150 s** → le connecteur rouvre une fenêtre → boucle visible. Fix : trancher sur la **visibilité** (`display`/`visibility`/`opacity`/`offsetHeight`), exactement `isBlocked()` de `JapScan.Extract.ts` ; l'annonce pré-rendu `window.__captcha.needed` reste couverte car le n'existe pas encore à ce stade. Script exporté en `JAPSCAN_CHALLENGE_DETECTION_SCRIPT` pour être testable.
+2. **`cf_clearance` persisté pris pour « frais »** (`web/src/engine/platform/FetchProviderCommon.ts`, `PollForChallengeResolution`) : `let lastClearance = ''` → la **première** lecture CDP (~4 s) faisait passer l'ancien cookie pour une clearance fraîche → `cleared = true` → `runScript()` **pendant la validation**, fenêtre détruite, extraction sur page verrouillée (peu de pages) → `ShouldCompleteWithDRM` → fenêtre DRM suivante → un nouveau challenge. **Même cause racine que le fix CrunchyScan du 27 sept** (§ addendum précédent), juste une autre occurrence. Fix : baseline = valeur lue au **`DOMReady`** (même `clearanceBaseline` que `ReloadStalledCloudFlareChallenge`), plus un fallback « première lecture réussie » si cette lecture a échoué ; seuls un **changement réel** ou une clearance **émise après** la baseline terminent le poller. Logique extraite en `NormalizeClearance()` / `NextClearanceState()` (pures, exportées, testées).
+3. **`win.Show()` perdu en mode Automatic** (régression `1dfea5555` du 1er sept., qui avait écrasé `1bb8d2fc1` du 28 août) : la branche Automatic n'affichait la fenêtre que pour les sites opt-in « stalled reload ». `LESSONS.md` pourtant explicite : « JapScan et CrunchyScan ont besoin de cette fenêtre » → sans affichage, le challenge tourne en arrière-plan, ne se résout jamais → timeout → re-ouverture. Désormais **tous** les sites fork-handled affichent la fenêtre avant le poller.
+
+**Retour utilisateur intermédiaire** : « clairement bien mieux » (boucle Cloudflare réglée) **mais « toujours les 4 vignettes parasites sur les chapitres »** → 4ᵉ correctif, 4ᵉ cause distincte :
+
+4. **Vignettes parasites = images de chrome du lecteur remontées comme des pages** (`web/src/engine/websites/JapScan.Extract.ts`, `finalize()`) : sur `one-piece/1194`, le log montrait `-> 17 pages (dom: 17, total: 13)` et la diag `probeHarvest.domFirst` = `www.japscan.foo/images/top-banner-728x90.png`, `.../images/donate.png`, `.../imgs/japys/image-1.jpg` — soit **exactement les 4 pages en trop**, et l'image de pub visible dans le viewer est une créa `japys` servie depuis l'hôte du site (elle passe donc le test CDN « hôte JapScan + extension d'image »). Le filtre anti-chrome existait **uniquement à l'intérieur de la branche `adoptProbe`** (refusée ici : probe 14 < dom 17+5) → les trois autres branches (`drm`, DOM simple) renvoyaient la liste brute. Fix : fonction pure exportée **`FilterSiteChrome(links, documentHost)`**, appliquée **une fois** à `domLinks` avant toutes les branches (marqueurs `_banner_`/`/e44j82.jpg` · hôte du document/`www.`/apex hors arbre `/manga/` · répertoires d'assets statiques · noms de chrome sur tout autre hôte ; `/manga/` sur l'hôte du document conservé → un futur proxy same-origin ne peut pas vider le résultat) + trace mesurable : `chrome: N` dans le log et `chromeDropped` dans la diag. `domFirst` affiche désormais le chrome brut (avant filtrage) et `filteredLen` la longueur retenue.
+
+**Retour utilisateur suivant** : « ça fonctionne » (le chapitre se lance bien) **mais « je dois relancer 2-3 fois sur certains gros chapitres en attendant un timeout jusqu'à ce qu'il charge les 200+ pages »** → 5ᵉ et 6ᵉ correctifs, plus les sondes demandées :
+
+5. **La 4ᵉ vignette = une URL fetchée par le site mais jamais affectée à un `<img>`** : la nouvelle sonde montrait `dom: 17 → chrome: 3 → 14 livrées contre total: 13`, overlap probe/DOM **0,929** → une seule URL DOM absente de `imgUrls`, alors que cette liste contenait *exactement* `total` entrées. C'est la même URL que celle qui provoque l'erreur CORS du log (`…z937z31.jpg`) : le script du site la fetch, n'affecte jamais d'`<img>`, donc le lecteur ne l'affiche pas — mais elle entre dans `seen` via le resource timing et aucune règle hôte/chemin ne peut la distinguer d'une vraie page. Fix : `adoptProbe` accepte désormais aussi le cas **« le probe couvre le total annoncé »** (au-delà de l'ancien « probe ≥ DOM+5 »), ce qui donne exactement `total` pages dans l'ordre du site, plafonnées à `total`.
+6. **Les conditions d'arrêt lisaient un ensemble que `finalize()` filtre ensuite** : `seen.size >= total` dans le **drain**, dans la **marche du sélecteur** et dans le **scroll** — alors que `seen` contient aussi les 3-4 entrées de chrome que `FilterSiteChrome` retirera. Arrêt N URLs trop tôt → `links.length = total - N` → `IsIncompleteReaderResult` → fenêtre DRM de secours / échec, d'où les relances. **C'est une régression du correctif 4** (avant, le chrome comptait comme page et le total tombait juste par accident). Fix : `contentSize()`, qui applique exactement la même filtration que `finalize()` (avec repli sur `seen.size` si le filtre lève).
+7. **Garde-fous** : `filterSiteChrome` enveloppée d'un `try/catch` (une erreur de filtre ne doit jamais coûter tout le chapitre) et `clearTimeout(hardTimer)` en tête de `finalize()` (sinon le timer de 240 s ré-exécutait `finalize()` après un finalize normal et écrasait la phase rapportée).
+8. **Sondes ajoutées à la demande** : `probeMiss` (URLs DOM absentes de `imgUrls`, c'est-à-dire les candidates qui ne sont pas des pages) et l'objet `budget` — phase active, `DEADLINE` si le timer dur a gagné, `drainExit` (`total`/`stall`/`budget`/`drm`), `walkUrls`, budget restant au démarrage de la marche (`walkRemainMs`) et `walkStop` (`timeout`/`complete`/`blocked`/`drm`/`no-urls`) — avec une ligne de log dédiée `[JapScan] … budget:`. Le script d'injection est désormais exporté **`BuildReaderScript(eventName)`** pour qu'un test le parse : son corps est un template literal que `tsc` ne type-check pas, et **un backtick dans un commentaire le ferme prématurément** — cette 3ᵉ occurrence du piège a été commise… pendant l'écriture de ces correctifs, et n'aurait été visible qu'à l'injection en production.
+
+**Validations** : `npm run check` ✅ (tsc web + electron, eslint, `check:rules`, svelte-check 0/0, vue-tsc) · vitest **2185 passed** (+21 au total : 9 `FetchProviderCommon_test`, 4 `JapScan_test` détection, 6 `FilterSiteChrome`, 2 garde `BuildReaderScript`) ✅ · `check:versions` 3.0.7 ✅ · `npm run bundle:x64` ✅ → `app/electron/bundle/hakuneko-electron-v3.0.7-win32-x64.zip` (139 MiB, 104 fichiers), code nouveau vérifié présent dans `build/web/MUJMZ7LB/HakuNeko.js` · app relancée **pid 44144** (log `.tmp/electron-launch.log`, rotation faite). `CloudflareList_e2e` 5 passed / 1 skipped · `JapScan_e2e` 15 failed **= 15 failed sur HEAD propre** → échec antérieur/environnemental (IP marquée par Cloudflare) — **aucune régression**. ⚠️ Validation live **impossible depuis l'environnement** : IP marquée → le puzzle, les vignettes, le budget et les logs `[KUMO]`/`[JapScan]` ne peuvent être observés qu'en local par l'utilisateur (le test de syntaxe du script d'injection, lui, tourne dans la CI).
+
+⚠️ Version **3.0.7 bumpée localement en attente de validation utilisateur** ; `web/build` reconstruit pour les e2e ; fichiers **non committés** : `FetchProviderCommon.ts`, `FetchProviderCommon_test.ts`, `JapScan.ts`, `JapScan_test.ts`, `JapScan.Extract.ts`, `JapScan.Extract_test.ts`, `CHANGELOG.md`, `CHANGELOG.en.md`, `LESSONS.md`, `MEMORY.md`, 4 × `package.json`.
+
+---
+
+## Addendum 28 sept. — JapScan : le déficit venait du site, et nos conditions d'arrêt ne le voyaient pas
+
+**Retour utilisateur** : « à nouveau le téléchargement de dreamland tome 24 a fonctionné après 2 timeout ». Recoupement des 3 `reader diag` du log `.tmp/electron-launch.log` (11:59:05 OK 204 p., 12:04:42 ECHEC 106 p., 12:10:04 OK 204 p.) :
+
+- Tentative ratée : `probeLen=167 / total=204`, `domLen=109 -> filteredLen=106`, `overlap=0.991`, `anchorIdx=0`, `adopt=false`, `drain: 24.1s drainExit=stall`, `budget.walkRemainMs=215867` (215 s de budget inexploité).
+- Côté site : `fetch:200=170` + **`fetch:404=2`** (les deux réussites : `fetch:200=205`, zéro 404), `imgSrc=167`, `firstMs=3500`, **`lastMs=33392`** contre 16 728 ms et 4 818 ms. Le site était ralenti (challenge interactif de 12:04:03) et s'est arrêté **de lui-même** à 167.
+- Chronologie : dernière affectation d'<img> à 33,4 s après l'ouverture = **au moment exact** où le drain cédait sur `stall` (12:04:12 + 24,1 s = 12:04:36), soit 5,6 s avant `finalize()` (12:04:42). Les 37 URLs manquantes n'existent nulle part côté hôte.
+
+**Deux défauts distincts, aucun ne suffisant seul :**
+
+9. **Le stall ne voyait pas la construction du site** : `contentSize()` (fix du 27 sept.) ne mesure que le DOM, qui plafonne à ~110 montages sur un volume alors que le lecteur continue d'affecter les URLs des pages annoncées. Fix : `progressSize()` = `max(contentSize(), probeSize())` tant que `0 < probe < total`, appliqué au drain (`grown`) et au scroll (`currentCount` + condition de sortie) ; **dès que le probe couvre le total il cesse de piloter l'attente**, donc `progressSize()` retombe sur `contentSize()` et le chemin normal garde exactement son ancien rythme (les réussites ont un probe déjà complet avant le drain). `probeSize()` applique les mêmes marqueurs que `finalize()` (`_banner_`, `/e44j82.jpg`) ; `imgUrls` étant plafonné à 300 dans le rapport, aucune boucle d'attente infinie possible. Sonde `budget.probeAtDrain`.
+10. **Un probe partiel était jeté au profit du seul DOM** : `adoptProbe` exigeait `probePages.length >= total`, donc les 167 URLs déjà construites étaient abandonnées pour 106 liens DOM — la moitié du chapitre. Décision sortie dans **`ProbeAdoption(probeLen, domLen, total, anchor, overlap)`** (pure, exportée, testée, sérialisée dans le script via `.toString()`) avec une 3e voie `partial` = `!coversTotal && total && dominates && overlap >= 0.9 && probeLen >= Math.ceil(total * 0.7)` ; cas réel : `ProbeAdoption(167, 106, 204, 0, 0.991).adopt === true` alors que `ProbeAdoption(130, 106, 204, 0, 0.991).adopt === false`. Le résultat reste incomplet (la fenêtre DRM de secours reste tentée), mais l'hôte reçoit la liste longue au lieu de la liste courte. Diag : `adopt: "partial"`.
+
+**Piège reproduit puis corrigé** : en sortant la décision de `finalize()`, le bloc de déclarations du probe a été **dupliqué** (deux `const probe` / `const probePages` au même scope) — détecté à la relecture avant même `tsc`. Toute extraction de code depuis l'intérieur du template literal doit revérifier qu'aucune déclaration n'a été recopiée.
+
+**Hors de portée (confirmé)** : `walkUrls=0` en permanence — `ReadPageSelectorURLs` ne renvoie rien (options = numéros nus) et la synthèse de templates (`base+n/`, `page/n/`, `?page=n`, `?p=n`) ne trouve aucune image fraîche dans le HTML brut, le lecteur construisant ses images en JS. Sur ce volume, c'est le site qui décide de la complétude : on ne peut que mieux récupérer ce qu'il a construit.
+
+**Les « 2 timeout » restent non attribuables depuis l'environnement** : `grep Chapter update` / `Page fetch` / `timed out after` = 0 occurrence dans le renderer — `DownloadTask` ne `console.log` jamais ses erreurs, elles vont dans `this.errors` (statut UI uniquement). Intervalles entre tentatives : 4 min 58 s et 4 min 53 s, proches de `CHAPTER_UPDATE_TIMEOUT_MS` (300 s) alors que `Media.Update()` était rendu bien avant, et aucun mécanisme de relance automatique n'existe dans `web/src/engine`. **Question à poser à l'utilisateur : le texte exact des 2 messages.**
+
+**Validations** : `npm run check` OK (tsc web + electron, eslint, `check:rules`, svelte-check 0/0, vue-tsc) · vitest **2195 passed** (+10 : 2 garde `BuildReaderScript` supplémentaires + 8 `ProbeAdoption`) · `check:versions` 3.0.7 OK · `node .tmp/check-script-syntax.mjs` -> `SCRIPT_SYNTAX_OK chars=50656 lines=820` OK · `npm run bundle:x64` OK -> `app/electron/bundle/hakuneko-electron-v3.0.7-win32-x64.zip` (139 MiB, 104 fichiers), nouveau hash **MUKRJWB1** (l'ancien MUJMZ7LB n'est plus dans `web/build`), code neuf vérifié dans `HakuNeko.js` (`probe@drain`, `ProbeAdoption`, `progressSize`, `partial`) -> app relancée **pid 20180**, log `.tmp/electron-launch.log` remis à zéro.
+
+-> **Arbre non committé** ; commit/push/tag 3.0.7 uniquement après « ok on envoi ».
+
+
+---
+
+## Addendum 28 sept. (soir) - Le téléchargement s'annulait lui-même : deux bornes contradictoires
+
+**Symptôme restant après les fixes d'extraction** : « le chapitre s'affiche dans le viewer, je résous le puzzle, le téléchargement timeout ; je reclic sur télécharger, nouveau puzzle, cette fois il se télécharge. »
+
+**Instrumentation (fix J)** - deux logs ajoutés, **zéro** changement de comportement :
+- `PollForChallengeResolution` logue **à chaque tour** : `[KUMO] poll#N cf=… widget=… site=… clr=… cleared=…`
+- `DownloadTask` logue ses erreurs au `finally` : `[DownloadTask] <titre>: N error(s) -> …`
+
+**Ce que le log a montré (Volume 24, 08:19-08:20, session pid 6708)** :
+```
+08:19:12  poll#1 cf=false widget=false site=Interactive clr=changed cleared=true
+08:20:02  [JapScan] volume-24 -> 204 pages (total: 204, drain 39.3s)   <- extraction REUSSIE
+08:20:02  [DownloadTask] Volume 24: 204 error(s) -> null | null | null
+```
+- Le poller **ne bloque pas** (résolu au 1er tour) : l'hypothèse du matin (« PollForChallengeResolution ne conclut jamais ») ne concernait que le cycle de 07:14, pas celui-ci.
+- **204 erreurs en 17 ms** = impossible pour du vrai réseau -> signal déjà annulé.
+- Message `null` = `new DOMException(null, 'AbortError')` dans `DeferredTask.RejectWhenAborted` : WebIDL convertit `null` en la chaine `"null"`.
+
+**Cause racine** : `DownloadManager.RunWithStallGuard` (commit `cf615186f`, 2 sept.) annule toute tâche dont le progress n'a pas bougé depuis `PROCESS_STALL_TIMEOUT_MS = 20_000`. Or pendant `Media.Update()` **aucun** progress n'est produit - et c'est normal (fenêtre de lecteur visible, résolution du puzzle par l'utilisateur, lazy-load des URLs). Abort a ~20 s alors que le `WithTimeout(CHAPTER_UPDATE_TIMEOUT_MS = 300_000)` du **meme** commit continue en arriere-plan -> `Chapter update ... timed out after 300000ms` alors que l'extraction finit par rendre 204/204 ; les pages lancees ensuite recoivent un signal deja annule, echouent toutes, `errors` non vide -> `Media.Store()` **jamais** appele -> rien n'ecrit sur le disque. Le reclic reussit parce que le puzzle est deja resolu et qu'`Update()` passe sous 20 s. Le poller survit a l'abort et n'est tue qu'a la destruction de la fenetre (`Failed to find window with id 25`, 12 min 32 s apres son demarrage) - d'ou l'illusion d'un poller bloque.
+
+**Fix K** : decision sortie dans la fonction pure exportee `StallTimeoutFor(status, progress)` - `Downloading` avec progress <= 0 (phase de resolution) -> `CHAPTER_UPDATE_TIMEOUT_MS + 30_000` ; sinon 20 s (download avec au moins une page, ou `Processing`). **Fix L** : `new DOMException('Aborted', 'AbortError')`.
+
+**Lecons** (detail dans `LESSONS.md`, section Plateforme) : un garde-fou doit savoir **quelle phase** il surveille (« pas de progress » n'est un stall que depuis que le progress aurait du commencer) ; deux bornes posees ensemble doivent etre ordonnees (300 s sous 20 s ne sert jamais) ; une tâche dont les erreurs ne sont jamais journalisees est indiagnosticable - les deux logs ont rendu ce diagnostic possible en une session au lieu de trois.
+
+**Validations** : `npm run check` OK (tsc x2, eslint, check:rules, svelte-check 0/0, vue-tsc) -> vitest **2199 passed** (+4 `StallTimeoutFor` + 2 assertions `message === 'Aborted'`) -> `npm run bundle:x64` OK -> `app/electron/bundle/hakuneko-electron-v3.0.7-win32-x64.zip` (139 MiB, 104 fichiers), nouveau hash **MUKWFCXB** ; code verifie dans le build (`StallTimeoutFor` dans `HakuNeko.js` = `t===Downloading&&r<=0?WA:UA` avec `WA = CHAPTER_UPDATE_TIMEOUT_MS+3e4` ; `new DOMException('Aborted','AbortError')` dans `InterProcessCommunication.js`) -> app relancee **pid 74708**.
+
+**Reste a valider par l'utilisateur** : telecharger un chapitre JapScan de 200+ pages **du premier coup**, sans reclic.

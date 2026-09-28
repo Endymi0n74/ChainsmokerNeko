@@ -69,6 +69,109 @@ export function OrderPageLinks(pages: OrderedPageLink[]): string[] {
 }
 
 /**
+ * Drops JapScan site chrome from a DOM-collected chapter-image list.
+ *
+ * The reader mounts its own chrome (top banners, donate icons, `japys` ad
+ * creatives) as `<img>` elements, and those pass the generic CDN test (host
+ * owned by JapScan + image extension) — so the plain DOM path, which reports
+ * everything the resource timeline saw, hands them over as chapter pages and
+ * they render as blank or "resource is not an image" thumbnails. Only the
+ * probe-adopt branch ever filtered them, which is why the stray pages show up
+ * exactly on chapters where the probe cannot be adopted.
+ *
+ * Chapter images come from a CDN subhost (`c1`…`c9`, `cdn`, …): either under
+ * the `/manga/` chapter tree or under an opaque token path. Chrome sits on the
+ * document's own host (or a `www.` alias) outside that tree, or under a static
+ * asset directory (`/images/`, `/imgs/`, …) on any host. A same-host URL inside
+ * `/manga/` is kept, so a same-origin image proxy can never empty the result.
+ *
+ * Expects absolute URLs (the candidate funnel already resolves them); an entry
+ * that cannot be parsed is dropped rather than trusted.
+ * Self-contained so it can be serialized into the reader window script.
+ */
+export function FilterSiteChrome(links: string[], documentHost: string): string[] {
+    // Site-owned static asset directories. Pages never sit under these: they are
+    // either inside `/manga/` or behind a token path of hex segments.
+    const staticDirs = ['/images/', '/imgs/', '/img/', '/css/', '/js/', '/assets/', '/static/', '/fonts/', '/ad/', '/ads/', '/banners/'];
+    // Chrome file names used outside the chapter tree (ad creatives, donate and
+    // logo graphics). Never consulted for `/manga/` paths, so a chapter slug can
+    // never collide with them.
+    const chromeNames = ['banner', 'donate', 'sprite', 'japys', 'placeholder', 'advert', 'logo'];
+    const host = String(documentHost || '').toLowerCase();
+    // The document host, its `www.` alias and its apex are all "the site"; every
+    // other JapScan host in the candidate list is a CDN subhost serving pages.
+    const apex = host.indexOf('www.') === 0 ? host.slice(4) : host;
+    const result: string[] = [];
+    for (const link of links) {
+        if (typeof link !== 'string' || !link) continue;
+        // Honeypots the site ships alongside the real pages (same markers as the
+        // DRM payload filter, so both sources agree on what a page is).
+        if (link.indexOf('_banner_') >= 0 || link.indexOf('/e44j82.jpg') >= 0) continue;
+        let keep = false;
+        try {
+            const url = new URL(link);
+            const path = (url.pathname || '/').toLowerCase();
+            if (path.indexOf('/manga/') === 0) {
+                keep = true;
+            } else {
+                const hostname = url.hostname.toLowerCase();
+                const onSiteHost = hostname === host || hostname === apex || /^www[.]/i.test(hostname);
+                keep = !onSiteHost
+                    && !staticDirs.some(directory => path.indexOf(directory) >= 0)
+                    && !chromeNames.some(token => path.indexOf(token) >= 0);
+            }
+        } catch { keep = false; }
+        if (keep && !result.includes(link)) result.push(link);
+    }
+    return result;
+}
+
+/**
+ * Decides whether the URL-construction probe may replace (or extend) the
+ * DOM-collected page list inside `BuildReaderScript`'s `finalize()`.
+ *
+ * Three ways to trust the probe:
+ *
+ * 1. it genuinely **extends** the DOM (a volume lazy-loader stops mounting at
+ *    ~110 images while the reader builds every announced page);
+ * 2. it **covers** the announced total, which matters on small chapters where
+ *    the probe holds exactly `total` URLs while the DOM reports `total+1` — the
+ *    extra link being a CDN URL the site fetched but never mounted, which no
+ *    host or path rule can tell apart from a real page;
+ * 3. it is **partial**: the site's own construction stopped short of the
+ *    announced total (still building when we finalized, or broken by its own
+ *    404s right after an interactive challenge). Rejecting it then discards
+ *    every URL it did capture and the result collapses to the DOM list, barely
+ *    half of it — 106 pages instead of 167 on a throttled run. Accept it only
+ *    when it still dominates the DOM, covers most of the announced total and
+ *    overlaps the DOM almost entirely, so the extra URLs are page content and
+ *    not unrelated traffic. The result stays incomplete either way; this only
+ *    makes the host report the longer list.
+ *
+ * `total` is passed as `0` when the reader announced no page count. `anchor`
+ * is the DOM's first mounted page position inside the probe, and is negative
+ * when no DOM page was found there — i.e. the two lists cannot be ordered
+ * against each other. `overlap` is the fraction of DOM links the probe also
+ * holds.
+ *
+ * Self-contained so it can be serialized into the reader window script.
+ */
+export function ProbeAdoption(probeLen: number, domLen: number, total: number, anchor: number, overlap: number): { adopt: boolean; dominates: boolean; coversTotal: boolean; partial: boolean } {
+    const dominates = probeLen >= Math.max(2, domLen + 5);
+    const coversTotal = !total || probeLen >= total;
+    // "partial" only describes an adoption that did NOT cover the total: the
+    // probe is retained as the better list even though the result stays short.
+    const partial = !coversTotal && !!total && dominates && overlap >= 0.9 && probeLen >= Math.ceil(total * 0.7);
+    const reachable = dominates || !!total && probeLen >= total;
+    return {
+        adopt: reachable && (coversTotal || partial) && anchor >= 0 && overlap >= 0.5,
+        dominates,
+        coversTotal,
+        partial,
+    };
+}
+
+/**
  * Reads the reader's total-page indicator from its DOM.
  * JapScan exposes the chapter length in a page selector (`#pages`), the same
  * information can appear in an attribute or as "Page X / N" text. Returns
@@ -311,37 +414,18 @@ export function GatherReaderDiagnostics() {
 }
 
 /**
- * Extracts the page list from a visible JapScan reader.
+ * Renders the script injected into the reader window (ExtractPagesFromReader
+ * below opens the window and feeds it back to the host).
  *
- * The reader is opened with the site DRM bootstrap as preload (the same one
- * `DRMProvider.CreateImageLinks` uses in its own window): once the page is
- * unlocked, the reader's own protected script decodes its embedded page list and
- * dispatches it as a CustomEvent. Listening for that event inside the same window
- * avoids the DRM provider's second window, whose hardcoded 30s budget expires
- * before JapScan's async anti-bot (`captcha_d.js`) even shows its puzzle.
+ * The body is a template literal, which tsc does NOT type-check: one stray
+ * backtick anywhere in it — a comment included — closes the literal early and
+ * the script only fails at injection time, invisible to tsc and to every other
+ * test. Exposing the rendered string lets the test suite parse it instead.
  *
- * JapScan locks its reader with its own anti-bot puzzle (`#jc-overlay`) which is
- * rendered asynchronously — sometimes only AFTER this script started (the window
- * is visible, so the user can solve it in place). The scroll loop therefore
- * pauses whenever the overlay shows up and resumes once it is gone, instead of
- * scraping a locked page (which yields an incomplete page list and CDN 404s).
- *
- * The DRM payload (page-ordered, complete) wins when it decoded; otherwise the
- * DOM lazy-load drain below is used. When the reader under-delivers although
- * its own page selector announces more pages (volume lazy-loaders stop
- * mounting after roughly 110 images), the extraction walks the selector's
- * per-page URLs from inside the same unlocked window and harvests the image
- * each fetched page renders — no second DRM window with its own puzzle.
- * Returns the collected image links together with the reader's announced
- * total page count (when its page indicator was found) and the number of
- * pages the DRM payload delivered, so callers can detect an incomplete
- * result.
+ * @param eventName - per-window event name shared with the DRM bootstrap.
  */
-export async function ExtractPagesFromReader(referer: string): Promise<ReaderExtraction> {
-    // Event name shared between the DRM bootstrap (preload) and the extraction script.
-    // Random per call so concurrent reader windows cannot observe each other.
-    const eventName = `jkn${Math.random().toString(36).slice(2, 10)}`;
-    const script = `
+export function BuildReaderScript(eventName: string): string {
+    return `
         (() => {
             const IMG_RE = /\\.(jpe?g|png|webp|gif|avif|bmp|tiff?)(?:[?#]|$)/i;
             const isCDN = u => {
@@ -412,6 +496,21 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                 } catch (e) {}
             };
             const orderPageLinks = ${OrderPageLinks.toString()};
+            const filterSiteChrome = ${FilterSiteChrome.toString()};
+            // Page count the completeness checks must test against. seen also holds
+            // site chrome (banner, donate and japys creatives pass isCDN() above),
+            // so a stop test written against seen.size stops N URLs early: finalize()
+            // strips that chrome from the result, leaving the host-side completeness
+            // check short by exactly N pages and forcing a DRM fallback (and a retry)
+            // on the big chapters that need the walk most. This mirrors finalize()'s
+            // own fallback so the count and the delivered list always agree.
+            const contentSize = () => {
+                try {
+                    const raw = Array.from(seen.keys());
+                    const kept = filterSiteChrome(raw, location.hostname);
+                    return Array.isArray(kept) && kept.length ? kept.length : raw.length;
+                } catch (e) { return seen.size; }
+            };
             const readTotalPages = ${ReadTotalPageIndicator.toString()};
             // Site DRM payload: the page's protected script decodes its embedded
             // page list and the DRM bootstrap re-dispatches it as a CustomEvent
@@ -662,6 +761,24 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     return { error: String(e) };
                 }
             };
+            // Current length of the list the site itself is constructing, filtered
+            // exactly like finalize() filters it. The lazy-loader DOM plateaus around
+            // ~110 images on a volume while the reader keeps building the announced
+            // pages, so a stall test written against the DOM alone stops the drain
+            // while the construction is still running: finalize() then falls back to
+            // the much shorter DOM list (a 167/204 harvest was cut that way).
+            const probeSize = () => {
+                try {
+                    const probe = urlProbeReport();
+                    const urls = (probe && Array.isArray(probe.imgUrls)) ? probe.imgUrls : [];
+                    let count = 0;
+                    for (let i = 0; i < urls.length; i++) {
+                        const u = urls[i];
+                        if (typeof u === 'string' && u.indexOf('_banner_') < 0 && u.indexOf('/e44j82.jpg') < 0) count++;
+                    }
+                    return count;
+                } catch (e) { return 0; }
+            };
             // Pause while JapScan's own puzzle is on screen: the window is visible,
             // so the user can slide the puzzle back into order; scraping while it is
             // up collects placeholders/CDN 404s only. The overlay node can linger in
@@ -699,6 +816,12 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
             // see where the time actually goes (puzzle / lazy-load drain /
             // page-selector walk / scroll fallback).
             const timing = { puzzleMs: 0, drainMs: 0, walkMs: 0, scrollMs: 0 };
+            // Gros chapitres (200+ pages) : 2-3 tentatives étaient nécessaires parce
+            // qu'une phase mangeait silencieusement le délai d'extraction. Ces
+            // compteurs disent quelle phase était active, si le timer dur a gagné
+            // (deadline 240s) et combien de budget restait au démarrage de la marche
+            // du sélecteur de pages — le vrai goulot d'étranglement.
+            const budget = { phase: 'wait', deadlineFired: false, walkUrls: 0, walkSeenAtStart: 0, walkRemainMs: 0, drainExit: 'not-run', walkStop: 'n/a', probeAtDrain: 0 };
             collect();
             return new Promise(async resolve => {
                 // Hard extraction deadline: every phase budget below is clamped to the
@@ -709,6 +832,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                 const EXTRACT_DEADLINE = 240_000;
                 const deadlineAt = Date.now() + EXTRACT_DEADLINE;
                 const remain = () => Math.max(0, deadlineAt - Date.now());
+                budget.phase = 'puzzle';
                 await waitWhileBlocked(Math.min(180_000, remain()));
                 // Volume readers mount only the first screenful of images; the reader's
                 // own page selector announces the real total. Drain the lazy-loader:
@@ -717,29 +841,63 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                 // is exhausted — the host-side completeness check takes over then.
                 const total = readTotalPages();
                 const drmComplete = () => drmPages.length > 0 && (!total || drmPages.length >= total);
+                // Stall signal for the waiting phases: the filtered DOM count, plus the
+                // site's own construction while that construction is still short of the
+                // announced total. Once the probe covers total (or never grows) it stops
+                // driving the wait and the phases drain the DOM exactly as before, so the
+                // normal path keeps its previous timing.
+                const progressSize = () => {
+                    try {
+                        const probe = probeSize();
+                        if (probe > 0 && total && probe < total) return Math.max(contentSize(), probe);
+                    } catch (e) {}
+                    return contentSize();
+                };
                 let domCount = 0;
                 let selectorCount = 0;                    const hardTimer = setTimeout(() => {
+                        budget.deadlineFired = true;
+                        budget.phase = 'deadline';
                         try { collect(); } catch (e) {}
                         resolve(finalize());
                     }, EXTRACT_DEADLINE);
                     const finalize = () => {
-                    const domLinks = orderPageLinks(Array.from(seen.values()));
+                    // Cancel the hard deadline: without this a normal finalize is
+                    // followed 240s later by the timer, which would re-enter finalize
+                    // and overwrite the phase the log below reports as final.
+                    clearTimeout(hardTimer);
+                    // Everything the DOM and the resource timeline saw, then the site
+                    // chrome removed: banners, donate icons and japys ad creatives are
+                    // mounted as <img> on the site host and pass the CDN test, so the
+                    // plain DOM path used to report them as pages (N+4 stray thumbnails
+                    // whenever the probe could not be adopted).
+                    const rawDomLinks = orderPageLinks(Array.from(seen.values()));
+                    // filterSiteChrome is plain logic, but it runs inside a stringified
+                    // script with no error boundary around it: a single throw here would
+                    // abort finalize() and cost the whole chapter. Fall back to the
+                    // unfiltered list rather than lose the result entirely.
+                    let domLinks = rawDomLinks;
+                    try {
+                        const filtered = filterSiteChrome(rawDomLinks, location.hostname);
+                        if (Array.isArray(filtered) && filtered.length) domLinks = filtered;
+                    } catch (e) {}
+                    const chromeCount = rawDomLinks.length - domLinks.length;
                     // The DRM payload is authoritative (page order, complete) when it
-                    // decoded. Otherwise, when the URL-construction probe captured the
-                    // reader's complete image list (it runs as preload, before any page
-                    // script, so it sees every <img> the site builds — volume readers
-                    // build ALL announced pages even though the lazy-loader only MOUNTS
-                    // ~110), the probe's img-assigned URLs are the full page list in the
-                    // site's own construction order. Adopt them only when they genuinely
-                    // extend the DOM result AND cover the announced total. The order
-                    // direction is anchored on the first DOM-mounted pages: the lazy-
-                    // loader mounts in reading order, so the first mounted page must sit
-                    // near the START of the construction list (forward) or near its END
-                    // (the site built the list reversed). The first few DOM pages are
-                    // tried because a banner/honeypot may precede the first real page
-                    // (and banner markers are filtered from the probe list), and URLs
-                    // are compared without their query so a mount-time token/redirect
-                    // variant still matches its constructed URL.
+                    // decoded. Otherwise the URL-construction probe — installed as
+                    // preload, before any page script, so it sees every <img> the site
+                    // builds (volume readers build ALL announced pages even though the
+                    // lazy-loader only MOUNTS ~110) — carries the img-assigned URLs as
+                    // the full page list in the site's own construction order.
+                    // Three ways to trust it are encoded in ProbeAdoption: it genuinely
+                    // extends the DOM, it covers the announced total, or it is a partial
+                    // harvest that still dominates the DOM (see the function's own
+                    // documentation). The order direction is anchored on the first
+                    // DOM-mounted pages: the lazy-loader mounts in reading order, so the
+                    // first mounted page must sit near the START of the construction
+                    // list (forward) or near its END (the site built the list reversed).
+                    // The first few DOM pages are tried because a banner/honeypot may
+                    // precede the first real page (and banner markers are filtered from
+                    // the probe list), and URLs are compared without their query so a
+                    // mount-time token/redirect variant still matches its constructed URL.
                     const probe = urlProbeReport();
                     const rawProbePages = (probe && Array.isArray(probe.imgUrls)) ? probe.imgUrls : [];
                     const probePages = rawProbePages.filter(u => typeof u === 'string' && u.indexOf('_banner_') < 0 && u.indexOf('/e44j82.jpg') < 0);
@@ -760,11 +918,9 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     }
                     const domFound = domLinks.filter(u => probeIdxOf(u) >= 0).length;
                     const probeOverlap = domLinks.length ? domFound / domLinks.length : 1;
-                    const adoptProbe = !drmComplete()
-                        && probePages.length >= Math.max(2, domLinks.length + 5)
-                        && (!total || probePages.length >= total)
-                        && probeAnchor >= 0
-                        && probeOverlap >= 0.5;
+                    const probeAdopt = ${ProbeAdoption.toString()};
+                    const adoption = probeAdopt(probePages.length, domLinks.length, total || 0, probeAnchor, probeOverlap);
+                    const adoptProbe = !drmComplete() && adoption.adopt;
                     let probeCount = 0;
                     let links;
                     if (drmComplete()) {
@@ -777,21 +933,13 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                         // known pages — appending them would add N+1 stray pages. Only
                         // append DOM links when the probe is short of the announced total.
                         if (!total || probePages.length < total) {
-                            // Append only DOM-discovered URLs the probe missed that are
-                            // chapter images. The reader also mounts chrome on the www host
-                            // (top banners, donate icons, japys placeholders) — those must
-                            // not download as pages.
+                            // Append only DOM-discovered URLs the probe missed. Site chrome
+                            // is already gone from domLinks (filterSiteChrome: banners,
+                            // donate icons and japys creatives live on the site host or
+                            // in a static asset directory), so what is left is chapter
+                            // content the probe did not capture.
                             for (const link of domLinks) {
-                                if (link.indexOf('_banner_') >= 0 || link.indexOf('/e44j82.jpg') >= 0 || links.includes(link) || probeIdxOf(link) >= 0) continue;
-                                // Site chrome (top banners, donate icons, japys placeholders) lives on the
-                                // main www host; chapter images live on the CDN subhost. A DOM URL the probe
-                                // missed that is hosted on the main site is chrome, not a page — never
-                                // download it. [.] character classes avoid backslash escaping inside the
-                                // serialized script.
-                                try {
-                                    const host = new URL(link, location.href).hostname;
-                                    if (host === location.hostname || /^www[.]/i.test(host)) continue;
-                                } catch (e) { continue; }
+                                if (links.includes(link) || probeIdxOf(link) >= 0) continue;
                                 links.push(link);
                             }
                         }
@@ -802,21 +950,38 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     } else {
                         links = domLinks;
                     }
-                    console.log('[JapScan] ' + location.pathname + ' -> ' + links.length + ' pages (drm: ' + drmPages.length + ', dom: ' + domCount + ', selector: ' + selectorCount + ', probe: ' + probeCount + ', total: ' + (total || 'none') + ') puzzle: ' + (timing.puzzleMs / 1000).toFixed(1) + 's, drain: ' + (timing.drainMs / 1000).toFixed(1) + 's, walk: ' + (timing.walkMs / 1000).toFixed(1) + 's, scroll: ' + (timing.scrollMs / 1000).toFixed(1) + 's');
+                    console.log('[JapScan] ' + location.pathname + ' -> ' + links.length + ' pages (drm: ' + drmPages.length + ', dom: ' + domCount + ', chrome: ' + chromeCount + ', selector: ' + selectorCount + ', probe: ' + probeCount + ', total: ' + (total || 'none') + ') puzzle: ' + (timing.puzzleMs / 1000).toFixed(1) + 's, drain: ' + (timing.drainMs / 1000).toFixed(1) + 's, walk: ' + (timing.walkMs / 1000).toFixed(1) + 's, scroll: ' + (timing.scrollMs / 1000).toFixed(1) + 's');
+                    // Sonde de budget (gros chapitres 200+ pages) : indique LA phase
+                    // active, si le timer dur de 240s a gagné, pourquoi le drain s'est
+                    // arrêté, et ce que la marche du sélecteur a réellement pu faire
+                    // avec le budget restant — c'est là que se joue le "2-3 tentatives".
+                    console.log('[JapScan] ' + location.pathname + ' budget: phase=' + budget.phase + (budget.deadlineFired ? ' DEADLINE' : ' ok') + ' total=' + (total || 'none') + ' content=' + domLinks.length + '/' + rawDomLinks.length + ' probe@drain=' + budget.probeAtDrain + ' drainExit=' + budget.drainExit + ' walk=' + budget.walkUrls + ' urls, content ' + budget.walkSeenAtStart + '->' + domLinks.length + ' with ' + budget.walkRemainMs + 'ms left, stop=' + budget.walkStop);
                     let readerDiag = '{}';
                     try {
                         const diag = gatherDiagnostics();
                         diag.drmPages = drmPages.length;
                         diag.domSeen = seen.size;
+                        diag.budget = budget;
                         diag.urlProbe = urlProbeReport();
                         diag.probeHarvest = {
-                            domLen: domLinks.length,
-                            domFirst: domLinks.slice(0, 3),
+                            domLen: rawDomLinks.length,
+                            domFirst: rawDomLinks.slice(0, 3),
+                            chrome: chromeCount,
+                            chromeDropped: rawDomLinks.filter(link => !domLinks.includes(link)).slice(0, 6),
+                            filteredLen: domLinks.length,
+                            // Probe: sonde de résidu — URLs que le DOM a livrées mais que le
+                            // probe n'a JAMAIS assignées à un <img> (donc pas des pages
+                            // affichées par le lecteur). Quand filteredLen > total, c'est ici
+                            // qu'on voit l'URL responsable.
+                            probeMiss: domLinks.filter(link => probeIdxOf(link) < 0).slice(0, 6),
                             probeLen: probePages.length,
                             anchorIdx: probeAnchor,
                             reversed: probeReversed,
                             overlap: +probeOverlap.toFixed(3),
-                            adopt: adoptProbe,
+                            // true = le probe couvre le total annoncé ; 'partial' = le
+                            // site s'est arrêté en dessous et on a quand même retenu sa
+                            // liste (beaucoup plus longue que le DOM seul).
+                            adopt: adoptProbe ? (adoption.coversTotal ? true : 'partial') : false,
                         };
                         readerDiag = JSON.stringify(diag);
                     } catch (e) {
@@ -917,21 +1082,28 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                         }
                     }
                     console.log('[JapScan] page-selector walk: ' + urls.length + ' walkable URLs found');
+                    budget.walkUrls = urls.length;
                     if (!urls.length) {
                         timing.walkMs = Date.now() - walkStarted;
+                        budget.walkStop = 'no-urls';
                         return false;
                     }
                     const deadline = Date.now() + budgetMs;
                     const workers = Math.min(3, urls.length);
                     let next = 0;
+                    // Why the walk stopped: 'done' means every walkable URL was fetched.
+                    // Anything else means a budget or a guard cut it short — the reason a
+                    // 200+ page chapter can come back short on its first attempt.
+                    let walkStop = 'done';
+                    const markStop = reason => { if (walkStop === 'done' && reason !== 'done') walkStop = reason; };
                     const run = async () => {
                         while (next < urls.length) {
-                            if (Date.now() > deadline) return;
-                            if (drmComplete()) return;
-                            if (total && seen.size >= total) return;
+                            if (Date.now() > deadline) { markStop('timeout'); return; }
+                            if (drmComplete()) { markStop('drm'); return; }
+                            if (total && contentSize() >= total) { markStop('complete'); return; }
                             if (isBlocked()) {
                                 await waitWhileBlocked(Math.min(60_000, remain()));
-                                if (isBlocked()) return;
+                                if (isBlocked()) { markStop('blocked'); return; }
                             }
                             const index = next++;
                             const url = urls[index];
@@ -958,17 +1130,20 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                         await Promise.all(Array.from({ length: workers }, () => run()));
                     } catch (e) {}
                     timing.walkMs = Date.now() - walkStarted;
+                    budget.walkStop = walkStop;
                     console.log('[JapScan] page-selector walk complete: ' + seen.size + ' total pages after walk');
                     return true;
                 };
                 if (total) {
+                    budget.phase = 'drain';
                     const drainStarted = Date.now();
                     let stallRounds = 0;
-                    let lastSeen = seen.size;
-                    while (seen.size < total && Date.now() - drainStarted < Math.min(90_000, remain()) && stallRounds < 4) {
+                    let lastSeen = progressSize();
+                    while (contentSize() < total && Date.now() - drainStarted < Math.min(90_000, remain()) && stallRounds < 4) {
                         if (drmComplete()) {
                             collect();
                             timing.drainMs = Date.now() - drainStarted;
+                            budget.drainExit = 'drm';
                             resolve(finalize());
                             return;
                         }
@@ -976,10 +1151,20 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         if (isBlocked()) await waitWhileBlocked(Math.min(180_000, remain()));
                         collect();
-                        stallRounds = seen.size > lastSeen ? 0 : stallRounds + 1;
-                        lastSeen = seen.size;
+                        const grown = progressSize();
+                        stallRounds = grown > lastSeen ? 0 : stallRounds + 1;
+                        lastSeen = grown;
                     }
                     timing.drainMs = Date.now() - drainStarted;
+                    // Why the drain gave up: reached the announced total, stopped
+                    // growing (stall), or ran out of its 90s/deadline budget. Only the
+                    // last two make the page-selector walk necessary. probeAtDrain is
+                    // the site's own construction at that moment: when it sits below
+                    // total while the DOM is already stalled, the shortfall is on the
+                    // site's side and only the partial adoption in finalize() can save
+                    // the extra URLs.
+                    budget.probeAtDrain = probeSize();
+                    budget.drainExit = contentSize() >= total ? 'total' : (stallRounds >= 4 ? 'stall' : 'budget');
                 }
                 // Snapshot DOM pages before the selector walk so we can report
                 // how many pages each source contributed.
@@ -987,11 +1172,15 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                 // The reader under-delivered (volume lazy-loaders stop mounting
                 // after ~110 images although the selector announces more): recover
                 // the remaining pages through the same-origin page walk above.
-                if (!drmComplete() && total && seen.size < total) {
+                if (!drmComplete() && total && contentSize() < total) {
+                    budget.phase = 'walk';
+                    budget.walkRemainMs = remain();
+                    budget.walkSeenAtStart = contentSize();
                     await enumeratePageSelectorImages(Math.min(100_000, remain()));
                     collect();
                 }
                 selectorCount = seen.size - domCount;
+                budget.phase = 'scroll';
                 let scrollStarted = 0;
                 let steps = 0;
                 let lastCount = 0;
@@ -1022,7 +1211,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     collect();
                     try { window.scrollBy(0, Math.min(window.innerHeight || 800, 600)); } catch (e) {}
                     const atBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 30);
-                    const currentCount = seen.size;
+                    const currentCount = progressSize();
                     if (currentCount === lastCount) {
                         stableRounds++;
                     } else {
@@ -1038,7 +1227,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
                     if (atBottom) bottomStableRounds++;
                     const done = (atBottom && bottomStableRounds >= BOTTOM_STABLE_LIMIT && stableRounds >= STABLE_LIMIT)
                         || stableRounds >= 4 * STABLE_LIMIT
-                        || (total && seen.size >= total)
+                        || (total && progressSize() >= total)
                         || ++steps >= MAX_STEPS;
                     if (done) {
                         collect();
@@ -1056,6 +1245,40 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
             });
         })()
     `;
+}
+
+/**
+ * Extracts the page list from a visible JapScan reader.
+ *
+ * The reader is opened with the site DRM bootstrap as preload (the same one
+ * `DRMProvider.CreateImageLinks` uses in its own window): once the page is
+ * unlocked, the reader's own protected script decodes its embedded page list and
+ * dispatches it as a CustomEvent. Listening for that event inside the same window
+ * avoids the DRM provider's second window, whose hardcoded 30s budget expires
+ * before JapScan's async anti-bot (`captcha_d.js`) even shows its puzzle.
+ *
+ * JapScan locks its reader with its own anti-bot puzzle (`#jc-overlay`) which is
+ * rendered asynchronously — sometimes only AFTER this script started (the window
+ * is visible, so the user can solve it in place). The scroll loop therefore
+ * pauses whenever the overlay shows up and resumes once it is gone, instead of
+ * scraping a locked page (which yields an incomplete page list and CDN 404s).
+ *
+ * The DRM payload (page-ordered, complete) wins when it decoded; otherwise the
+ * DOM lazy-load drain below is used. When the reader under-delivers although
+ * its own page selector announces more pages (volume lazy-loaders stop
+ * mounting after roughly 110 images), the extraction walks the selector's
+ * per-page URLs from inside the same unlocked window and harvests the image
+ * each fetched page renders — no second DRM window with its own puzzle.
+ * Returns the collected image links together with the reader's announced
+ * total page count (when its page indicator was found) and the number of
+ * pages the DRM payload delivered, so callers can detect an incomplete
+ * result.
+ */
+export async function ExtractPagesFromReader(referer: string): Promise<ReaderExtraction> {
+    // Event name shared between the DRM bootstrap (preload) and the extraction script.
+    // Random per call so concurrent reader windows cannot observe each other.
+    const eventName = `jkn${Math.random().toString(36).slice(2, 10)}`;
+    const script = BuildReaderScript(eventName);
     try {
         // Open the reader with the site DRM bootstrap as preload (visible, generous
         // budget): the page's own protected script decodes its full page list once

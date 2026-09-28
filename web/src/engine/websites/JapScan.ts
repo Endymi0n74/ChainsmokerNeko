@@ -10,11 +10,45 @@ import { TaskPool, Priority } from '../taskpool/TaskPool';
 import { RateLimit } from '../taskpool/RateLimit';
 import { FetchWindowScript } from '../platform/FetchProvider';
 
+/**
+ * JapScan's own anti-bot (the "Glisse pour remettre dans l'ordre" puzzle) is announced by
+ * `window.__captcha.needed === true` BEFORE its `#jc-overlay` node is rendered, so both states
+ * must be detected: otherwise the reader window is never shown and the page stays locked.
+ *
+ * The overlay node LINGERS in the DOM after the puzzle was solved (it is only hidden by CSS) —
+ * documented in `JapScan.Extract.ts` and in CHANGELOG 3.0.3 ("the overlay can persist in the DOM
+ * after resolution"). Testing mere existence therefore reported "challenge" forever:
+ * `CheckAntiScrapingDetection` never returned `None`, so `cleared` never became true in
+ * `PollForChallengeResolution` (it requires `antiScraping === None`), every window ended on a
+ * 150 s timeout and the caller re-opened it — the visible "loop" when validating.
+ *
+ * Once the node exists its VISIBILITY is authoritative: falling through to `__captcha.needed`
+ * would keep the classification stuck if that flag is not reset on solve, which is exactly the
+ * loop being fixed here. The pre-render announcement still works because the node does not exist
+ * yet at that point. `JapScan.Extract.ts` (`isBlocked`) keeps its own fall-through so the scroll
+ * loop stays paused until the site declares itself done.
+ */
+export const JAPSCAN_CHALLENGE_DETECTION_SCRIPT = `
+    (() => {
+        try {
+            const overlay = document.querySelector('#jc-overlay');
+            if (overlay) {
+                // Present: only a rendered overlay blocks. Once it is hidden by CSS the
+                // puzzle was solved, whatever window.__captcha.needed still says.
+                const style = window.getComputedStyle(overlay);
+                return style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && parseFloat(style.opacity) > 0
+                    && overlay.offsetHeight > 0;
+            }
+            // Absent: the site may only be announcing the puzzle so far.
+            return !!(window.__captcha && window.__captcha.needed === true);
+        } catch { return false; }
+    })()
+`;
+
 AddAntiScrapingDetection(async invoke => {
-    // JapScan's own anti-bot (the "Glisse pour remettre dans l'ordre" puzzle) is announced by
-    // `window.__captcha.needed === true` BEFORE its `#jc-overlay` node is rendered. Detect both so
-    // the reader window is shown and the user can solve it; otherwise the page stays locked.
-    const result = await invoke<boolean>(`!!document.querySelector('#jc-overlay') || (window.__captcha && window.__captcha.needed === true) || false;`);
+    const result = await invoke<boolean>(JAPSCAN_CHALLENGE_DETECTION_SCRIPT);
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
 AddForkChallengeHandling(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);

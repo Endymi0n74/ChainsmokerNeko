@@ -158,6 +158,13 @@ export class DownloadTask {
             await this.storageController.RemoveTemporary(...resourcemap.values());
             this.UpdateProgress(resourcemap.size);
             this.status.Value = this.errors.Value.length > 0 ? Status.Failed : Status.Completed;
+            // Task errors only ever reached the task's status in the UI, never the renderer
+            // log, so a failed chapter was indistinguishable from a slow one when reading
+            // the output (Volume 22, 28 sept.). One summary line per failed task.
+            if (this.errors.Value.length > 0) {
+                const messages = this.errors.Value.map(error => error?.message ?? String(error));
+                console.error(`[DownloadTask] ${this.Media.Title ?? 'chapter'}: ${messages.length} error(s) -> ${messages.slice(0, 3).join(' | ')}${messages.length > 3 ? ' | ...' : ''}`);
+            }
             this.Abort = this.DisabledAbort;
         }
     }

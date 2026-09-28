@@ -1,5 +1,6 @@
 import { vi, describe, it, expect } from 'vitest';
-import { DownloadManager } from './DownloadManager';
+import { DownloadManager, StallTimeoutFor } from './DownloadManager';
+import { CHAPTER_UPDATE_TIMEOUT_MS, Status } from './DownloadTask';
 import { type MediaContainer, StoreableMediaContainer, type MediaChild, type MediaItem } from './providers/MediaPlugin';
 import type { SettingsManager } from './SettingsManager';
 import type { StorageController } from './StorageController';
@@ -190,6 +191,29 @@ describe('DownloadManager', () => {
 
             expect(callback).toHaveBeenCalledTimes(1);
             expect(callback).toHaveBeenCalledWith(testee.Queue.Value, testee);
+        });
+    });
+
+    describe('StallTimeoutFor', () => {
+
+        it('Should grant the chapter update bound while the page list is still being resolved', () => {
+            // Media.Update() yields no progress by design: interactive connectors open a
+            // visible reader window and wait for the user to solve an anti-bot puzzle,
+            // which routinely exceeds the short stall bound and used to have the task
+            // aborted mid-resolution (Volume 22/24, 28 sept.).
+            expect(StallTimeoutFor(Status.Downloading, 0)).toBeGreaterThanOrEqual(CHAPTER_UPDATE_TIMEOUT_MS);
+        });
+
+        it('Should grant the chapter update bound when progress went backwards to nothing', () => {
+            expect(StallTimeoutFor(Status.Downloading, -4)).toBeGreaterThanOrEqual(CHAPTER_UPDATE_TIMEOUT_MS);
+        });
+
+        it('Should apply the short stall bound once a page has been fetched', () => {
+            expect(StallTimeoutFor(Status.Downloading, 1)).toBeLessThan(CHAPTER_UPDATE_TIMEOUT_MS);
+        });
+
+        it('Should apply the short stall bound while the result is being stored', () => {
+            expect(StallTimeoutFor(Status.Processing, 0)).toBeLessThan(CHAPTER_UPDATE_TIMEOUT_MS);
         });
     });
 });

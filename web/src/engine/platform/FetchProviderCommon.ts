@@ -14,6 +14,37 @@ function BackoffDelay(attempt: number, base = 2000, cap = 10_000): number {
     return Math.min(base * 2 ** attempt, cap);
 }
 
+/** Cloudflare's real `cf_clearance` is always longer than this; shorter = absent/truncated. */
+export const MIN_CLEARANCE_LENGTH = 201;
+
+/**
+ * Normalizes a raw `cf_clearance` read into a comparable value: a clearance shorter than
+ * {@link MIN_CLEARANCE_LENGTH} is not a real one and must be treated as "no cookie".
+ */
+export function NormalizeClearance(value: string | undefined): string {
+    return value && value.length >= MIN_CLEARANCE_LENGTH ? value : '';
+}
+
+/**
+ * Advances the `cf_clearance` baseline of a single window/document.
+ *
+ * A clearance already present when the challenge started can never prove it was solved: the
+ * challenged request already carried it, so its mere presence is not a resolution signal (the
+ * same root cause as the CrunchyScan reload bug fixed on 2026-09-27, where `lastClearance = ''`
+ * made the very first CDP read look like a "change" and closed the window mid-validation).
+ *
+ * @param previous - The baseline, or `undefined` when no read succeeded yet.
+ * @param raw - The raw cookie value just read (`undefined` when the read itself failed).
+ * @returns The baseline to keep and whether a genuinely NEW clearance was observed.
+ */
+export function NextClearanceState(previous: string | undefined, raw: string | undefined): { baseline: string | undefined; changed: boolean } {
+    if (raw === undefined) return { baseline: previous, changed: false };
+    const value = NormalizeClearance(raw);
+    if (previous === undefined) return { baseline: value, changed: false };
+    if (value && value !== previous) return { baseline: value, changed: true };
+    return { baseline: previous, changed: false };
+}
+
 /**
  * Selectors covering the real interactive widgets across Cloudflare Turnstile
  * variants, reCAPTCHA and hCaptcha (the iframe/checkbox is the interactive
@@ -397,7 +428,8 @@ export abstract class FetchProvider {
         runScript: () => Promise<void>,
         isSettled: () => boolean,
         stopPollers: (() => void)[],
-        invocations: { name: string; info: string }[]
+        invocations: { name: string; info: string }[],
+        baseline?: string
     ): Promise<void> {
         let pollerId: number;
         const stop = () => {
@@ -406,7 +438,19 @@ export abstract class FetchProvider {
         stopPollers.push(stop);
 
         let pollAttempts = 0;
-        let lastClearance = '';
+        // `cf_clearance` already present when this challenge started (a persisted,
+        // re-injected cookie — see CLOUDFLARE.md §6). Such a value can never prove the
+        // challenge was solved: the challenged request already carried it, so its mere
+        // presence is not a resolution signal. `undefined` means "baseline not read yet";
+        // only a clearance issued from here on (a genuine change) may clear the poller.
+        // Without this baseline the first CDP read always looked like a "change" and
+        // `runScript()` fired while the user was still solving the challenge, closing
+        // the window mid-validation (the CrunchyScan reload bug, same root cause).
+        // The caller passes the value read at DOMReady (same source as
+        // `ReloadStalledCloudFlareChallenge`): `''` means "read fine, no cookie yet" — a
+        // clearance appearing later is then a genuine change. `undefined` (the read failed)
+        // leaves the baseline unset so the first successful read below establishes it.
+        let lastClearance: string | undefined = typeof baseline === 'string' ? NormalizeClearance(baseline) : undefined;
         const MAX_POLL_ATTEMPTS = 40;
         const poll = async () => {
             if (isSettled()) return;
@@ -415,8 +459,16 @@ export abstract class FetchProvider {
                 return;
             }
             let cleared = false;
+            // Which of the two conditions below is holding the round back, logged every
+            // round. This loop is the only gate between "the user solved the challenge"
+            // and the extraction script starting, and it used to be completely silent:
+            // a poller that never concluded left Media.Update() hanging until the 300 s
+            // task timeout with nothing in the log to explain why (Volume 22, 28 sept.).
+            let cfIsChallenge = '-', cfWidget = '-', siteState = '-', clearanceNote = '-';
             try {
                 const cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
+                cfIsChallenge = String(cloudflare?.isChallenge);
+                cfWidget = String(cloudflare?.hasRealWidget);
                 // A Turnstile widget disappearing from the DOM means the challenge was solved,
                 // even if residual challenge text remains in the body (e.g. MangaFire).
                 // Do not treat a challenge with no detectable widget as solved immediately:
@@ -425,6 +477,7 @@ export abstract class FetchProvider {
                 const widgetGone = cloudflare?.isChallenge && !cloudflare?.hasRealWidget && !/crunchyscan\.org|japscan\./i.test(url);
                 // Always run site-specific detection (JapScan overlay, CrunchyScan subframe, etc.)
                 const antiScraping = await CheckAntiScrapingDetection(win, url);
+                siteState = String(FetchRedirection[antiScraping]);
                 // Turnstile widget gone = CF solved. Site detection resolved = site own challenge solved.
                 cleared = widgetGone || cloudflare?.isChallenge !== true && antiScraping === FetchRedirection.None;
                 // Subframe / interactive Turnstile: DOM parent may never see the widget cleared.
@@ -435,29 +488,46 @@ export abstract class FetchProvider {
                     // ready right after the window opens, and a transient failure must not
                     // cost the whole poll cycle.
                     for (let attempt = 0; attempt < 3 && !cleared; attempt++) {
-                        try {
-                            const cdpTimeout = 5_000;
-                            const cdpResult = await Promise.race([
-                                win.SendDebugCommand<{ cookies: { name: string; value: string }[] }>('Network.getCookies', { urls: [ url ] }),
-                                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('CDP getCookies timeout')), cdpTimeout)),
-                            ]);
-                            const cf = cdpResult?.cookies?.find(c => c.name === 'cf_clearance');
-                            if (cf?.value && cf.value.length > 200 && cf.value !== lastClearance) {
-                                lastClearance = cf.value;
-                                cleared = true;
-                                invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
-                            }
-                        } catch { /* CDP not available yet — back off and retry */ }
-                        if (!cleared && attempt < 2) {
-                            await Delay(BackoffDelay(attempt, 500, 2_000));
+                        // `undefined` = the read itself failed (retry); '' = read fine, no cookie.
+                        const current = await this.ReadClearance(win, url, 5_000);
+                        if (current === undefined) {
+                            clearanceNote = 'read-failed';
+                            if (attempt < 2) await Delay(BackoffDelay(attempt, 500, 2_000));
+                            continue;
                         }
+                        const firstRead = lastClearance === undefined;
+                        const next = NextClearanceState(lastClearance, current);
+                        lastClearance = next.baseline;
+                        if (firstRead) {
+                            // Whatever was already there proves nothing (see `lastClearance`).
+                            invocations.push({ name: 'CfClearanceBaseline', info: `baseline established (present=${next.baseline.length > 0})` });
+                            clearanceNote = `baseline:${next.baseline.length}`;
+                            break; // Nothing can be "changed" until a later read.
+                        }
+                        if (next.changed) {
+                            cleared = true;
+                            clearanceNote = 'changed';
+                            invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
+                            break;
+                        }
+                        // Unchanged: keep waiting for a genuine new clearance.
+                        clearanceNote = `unchanged:${current.length}`;
+                        if (attempt < 2) await Delay(BackoffDelay(attempt, 500, 2_000));
                     }
+                } else {
+                    clearanceNote = 'skipped';
                 }
             } catch (error) {
+                clearanceNote = `error:${error?.message ?? error}`;
                 if (error?.message?.includes("Failed to find window") || pollAttempts > 5) {
                     console.warn("[KUMO] PollForChallengeResolution: stopping poller for", url, error?.message);
                     return;
                 }
+            } finally {
+                // `cf`/`widget` = Cloudflare's own detection, `site` = the connector's
+                // (None/Automatic/Interactive), `clr` = why the cookie check did or did
+                // not settle it, `cleared` = whether the extraction script was started.
+                console.warn(`[KUMO] poll#${pollAttempts} cf=${cfIsChallenge} widget=${cfWidget} site=${siteState} clr=${clearanceNote} cleared=${cleared}`);
             }
             if (cleared) {
                 invocations.push({ name: "ChallengeResolved", info: "Interactive challenge cleared, running extraction script" });
@@ -758,15 +828,19 @@ export abstract class FetchProvider {
                     // a navigation, so DOMReady never fires again and the extraction script would
                     // never run. Poll until the challenge clears, then run the script on the
                     // now-usable reader page.
-                    this.PollForChallengeResolution(win, request.url, cloudflareDetectionScript, runScript, () => settled, stopPollers, invocations);
+                    this.PollForChallengeResolution(win, request.url, cloudflareDetectionScript, runScript, () => settled, stopPollers, invocations, clearanceBaseline);
                 };
 
                 const enterAutomatic = () => {
-                    // CrunchyScan's managed challenge only issues its clearance cookie
-                    // while the remote window is visible. Keep this visibility scoped to
-                    // the explicit stalled-reload opt-in; other fork-handled sites remain
-                    // fully backgrounded.
-                    if (stalledReloadEnabled) {
+                    // A managed Cloudflare challenge can require a VISIBLE window to issue its
+                    // clearance (JapScan: `LESSONS.md` "JapScan et CrunchyScan ont besoin de cette
+                    // fenêtre"; CrunchyScan: the cookie is only issued while shown). Fork-handled
+                    // sites therefore all show the window before polling — the behaviour restored
+                    // by `1bb8d2fc1`, which the `enterAutomatic` refactor of `1dfea5555` had lost
+                    // (its comment scoped visibility to the stalled-reload opt-in only, leaving
+                    // JapScan backgrounded: the challenge then never resolves → timeout → the
+                    // caller retries → new window → visible loop).
+                    if (ShouldUseForkChallengeHandling(request.url)) {
                         void win.Show().then(() => this.PollForChallengeResolution(
                             win,
                             request.url,
@@ -775,17 +849,8 @@ export abstract class FetchProvider {
                             () => settled,
                             stopPollers,
                             invocations,
+                            clearanceBaseline,
                         ));
-                    } else if (ShouldUseForkChallengeHandling(request.url)) {
-                        void this.PollForChallengeResolution(
-                            win,
-                            request.url,
-                            cloudflareDetectionScript,
-                            runScript,
-                            () => settled,
-                            stopPollers,
-                            invocations,
-                        );
                     }
                 };
 

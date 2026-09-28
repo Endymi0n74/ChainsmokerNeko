@@ -63,6 +63,7 @@ describe('DeferredTask', () => {
             } catch(error) {
                 expect(error).toBeInstanceOf(DOMException);
                 expect(error.code).toBe(DOMException.ABORT_ERR);
+                expect(error.message).toBe('Aborted');
             }
         });
     });
@@ -100,6 +101,7 @@ describe('DeferredTask', () => {
             } catch(error) {
                 expect(error).toBeInstanceOf(DOMException);
                 expect(error.code).toBe(DOMException.ABORT_ERR);
+                expect(error.message).toBe('Aborted');
             }
         });
     });
