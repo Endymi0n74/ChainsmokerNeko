@@ -3,6 +3,12 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.8] - 2026-09-28
+
+### Ajouté
+
+- **Nouveau connecteur KomaScans** (`komascans.com`) : le catalogue est reconstruit à partir des sitemaps — `series-0.xml` pour l'anglais (8 176 séries) et `series-{locale}-0.xml` par locale (~156 entrées chacune), soit ~3 s, les titres étant reconstitués depuis les slugs (`Log-Leveling-Lawyer` → `Log Leveling Lawyer`, ~90 % de fidélité), triés alphabétiquement par le connecteur (l'UI ne trie pas) et marqués du tag de langue de chaque locale (le site est déjà déclaré multilingue : `Tags.Language.Multilingual`). Les chapitres suivent un mode **hybride rapide puis complétion** : la page série ne hydrate que 50 chapitres au maximum (~1,5 s suffisent pour Nano Machine), et quand `firstChapter` est absent de cette liste partielle (séries tronquées : 331 chapitres réels pour 50 hydratés) la complétion passe par les sitemaps `chapters-N.xml` (anglais) / `chapters-{locale}-N.xml` (autres locales), par lots de 4 requêtes pour borner la mémoire — ~45 s pour Nano Machine complet. Chapitres ordonnés **décroissant** (convention du moteur), sans `publishedAt` (le `lastmod` des sitemaps est une date d'import, pas une date de publication). Pages extraites du payload RSC de l'épisode et ordonnées par `position` (le HTML ne contient que les lecteurs vidéo), images servies via `ImageAjax` avec détection du type réel ; `Initialize()` sans fenêtre navigateur (l'API est publique) et `ValidateMangaURL` acceptant aussi les URL `/read/...` (normalisées vers `/series/...`). +26 tests unitaires sur les fonctions pures exportées (`SeriesTitleFromSlug`, `MapChapterNumber`, `MapChapterTitle`, `ResolveSeriesIdentifier`, `HydratedChapter`) et fixture e2e ; `npm run check` sans erreur ni avertissement, 2 227 tests unitaires verts, e2e 5/5.
+
 ## [3.0.7] - 2026-09-27
 
 ### Fix

@@ -5,6 +5,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.8] - 2026-09-28
+
+### Added
+
+- **New KomaScans connector** (`komascans.com`): the catalogue is rebuilt from the sitemaps — `series-0.xml` for English (8,176 series) and `series-{locale}.xml` per locale (~156 entries each), taking ~3 s, with titles reconstructed from the slugs (`Log-Leveling-Lawyer` → `Log Leveling Lawyer`, ~90 % fidelity), sorted alphabetetically by the connector (the UI does not sort) and tagged with each locale's language (the site is already declared multilingual: `Tags.Language.Multilingual`). Chapters use a **fast-then-complete hybrid**: the series page only hydrates a maximum of 50 chapters (~1.5 s is enough for Nano Machine), and when `firstChapter` is missing from that partial list (truncated series: 331 real chapters for 50 hydrated) completion falls back to the `chapters-N.xml` (English) / `chapters-{locale}-N.xml` (other locales) sitemaps, in batches of 4 requests to bound memory — ~45 s for the full Nano Machine. Chapters are ordered **descending** (engine convention) and carry no `publishedAt` (the sitemaps' `lastmod` is an import date, not a publication date). Pages are extracted from the episode's RSC payload and ordered by `position` (the HTML only holds the video players), images are served through `ImageAjax` with real type detection; `Initialize()` opens no browser window (the API is public) and `ValidateMangaURL` also accepts `/read/...` URLs (normalised to `/series/...`). +26 unit tests over the exported pure functions (`SeriesTitleFromSlug`, `MapChapterNumber`, `MapChapterTitle`, `ResolveSeriesIdentifier`, `HydratedChapter`) and an e2e fixture; `npm run check` with 0 errors and 0 warnings, 2,227 unit tests green, e2e 5/5.
+
 ## [3.0.7] - 2026-09-27
 
 ### Fixed
