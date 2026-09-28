@@ -123,6 +123,29 @@ export function MapChapterTitle(chapter: HydratedChapter): string {
 }
 
 /**
+ * The chapter word which the website itself renders for a localized locale (e.g. `Chapitre 1` for the French locale),
+ * while the chapter titles are stored in English for every locale. Locales which are missing from this table are
+ * rendered by the website with the English word (e.g. `Chapter 1` for the German locale).
+ */
+const CHAPTER_LABELS: Record<string, string> = {
+    es: 'Capítulo',
+    fr: 'Chapitre',
+};
+
+/**
+ * Replaces the leading chapter word of the given {@link title} with the word which the website renders for {@link locale}.
+ * @param title - A chapter title which may start with a chapter word (e.g. `Chapter 1 - Start Reading`)
+ * @param locale - The locale segment of the series identifier (e.g. `fr`)
+ * @returns The title carrying the localized chapter word (e.g. `Chapitre 1 - Start Reading`) or the unchanged title
+ * @remarks Titles without a leading chapter word (e.g. `Start Reading`) and locales which are rendered in English by
+ * the website (e.g. `de`) are left untouched, so the connector never diverges from the labels of the website.
+ */
+export function LocalizeChapterWord(title: string, locale: string): string {
+    const label = CHAPTER_LABELS[locale];
+    return label ? title.replace(/^(?:chapter|chap|ch)(?:\.\s*|\s+)/i, `${label} `) : title;
+}
+
+/**
  * Resolves the language tag for the given {@link identifier} based on the locale segment of its path.
  */
 function MapLanguageTag(identifier: string): Tag {
@@ -225,7 +248,7 @@ export default class extends DecoratableMangaScraper {
         return [ ...identifiers ].reduce((chapters: { number: number, chapter: Chapter }[], slug) => {
             const chapter = metadata.get(slug);
             const number = chapter ? chapter.number : MapChapterNumber(slug);
-            const title = chapter ? MapChapterTitle(chapter) : ChapterTitleFromSlug(slug);
+            const title = LocalizeChapterWord(chapter ? MapChapterTitle(chapter) : ChapterTitleFromSlug(slug), locale);
             const published = chapter && chapter.publishedAt ? new Date(chapter.publishedAt) : null;
             const identifier = `/${locale}/read/${seriesSlug}/${slug}`;
             const value = published && !Number.isNaN(published.getTime())

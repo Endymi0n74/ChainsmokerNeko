@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import '../RegExpSafe';
-import KomaScans, { ResolveSeriesIdentifier, SeriesTitleFromSlug, ChapterTitleFromSlug, MapChapterNumber, MapChapterTitle, type HydratedChapter } from './KomaScans';
+import KomaScans, { ResolveSeriesIdentifier, SeriesTitleFromSlug, ChapterTitleFromSlug, MapChapterNumber, MapChapterTitle, LocalizeChapterWord, type HydratedChapter } from './KomaScans';
 
 function CreateChapter(values: Partial<HydratedChapter> = {}): HydratedChapter {
     return {
@@ -126,6 +126,43 @@ describe('MapChapterTitle', () => {
 
     it('Should fall back to the title when no chapter number is available', () => {
         expect(MapChapterTitle(CreateChapter({ slug: 'chapter-7', number: Number.NaN, title: 'Extra' }))).toBe('Extra');
+    });
+});
+
+describe('LocalizeChapterWord', () => {
+
+    it('Should localize the leading chapter word for the locales rendered in their language by the website', () => {
+        expect(LocalizeChapterWord('Chapter 1', 'fr')).toBe('Chapitre 1');
+        expect(LocalizeChapterWord('Chapter 1', 'es')).toBe('Capítulo 1');
+        expect(LocalizeChapterWord('Chapter 113.5', 'fr')).toBe('Chapitre 113.5');
+        expect(LocalizeChapterWord('Chapter 1 - Start Reading', 'fr')).toBe('Chapitre 1 - Start Reading');
+        expect(LocalizeChapterWord('Chapter 331 - 107: Special Forces <4>', 'es')).toBe('Capítulo 331 - 107: Special Forces <4>');
+    });
+
+    it('Should localize abbreviated chapter words', () => {
+        expect(LocalizeChapterWord('Ch.519.5 Jun 08,2026', 'fr')).toBe('Chapitre 519.5 Jun 08,2026');
+        expect(LocalizeChapterWord('Ch 2 Bonus', 'fr')).toBe('Chapitre 2 Bonus');
+    });
+
+    it('Should keep the English chapter word for locales which the website renders in English', () => {
+        expect(LocalizeChapterWord('Chapter 1', 'en')).toBe('Chapter 1');
+        expect(LocalizeChapterWord('Chapter 1', 'de')).toBe('Chapter 1');
+        expect(LocalizeChapterWord('Chapter 1', 'pt')).toBe('Chapter 1');
+        expect(LocalizeChapterWord('Chapter 1', 'id')).toBe('Chapter 1');
+        expect(LocalizeChapterWord('Chapter 1', 'ar')).toBe('Chapter 1');
+        expect(LocalizeChapterWord('Chapter 1', 'tr')).toBe('Chapter 1');
+    });
+
+    it('Should be idempotent for titles which are already localized', () => {
+        expect(LocalizeChapterWord('Chapitre 1', 'fr')).toBe('Chapitre 1');
+        expect(LocalizeChapterWord('Capítulo 1 - Start Reading', 'es')).toBe('Capítulo 1 - Start Reading');
+    });
+
+    it('Should not touch titles which do not start with a chapter word', () => {
+        expect(LocalizeChapterWord('Start Reading', 'fr')).toBe('Start Reading');
+        expect(LocalizeChapterWord('107: Special Forces <4>', 'fr')).toBe('107: Special Forces <4>');
+        expect(LocalizeChapterWord('Chaos Reign', 'fr')).toBe('Chaos Reign');
+        expect(LocalizeChapterWord('Extra', 'fr')).toBe('Extra');
     });
 });
 
