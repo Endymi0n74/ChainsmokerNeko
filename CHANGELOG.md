@@ -3,6 +3,22 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.9] - 2026-09-29
+
+### Ajouté
+
+- **Composition des overlays traduits (KomaScans)** : les bulles des chapitres français et espagnols sont réellement traduites en anglais à l'affichage comme au téléchargement. Le décorateur `@Common.ImageAjax` est supprimé au profit d'un `FetchImage` surchargé (`Common.FetchImageAjax.call(this, page, priority, signal, true)` + composition) : la requête `translationOverlay` portée par `Page.Parameters` empile un calque de texte sur l'image source (canvas `fillText`, `convertToBlob({ type: 'image/webp', quality: 0.9 })`), tout échec — police, traduction ou rendu — retombant silencieusement sur l'image de base. Les polices du site (Comic Relief, Koma Patrick Hand SC, Oswald, Barlow Condensed) sont lues dans les propriétés CSS de la page (URL entre guillemets simples, regex `[\w-]+`), mises en cache par un `Map<string, Promise<void>>` commun pour que des compositions concurrentes attendent le même chargement, et verrouillées par `if (!keys.size)` contre la course qui vidait l'index — trois bugs trouvés et corrigés par le harnais visuel. Validé sur GEED ch.1 FR : 7 régions composées (722 316 octets en webp, ~700 ms), rendu identique quelle que soit la concurrence.
+- **Drapeaux de langue dans la liste** : chaque entrée affiche le drapeau Unicode de sa locale (🇬🇧🇫🇷🇪🇸🇮🇩🇩🇪🇵🇹🇸🇦🇹🇷…), visible dès le démarrage sans rafraîchissement — y compris pour les Manga recréés depuis le cache. Le helper partagé `lib/flags.ts` (`ExtractUnicodeFlagFromTags`) reconnaît les séquences `^[\p{RI}\p{Extended_Pictographic}\uFE0F]+` et évite l'artefact « 🌐 M » du `slice(0, 4)`. Bug racine corrigé de façon additive : `MangaPlugin.Prepare()` recrée les Manga du cache local via `CreateEntry(id, title)` sans tags, d'où le hook `MangaScraper.GetMangaTags(identifier)` (défaut `[]`, sans impact sur les autres connecteurs) propagé par `MangaPlugin.CreateEntry` ; KomaScans surcharge `GetMangaTags` avec `[MapLanguageTag(identifier)]`. Format de cache inchangé.
+
+### Modifié
+
+- **Identité « ChainsmokerNeko » dans toute l'application** : barre de titre, en-tête, page d'accueil, guide de démarrage, fenêtre de réglages, fil d'ariane de la zone de contenu, splash Electron et écran de démarrage affichent désormais ChainsmokerNeko, de même que l'export de favoris (`ChainsmokerNeko (date).bookmarks`), la métadonnée `generator` des EPUB et le titre de la build NW.js. Les 13 locales Crowdin restent intactes : le remplacement du nom est appliqué une fois au chargement des ressources dans `Localization.ts` (`ApplyBrandName`), translittération arabe « هاكونيكو » comprise, tandis que l'extension externe « HakuNeko Assistant » conserve son nom dans toutes les langues (garde sur les formes `assistant`/`asistente`/`助理`/`مساعد`). Crédits du projet d'origine ajoutés sur la page d'accueil (HaruNeko puis HakuNeko, avec liens) et conservés dans `og:description` ; `productName` passe à `ChainsmokerNeko` → exécutable `ChainsmokerNeko.exe` et zip local `chainsmokerneko-electron-v{version}-win32-x64.zip`, la config utilisateur `%APPDATA%\ChainsmokerNeko` étant inchangée. Les identifiants internes (`window.HakuNeko`, clé de thème `hakuneko`, base IndexedDB `HakuNeko`, chemin RPC `/hakuneko`) sont conservés pour ne rien casser.
+- **Validation** : `npm run check` vert (versions + ts + eslint + svelte-check + vue-tsc + règles de codage) et 2285 tests verts sur 37 fichiers.
+
+### Fix
+
+- **Auto-mise à jour en 404** : `AppUpdate` construisait `hakuneko-{plateforme}.zip` alors que la release publie `ChainsmokerNeko-v{version}-{plateforme}.zip` — le téléchargement de mise à jour échouait donc systématiquement depuis la bannière. Le nom d'asset, les User-Agent et le répertoire temporaire suivent désormais le nom réel du produit, la config `repository` visant déjà `Endymi0n74/ChainsmokerNeko`.
+
 ## [3.0.8] - 2026-09-28
 
 ### Ajouté

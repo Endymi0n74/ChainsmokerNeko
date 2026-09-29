@@ -5,6 +5,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.9] - 2026-09-29
+
+### Added
+
+- **Composed translated overlays (KomaScans)**: the speech bubbles of French and Spanish chapters are genuinely translated into English, both on screen and in downloads. The `@Common.ImageAjax` decorator is replaced by an overloaded `FetchImage` (`Common.FetchImageAjax.call(this, page, priority, signal, true)` + composition): the `translationOverlay` request carried by `Page.Parameters` stacks a text layer over the source image (canvas `fillText`, `convertToBlob({ type: 'image/webp', quality: 0.9 })`), and any failure — font, translation or rendering — silently falls back to the base image. The site's fonts (Comic Relief, Koma Patrick Hand SC, Oswald, Barlow Condensed) are read from the page's CSS properties (URL in single quotes, regex `[\w-]+`), cached through a shared `Map<string, Promise<void>>` so concurrent compositions await the same load, and guarded by `if (!keys.size)` against the race that emptied the index — three bugs found and fixed by the visual harness. Validated on GEED ch.1 FR: 7 regions composed (722,316 bytes of webp, ~700 ms), identical output under concurrency.
+- **Language flags in the list**: every entry shows the Unicode flag of its locale (🇬🇧🇫🇷🇪🇸🇮🇩🇩🇪🇵🇹🇸🇦🇹🇷…), visible from startup without a refresh — including for Manga rebuilt from the cache. The shared helper `lib/flags.ts` (`ExtractUnicodeFlagFromTags`) recognises `^[\p{RI}\p{Extended_Pictographic}\uFE0F]+` sequences and avoids the `slice(0, 4)` "🌐 M" artefact. Root bug fixed additively: `MangaPlugin.Prepare()` rebuilds Manga from the local cache through `CreateEntry(id, title)` without tags, hence the `MangaScraper.GetMangaTags(identifier)` hook (default `[]`, no impact on other connectors) propagated by `MangaPlugin.CreateEntry`; KomaScans overrides `GetMangaTags` with `[MapLanguageTag(identifier)]`. Cache format unchanged.
+
+### Changed
+
+- **“ChainsmokerNeko” identity throughout the application**: title bar, header, home page, startup guide, settings window, content-area breadcrumb, Electron splash and boot screen now display ChainsmokerNeko, as do the bookmark export (`ChainsmokerNeko (date).bookmarks`), the EPUB `generator` metadata and the NW.js build title. The 13 Crowdin locales stay untouched: the name replacement is applied once when the resources are bound in `Localization.ts` (`ApplyBrandName`), Arabic transliteration « هاكونيكو » included, while the external “HakuNeko Assistant” extension keeps its name in every language (guard on the `assistant`/`asistente`/`助理`/`مساعد` forms). Credits for the original project added on the home page (HaruNeko, then HakuNeko, both linked) and kept in `og:description`; `productName` becomes `ChainsmokerNeko` → `ChainsmokerNeko.exe` and local zip `chainsmokerneko-electron-v{version}-win32-x64.zip`, with the user profile `%APPDATA%\ChainsmokerNeko` unchanged. Internal identifiers (`window.HakuNeko`, theme key `hakuneko`, IndexedDB `HakuNeko`, RPC path `/hakuneko`) are kept so nothing breaks.
+- **Validation**: `npm run check` green (versions + ts + eslint + svelte-check + vue-tsc + coding rules) and 2,285 tests green across 37 files.
+
+### Fixed
+
+- **Auto-update returning 404**: `AppUpdate` built `hakuneko-{platform}.zip` while the release publishes `ChainsmokerNeko-v{version}-{platform}.zip` — so the update download from the banner always failed. The asset name, the User-Agents and the temporary directory now follow the real product name, the `repository` config already targeting `Endymi0n74/ChainsmokerNeko`.
+
 ## [3.0.8] - 2026-09-28
 
 ### Added
