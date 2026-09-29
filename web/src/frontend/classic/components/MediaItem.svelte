@@ -46,22 +46,7 @@
     import { DownloadTask, Status } from '../../../engine/DownloadTask';
     import { Key as GlobalKey } from '../../../engine/SettingsGlobal';
     import type { Directory } from '../../../engine/SettingsManager';
-    import { GlobalSettings } from '../stores/Settings.svelte';
-    
-    import { Tags, type Tag } from '../../../engine/Tags';
-    const availableLanguageTags = Tags.Language.toArray();
-
-    // NOTE: This relies on all language tags having a unicode flag prefix in their corresponding `Title`
-    function extractUnicodeFlagFromTags(tags: ReadonlyArray<Tag>): string {
-        const languageTagTitleResourceKey = tags.find((tag) =>
-            availableLanguageTags.includes(tag),
-        )?.Title;
-        return (
-            GlobalSettings.Locale[languageTagTitleResourceKey]
-                ?.call(undefined)
-                ?.slice(0, 4) ?? ''
-        );
-    }
+    import { ExtractUnicodeFlagFromTags } from '../lib/flags';
 
     const flagiconmap = new Map<FlagType, any>([
         [FlagType.Viewed, ViewFilled],
@@ -200,9 +185,9 @@
         onclick={(event) => onView(event)}
     />
     <ClickableTile class="title" onclick={(event) => onView(event)}>
-        {#if extractUnicodeFlagFromTags(item.Tags.Value)}
+        {#if ExtractUnicodeFlagFromTags(item.Tags.Value)}
             <span class="multilang">
-                {extractUnicodeFlagFromTags(item.Tags.Value)}
+                {ExtractUnicodeFlagFromTags(item.Tags.Value)}
             </span>
         {/if}
         <span title={item.Title}>{item.Title}</span>

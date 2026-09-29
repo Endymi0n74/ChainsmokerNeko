@@ -32,6 +32,18 @@ export abstract class MangaScraper extends MediaScraper<MangaPlugin> {
         return new MangaPlugin(storageController, settingsManager, this);
     }
 
+    /**
+     * Resolves the tags (e.g. the language) for a manga which is re-created from its persisted identifier and title,
+     * for example when the media list is restored from the local cache on startup. Websites whose manga entries carry
+     * tags should derive them from the given {@link identifier}, so that a list restored from the cache is
+     * indistinguishable from a list which has just been fetched from the website.
+     * @param identifier - The identifier of a manga (e.g. `/fr/series/the-greatest-estate-developer`)
+     * @returns The tags for the given manga, or no tags by default
+     */
+    public GetMangaTags(_identifier: string): Tag[] {
+        return [];
+    }
+
     public abstract ValidateMangaURL(url: string): boolean;
 
     public abstract FetchManga(provider: MangaPlugin, url: string): Promise<Manga>;
@@ -131,7 +143,7 @@ export class MangaPlugin extends MediaContainer<Manga> {
     }
 
     public override CreateEntry(identifier: string, title: string): Manga {
-        return new Manga(this.scraper, this, identifier, title);
+        return new Manga(this.scraper, this, identifier, title, ...this.scraper.GetMangaTags(identifier));
     }
 
     public override async TryGetEntry(url: string): Promise<Manga> {

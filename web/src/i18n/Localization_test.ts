@@ -5,6 +5,10 @@ import type { Choice, ISettings, SettingsManager } from '../engine/SettingsManag
 import { LocaleID, type IResource } from './ILocale';
 import { CreateLocale, GetLocale } from './Localization';
 import type { FeatureFlags } from '../engine/FeatureFlags';
+import { Tags } from '../engine/Tags';
+
+/** Matches the emoji which prefixes the title of a language (e.g. the flag `🇫🇷` or the globe `🌐`). */
+const LEADING_FLAG = /^[\p{RI}\p{Extended_Pictographic}\uFE0F]+/u;
 
 // Mocking globals
 {
@@ -57,6 +61,15 @@ describe('Localization', () => {
             expect(locale.Locale_thTH()).toBe('🇹🇭 ไทย (TH)');
             expect(locale.Locale_trTR()).toBe('🇹🇷 Türkçe (TR)');
             expect(locale.Locale_zhCN()).toBe('🇨🇳 中文 (中国)');
+        });
+
+        // The media lists extract the leading emoji of a language tag in order to display it as a flag
+        it.each(locales)('Should prefix every language tag with its emoji', async (locale) => {
+            const resources = locale as unknown as Record<string, () => string>;
+            for (const tag of Tags.Language.toArray()) {
+                const title = resources[tag.Title]?.() ?? '';
+                expect(LEADING_FLAG.exec(title)?.[0] ?? '', `${tag.Title} => ${title}`).not.toBe('');
+            }
         });
     });
 

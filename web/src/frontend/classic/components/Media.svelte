@@ -11,6 +11,7 @@
     import WarningAltInverted from 'carbon-icons-svelte/lib/WarningAltInverted.svelte';
     import { Store as UI } from '../stores/Stores.svelte';
     import { coinflip } from '../lib/transitions';
+    import { ExtractUnicodeFlagFromTags } from '../lib/flags';
 
     import type {
         MediaContainer,
@@ -160,6 +161,9 @@
             if(!isMediaOrphanedBookmark) UI.selectedMedia = media;
         }}
     >
+        {#if ExtractUnicodeFlagFromTags(media.Tags.Value)}
+            <span class="multilang">{ExtractUnicodeFlagFromTags(media.Tags.Value)}</span>
+        {/if}
         <span title={media.Title}>{media.Title}</span>
     </ClickableTile>
     {#if unFlaggedItems.length > 0}
@@ -190,6 +194,10 @@
     .media.selected {
         background-color: var(--cds-selected-ui);
         --cds-ui-01: var(--cds-selected-ui);
+    }
+    .multilang {
+        opacity: 0.7;
+        margin-right: 0.4em;
     }
     .media :global(.title) {
         flex: auto;
