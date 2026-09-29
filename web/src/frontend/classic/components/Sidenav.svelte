@@ -48,6 +48,10 @@
     $effect(() => {
         UI.WindowController?.GetVersion().then(version => appVersion = version).catch(() => appVersion = '');
     });
+    /** Single About entry: version + credit, always fully visible (see the style block). */
+    const aboutLabel = $derived(appVersion
+        ? `Using version ${appVersion} — Vibe coding with Codebuff (Kumo) 🤖`
+        : 'Using version — Vibe coding with Codebuff (Kumo) 🤖');
 </script>
 
 <PluginSelect bind:isPluginModalOpen on:close={() => (isPluginModalOpen = false)} />
@@ -175,14 +179,14 @@
                     )}
             />
             <SideNavLink
-                text={appVersion
-                    ? `Using version ${appVersion} — Vibe coding with Codebuff (Kumo) 🤖`
-                    : 'Using version — Vibe coding with Codebuff (Kumo) 🤖'}
                 icon={App}
                 class="clik-item"
+                title={aboutLabel}
                 onclick={() =>
                     window.open('https://github.com/Endymi0n74/ChainsmokerNeko')}
-            />
+            >
+                <span class="about-line">{aboutLabel}</span>
+            </SideNavLink>
             <SideNavLink
                 text="Maintainers"
                 icon={Events}
@@ -283,5 +287,23 @@
         :global(.bx--side-nav__submenu:hover) {
             color: var(--cds-text-01) !important;
             background-color: var(--cds-hover-ui) !important;
+        }
+
+        /* The About entry merges the version and the credit. Carbon forces
+           height:2rem on menu links and nowrap + ellipsis on their label, which
+           truncates the text: let this entry wrap over several lines and grow. */
+        :global(.bx--side-nav__item .bx--side-nav__menu.bx--side-nav__menu
+            a.bx--side-nav__link:has(.about-line)) {
+            height: auto;
+            min-height: 2rem;
+        }
+        :global(.bx--side-nav__item a.bx--side-nav__link:has(.about-line)
+            > .bx--side-nav__link-text.bx--side-nav__link-text) {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+        }
+        .about-line {
+            white-space: normal;
         }
 </style>
