@@ -5,6 +5,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.13] - 2026-09-29
+
+### Fixed
+
+- **CI: detaching the DMG disk image failed at times on the macOS runner** — `hdiutil detach` returned `Resource busy` (exit 16) right after `sync`, failing the “Create macOS Bundles” job even though the same job succeeded on a rerun (flakiness observed on 3.0.11). Detaching now goes through the new `detachVolume()` function: 3 attempts, escalating to `-force` from the second one, 5 s of waiting between attempts, and the last error is rethrown so a corrupted disk image is never shipped silently. No application change: this release also serves as the **trigger** to exercise auto-update from 3.0.12 (“About” menu → “Check for updates”).
+
 ## [3.0.12] - 2026-09-29
 
 ### Added

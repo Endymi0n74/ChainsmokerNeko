@@ -3,6 +3,12 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.13] - 2026-09-29
+
+### Fix
+
+- **CI : le détachement du disque DMG échouait parfois sur le runner macOS** — `hdiutil detach` retournait `Resource busy` (exit 16) juste après le `sync`, ce qui faisait échouer le job « Create macOS Bundles » alors que le même job réussissait au relancement (flakiness constatée sur la 3.0.11). Le détachement passe désormais par la fonction `detachVolume()` : 3 tentatives, passage en `-force` dès la seconde, 5 s d'attente entre chacune, et la dernière erreur est relancée pour ne jamais livrer une image disque corrompue en silence. Aucun changement applicatif : cette release sert aussi de **déclencheur** pour éprouver l'auto-mise à jour depuis la 3.0.12 (menu « À propos » → « Check for updates »).
+
 ## [3.0.12] - 2026-09-29
 
 ### Ajouté
