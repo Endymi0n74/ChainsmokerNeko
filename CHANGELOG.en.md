@@ -5,6 +5,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.11] - 2026-09-29
+
+### Fixed
+
+- **“About” menu: the merged entry was truncated** — Carbon forces `height:2rem` on menu links and `white-space: nowrap` with an ellipsis on their label, so “Using version 3.0.10 — Vibe coding with Codebuff (Kumo) 🤖” did not fit and was cut off. The label now goes through the `SideNavLink` slot (`<span class="about-line">`) and three targeted `:has(.about-line)` rules allow line wrapping and an automatic entry height, **leaving the other entries untouched**. Validated with a measurement harness (without the rules: truncated; with them: the whole label is visible and “Maintainers” stays at 32 px).
+
 ## [3.0.10] - 2026-09-29
 
 ### Changed

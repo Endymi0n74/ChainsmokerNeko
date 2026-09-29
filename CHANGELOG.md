@@ -3,6 +3,12 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.11] - 2026-09-29
+
+### Fix
+
+- **Menu « À propos » : l'entrée fusionnée était tronquée** — Carbon impose `height:2rem` aux liens de menu et `white-space: nowrap` + ellipse à leur libellé, si bien que « Using version 3.0.10 — Vibe coding with Codebuff (Kumo) 🤖 » ne tenait pas sur la largeur et se coupait. Le libellé passe désormais par le slot de `SideNavLink` (`<span class="about-line">`) et trois règles ciblées via `:has(.about-line)` autorisent le retour à la ligne et la hauteur automatique de l'entrée, **sans toucher aux autres entrées**. Validé par un harnais de mesure (sans les règles : tronqué ; avec : texte intégralement visible et « Maintainers » maintenu à 32 px).
+
 ## [3.0.10] - 2026-09-29
 
 ### Modifié
