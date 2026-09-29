@@ -175,15 +175,10 @@
                     )}
             />
             <SideNavLink
-                text={appVersion ? `Using version ${appVersion}` : 'Using version'}
+                text={appVersion
+                    ? `Using version ${appVersion} — Vibe coding with Codebuff (Kumo) 🤖`
+                    : 'Using version — Vibe coding with Codebuff (Kumo) 🤖'}
                 icon={App}
-                class="clik-item"
-                onclick={() =>
-                    window.open('https://github.com/Endymi0n74/ChainsmokerNeko')}
-            />
-            <SideNavLink
-                text="Vibe coding with Codebuff (Kumo) 🤖"
-                icon={Events}
                 class="clik-item"
                 onclick={() =>
                     window.open('https://github.com/Endymi0n74/ChainsmokerNeko')}
