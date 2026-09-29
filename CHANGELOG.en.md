@@ -5,6 +5,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.10] - 2026-09-29
+
+### Changed
+
+- **Single “About” menu entry**: the version and the credit now share one line — “Using version 3.0.10 — Vibe coding with Codebuff (Kumo) 🤖” — replacing the two separate entries, and it opens `https://github.com/Endymi0n74/ChainsmokerNeko` instead of the `https://todo.com` placeholder.
+
+### Fixed
+
+- **Auto-update locked to the fork**: the update channel (latest-release query as well as archive download) used to follow the manifest's `repository` field; it is now bounded by the `UPDATE_REPOSITORY = Endymi0n74/ChainsmokerNeko` constant and the manifest is no longer read. No configuration value can therefore redirect an update to the upstream project (`manga-download/*`), and an installed application does pick up the releases published on this repository — three tests lock down both the API URL and the archive URL.
+
 ## [3.0.9] - 2026-09-29
 
 ### Added

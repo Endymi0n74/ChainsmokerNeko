@@ -3,6 +3,16 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.10] - 2026-09-29
+
+### Modifié
+
+- **Menu « À propos » du panneau latéral** : une seule entrée commune à la version et au crédit — « Using version 3.0.10 — Vibe coding with Codebuff (Kumo) 🤖 » — remplace les deux lignes précédentes, et ouvre désormais `https://github.com/Endymi0n74/ChainsmokerNeko` au lieu du lien de remplacement `https://todo.com`.
+
+### Fix
+
+- **Mise à jour automatique limitée au fork** : la chaîne de mise à jour (interrogation de la dernière release comme téléchargement de l'archive) suivait le champ `repository` du manifeste ; elle est désormais bornée par la constante `UPDATE_REPOSITORY = Endymi0n74/ChainsmokerNeko`, la lecture du manifeste étant supprimée. Aucune valeur de configuration ne peut donc plus rediriger une mise à jour vers le projet d'origine (`manga-download/*`), et une application installée récupère bien les releases publiées sur ce dépôt — trois tests verrouillent l'URL d'appel de l'API et l'URL d'archive.
+
 ## [3.0.9] - 2026-09-29
 
 ### Ajouté
