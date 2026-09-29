@@ -3,6 +3,12 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.14] - 2026-09-29
+
+### Fix
+
+- **Bannière de mise à jour : le lien « Download on GitHub » se coupait en plein mot** (« Downloa / d on / GitHub » sur la capture de l'utilisateur) — `.update-actions` est un flex **sans `flex-wrap`** et le bouton « Install » refuse de se rétrécir (`white-space: nowrap`), si bien que le lien absorbait tout le rétrécissement, descendait sous la largeur de son texte et se cassait au milieu d'un mot. La bannière passe en `width: max-content` (plafonnée à `24rem` pour ne jamais déborder une fenêtre étroite), la ligne d'actions en `flex-wrap: wrap` et le lien en `white-space: nowrap` : il occupe alors sa propre ligne à sa largeur naturelle. Validé par un harnais **avant/après** reproduisant le DOM Carbon du toast (`sidenav-harness/toast.html`, affiché dans le volet de revue) : **2 lignes cassées / lien écrasé à 65 px avant → 1 ligne entière / 133 px après**, boîte à 304 px sous le plafond de 384 px.
+
 ## [3.0.13] - 2026-09-29
 
 ### Fix

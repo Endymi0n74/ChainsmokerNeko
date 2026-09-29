@@ -5,6 +5,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.14] - 2026-09-29
+
+### Fixed
+
+- **Update banner: the “Download on GitHub” link broke mid-word** (“Downloa / d on / GitHub” on the user's screenshot) — `.update-actions` is a flex row **without `flex-wrap`** and the “Install” button refuses to shrink (`white-space: nowrap`), so the link absorbed the whole squeeze, fell below the width of its text and broke in the middle of a word. The banner now uses `width: max-content` (capped at `24rem` so it can never overflow a narrow window), the action row uses `flex-wrap: wrap` and the link `white-space: nowrap`: it therefore occupies its own row at its natural width. Validated with a **before/after harness** reproducing Carbon's toast DOM (`sidenav-harness/toast.html`, shown in the review pane): **2 broken lines / link squeezed to 65 px before → one full line / 133 px after**, box at 304 px under the 384 px cap.
+
 ## [3.0.13] - 2026-09-29
 
 ### Fixed
