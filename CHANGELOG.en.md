@@ -5,6 +5,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.12] - 2026-09-29
+
+### Added
+
+- **Manual update check in the “About” menu**: a new “Check for updates” entry (*Renew* icon) below the merged entry, whose label doubles as its own status — `Check for updates` → `Checking for updates...` → `Up to date — v3.0.12` or `Update available — v3.0.13` — and raises the bottom-right banner whenever a newer release exists. The check state is shared through the store (`update`, `updateOpen`, `CheckForUpdate()`), so the startup notification and this entry stay in sync, and only one query is ever in flight: clicking while the automatic check runs awaits the same promise instead of getting a premature `null` that would report “Up to date”. The entry reuses the `.about-line` class to wrap over several lines (harness: OK, nothing truncated, “Maintainers” control kept at 32 px).
+
+### Fixed
+
+- **The update banner never showed, for anyone** (since the beginning, hence in 3.0.9, 3.0.10 and 3.0.11 as well): `Store.WindowController` was assigned **after** `mount(App)` while `UpdateNotification` triggered its check inside `onMount` — `UI.WindowController` was still `undefined` there, and the optional chain `UI.WindowController?.CheckForUpdates()` short-circuited silently: no request, no error, no log. Every other consumer goes through `$effect`/`$derived`, which re-run at assignment time — hence the version correctly displayed in the title, which masked the bug. Fixed twice over: the assignment now happens **before** the mount (`FrontendClassic.ts`) and `UpdateNotification` relies on a reactive `$effect`, with an invariant test (`FrontendClassic_test.ts`) locking the order of both.
+- **Validation**: `npm run check` green (versions + ts + eslint + svelte-check + vue-tsc + coding rules) and 2,286 web tests + 30 Electron tests green.
+
 ## [3.0.11] - 2026-09-29
 
 ### Fixed

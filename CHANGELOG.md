@@ -3,6 +3,17 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.12] - 2026-09-29
+
+### Ajouté
+
+- **Contrôle de mise à jour manuel dans le menu « À propos »** : nouvelle entrée « Check for updates » (icône *Renew*) sous l'entrée fusionnée, dont le libellé tient lieu de statut — `Check for updates` → `Checking for updates...` → `Up to date — v3.0.12` ou `Update available — v3.0.13` — et fait apparaître la bannière en bas à droite quand une version plus récente existe. L'état du contrôle est partagé par le store (`update`, `updateOpen`, `CheckForUpdate()`), si bien que la bannière de démarrage et cette entrée restent synchronisées, et qu'une seule requête est en vol : un clic pendant le contrôle automatique attend la même promesse au lieu d'obtenir un `null` prématuré qui afficherait « Up to date » à tort. L'entrée reprend la classe `.about-line` pour se retourner sur plusieurs lignes (harnais : OK, rien de tronqué, contrôle « Maintainers » maintenu à 32 px).
+
+### Fix
+
+- **La bannière de mise à jour ne s'affichait jamais, pour personne** (depuis le début, donc aussi en 3.0.9, 3.0.10 et 3.0.11) : `Store.WindowController` était assigné **après** `mount(App)`, or `UpdateNotification` déclenchait son contrôle dans `onMount` — `UI.WindowController` y était encore `undefined`, et la chaîne optionnelle `UI.WindowController?.CheckForUpdates()` raccourcissait silencieusement : aucune requête, aucune erreur, aucun log. Les autres consommateurs passent par `$effect`/`$derived`, qui se ré-exécutent à l'assignation — d'où la version correctement affichée dans le titre, qui masquait le bug. Double correction : assignation **avant** le montage (`FrontendClassic.ts`) et `$effect` réactif dans `UpdateNotification`, un test d'invariant (`FrontendClassic_test.ts`) verrouillant l'ordre des deux.
+- **Validation** : `npm run check` vert (versions + ts + eslint + svelte-check + vue-tsc + règles de codage) et 2286 tests web + 30 tests Electron verts.
+
 ## [3.0.11] - 2026-09-29
 
 ### Fix
