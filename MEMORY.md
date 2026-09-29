@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 29 septembre 2026 — état courant **v3.0.8** (release poussée **et validée en réel**) ; **v3.0.9 en test local** (composition des overlays traduits + drapeaux de langue, commit local, **non poussé**, voir addendum en fin de fichier) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
+> Dernière mise à jour : 29 septembre 2026 — état courant **v3.0.9** (release **poussée et publiée** : composition des overlays traduits + drapeaux de langue + **identité ChainsmokerNeko** partout dans l'app, voir addenda en fin de fichier) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
 > 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
-> Dernière mise à jour (état) : 29 septembre 2026 (**v3.0.9 en test local** — composition des overlays traduits KomaScans (validée au harnais) + drapeaux de langue dans la liste (validés en réel), **non poussé** ; release **v3.0.8** toujours courante, voir addenda en fin de fichier ; fix boucles Cloudflare CrunchyScan **puis JapScan** validés au premier coup)
+> Dernière mise à jour (état) : 29 septembre 2026 (**v3.0.9 publiée** — composition des overlays traduits KomaScans (validée au harnais ; téléchargement FR en réel : à confirmer) + drapeaux de langue dans la liste (validés en réel) + **rebrand ChainsmokerNeko** dans toute l'UI et `productName`, fix auto-update (404) ; tag `3.0.9` poussé, CI release verte, 10 artefacts ; fix boucles Cloudflare CrunchyScan **puis JapScan** validés au premier coup)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
 
@@ -379,9 +379,9 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 
 ---
 
-## Addendum 29 sept. — v3.0.9 (en test local) : composition des overlays traduits + drapeaux de langue
+## Addendum 29 sept. — v3.0.9 : composition des overlays traduits + drapeaux de langue
 
-**Statut** : travail **strictement local** sur `chainsmoker` (8 fichiers : 6 modifiés + 2 nouveaux), **rien poussé**, `origin`/`master` intacts. **Bump de version et sections `CHANGELOG.md`/`CHANGELOG.en.md` reportés à la release** (après validation complète de l'utilisateur). Validation finale : `npm run check` **0 erreur / 0 avertissement** · vitest **2285 passed / 37 fichiers** (+9 `GetMangaTags`, +2 `MangaPlugin_test`, +12 invariant i18n) · `bundle:x64` ✓ (zip 145 519 661 o, 29/09 10:57).
+**Statut** : **poussé et publié en 3.0.9** (29/09 — commits `8d93aacab` feat + `5bf347a25` release, tag `3.0.9` → CI release verte, artefacts `ChainsmokerNeko-v3.0.9-*`). Validation : `npm run check` **0 erreur / 0 avertissement** · vitest **2285 passed / 37 fichiers** (+9 `GetMangaTags`, +2 `MangaPlugin_test`, +12 invariant i18n) · `bundle:x64` ✓ (zip 145 519 661 o, 29/09 10:57).
 
 **1. Composition des overlays traduits (décision utilisateur : version test en 3.0.9)** — image réellement traduite pour fr/es au lieu de l'image anglaise :
 - Transport : `translationOverlay` via `Page.Parameters` ; décorateur `@Common.ImageAjax` **supprimé** ; `FetchImage` **surchargé** : image de base via `Common.FetchImageAjax.call(this, page, priority, signal, true)` puis composition — **tout échec retombe sur l'image de base** (jamais de tâche en erreur, priorité/signal conservés).
@@ -400,4 +400,22 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 - **Bug racine identifié** : au démarrage, `MangaPlugin.Prepare()` recrée les Manga **depuis le cache local** via `CreateEntry(id, title)` → **sans tag de langue** → aucun drapeau jusqu'au 🔄 (qui appelle `FetchMangas()` et remplace la liste). Symptôme constaté par l'utilisateur : « pas de drapeau » sur le build du matin.
 - **Correctif additif** (format de cache inchangé) : hook `MangaScraper.GetMangaTags(identifier)` (défaut `[]` → **zéro impact sur les ~900 autres connecteurs**), `MangaPlugin.CreateEntry` propage `...scraper.GetMangaTags(identifier)`, KomaScans surcharge → `[MapLanguageTag(identifier)]`.
 
-**5. Validations** : `check` 0/0 · vitest **2285 passed** · **validation utilisateur en réel** : drapeaux 🇬🇧🇫🇷🇪🇸🇮🇩🇩🇪🇵🇹🇸🇦🇹🇷 affichés **au démarrage, sans refresh** (« parfait ») ; composition embarquée dans le zip 10:57 (téléchargement FR en réel : à confirmer par l'utilisateur).
+**5. Validations** : `check` 0/0 · vitest **2285 passed** · **validation utilisateur en réel** : drapeaux 🇬🇧🇫🇷🇪🇸🇮🇩🇩🇪🇵🇹🇸🇦🇹🇷 affichés **au démarrage, sans refresh** (« parfait ») ; composition embarquée dans le zip 10:57 **et dans la release 3.0.9** (téléchargement FR en réel : toujours à confirmer par l'utilisateur, l'ordre de pousser ayant été donné malgré tout).
+
+---
+
+## Addendum 29 sept. — v3.0.9 publiée : identité « ChainsmokerNeko » + fix auto-update
+
+**Statut** : release **poussée et publiée à la demande de l'utilisateur** — commits `9d6409a23` (rebrand, 18 fichiers) + `5bf347a25` (bump 3.0.9, 6 fichiers), tag léger `3.0.9` → `push-ci.yml` a publié « **ChainsmokerNeko 3.0.9** » (10 artefacts, 29/09 10:06 Z) ; run branche **et** run tag verts ; push uniquement sur `fork/chainsmoker`, `origin`/`master` intacts.
+
+**1. Renommage sans toucher aux locales Crowdin** : `ApplyBrandName()` dans `web/src/i18n/Localization.ts` applique `/\bHakuNeko\b|هاكونيكو/gi → ChainsmokerNeko` **une fois au bind** dans `CreateLocale()` (invariant + variant) — les 13 locales restent intactes (règle Crowdin préservée), la translittération arabe est couverte, et une garde `assistant`/`asistente`/`助理`/`مساعد` (±24 caractères) **préserve l'extension externe « HakuNeko Assistant »** dans toutes les langues (produit réel, documenté dans `docs/user-manual/.../tutorials.md`). 13 assertions `Frontend_Product_Title` mises à jour → `ChainsmokerNeko`.
+
+**2. Chaînes affichées en dur renommées** (hors locales) : `web/index.html` (`<title>`, méta description/author/og, ligne de démarrage « Starting ChainsmokerNeko — fork of HaruNeko »), `static/splash.html`, `document.title` de `AppBar.svelte`, pied `SettingsModal`, page d'accueil `Main.svelte`, modal `StartupGuide`, breadcrumb `ContentPathBar`, `ApplicationWindow.ts` (titre du splash), export favoris (`ChainsmokerNeko (date).bookmarks`), méta `generator` des EPUB, `title` de la build NW.js ; libellé d'import favoris rendu générique (« Import bookmarks from previous version »).
+
+**3. Nom du programme** : `productName: hakuneko → ChainsmokerNeko` (`app/electron/package.json`) → exécutable **`ChainsmokerNeko.exe`** (vérifié dans le zip local, `OriginalFilename` rcedit aussi), zip local renommé `chainsmokerneko-electron-v3.0.9-win32-x64.zip` (`bundle-x64.mjs`). Profil utilisateur **inchangé** (`build/package.json` `name` = `ChainsmokerNeko` depuis toujours). Identifiants internes **conservés** : `window.HakuNeko`, clé de thème `hakuneko`, base IndexedDB `HakuNeko`, chemin RPC `/hakuneko`, CSP des domaines upstream, env `HAKUNEKO_ELECTRON_CACHE`.
+
+**4. Fix auto-update (bug préexistant)** : `AppUpdate.ts` construisait `hakuneko-{platform}.zip` alors que la release publie `ChainsmokerNeko-v{version}-{platform}.zip` → **404 systématique** depuis la bannière ; corrigé (+ User-Agent et répertoire temp `chainsmokerneko-*`), `repository = Endymi0n74/ChainsmokerNeko` déjà juste. Limite : mac/linux n'ont pas d'asset `.zip` en release (dmg/AppImage seulement) → updater inchangé/inopérant hors Windows.
+
+**5. Crédits d'origine** (choix utilisateur : Accueil + Paramètres) : paragraphe `credits` sous le texte d'accueil (fork de **HaruNeko**, rework de **HakuNeko**, liens GitHub) + `og:description` ; pied de la fenêtre Paramètres « ChainsmokerNeko vX ». La **Documentation interne fetch le site upstream** (`https://hakuneko.download/docs/haruneko/`) et les liens guides de `Sidenav` pointent vers `hakuneko.download` : contenu tiers laissé tel quel (pas de docs maison dans le fork). Images de tutoriel (`HakunekoTutorial.avif`) inchangées.
+
+**6. Validation** : `npm run check` EXIT 0 (versions 3.0.9 + ts + eslint + règles de codage) · vitest **2285 passed / 37 fichiers** · `bundle:x64` ✓ (build web 3,26 s, `ChainsmokerNeko.exe`, `<title>ChainsmokerNeko…` dans l'index construit, marque présente dans `FrontendClassic.js` ×8, littéral arabe dans le chunk i18n partagé) · CI release verte (10 artefacts `ChainsmokerNeko-v3.0.9-*`). Zip local : `D:\Codex\haruneko\app\electron\bundle\chainsmokerneko-electron-v3.0.9-win32-x64.zip` (145 520 059 o).
