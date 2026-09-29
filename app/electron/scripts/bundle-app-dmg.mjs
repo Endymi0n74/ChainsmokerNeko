@@ -62,6 +62,32 @@ async function cleanup(blinkDeploymentTemporaryDirectory) {
     await run(`chmod -R +X  '${path.join(blinkDeploymentTemporaryDirectory, product + '.app')}'`);
 }
 
+/**
+ * Detach the mounted volume of the disk image, retrying when the resource is busy
+ * (`hdiutil: couldn't eject "diskN" - Resource busy`, exit 16): the CI runner sometimes
+ * still holds the image right after `sync`, which sporadically failed the macOS job.
+ * The retries escalate to `-force`, and the last failure is rethrown so a genuine
+ * problem still aborts the bundle instead of shipping a broken image.
+ * @param {string} volume - Name of the volume mounted under /Volumes
+ */
+async function detachVolume(volume) {
+    const attempts = 3;
+    let failure;
+    for(let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+            await run(`hdiutil detach${attempt > 1 ? ' -force' : ''} '/Volumes/${volume}'`);
+            return;
+        } catch(error) {
+            failure = error;
+            console.warn(`hdiutil detach: attempt ${attempt}/${attempts} failed -`, String(error));
+            if(attempt < attempts) {
+                await wait(5000);
+            }
+        }
+    }
+    throw failure;
+}
+
 async function createDiskImage(blinkApplicationResourcesDirectory, blinkDeploymentTemporaryDirectory, blinkDeploymentOutputDirectory) {
     const poster = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.png');
     const osascriptSrc = path.join(blinkApplicationResourcesDirectory, process.platform, 'setup.scpt');
@@ -77,7 +103,7 @@ async function createDiskImage(blinkApplicationResourcesDirectory, blinkDeployme
     await run(`osascript '${osascript}'`);
     await run('sync');
     await wait(5000);
-    await run(`hdiutil detach '/Volumes/${product}'`);
+    await detachVolume(product);
     await wait(5000);
     const suffix = process.platform === 'darwin' ? ' (untested)' : '';
     const artifact = path.join(blinkDeploymentOutputDirectory, path.basename(blinkDeploymentTemporaryDirectory).replace(/^electron/i, pkgConfig.name) + suffix + '.dmg');
