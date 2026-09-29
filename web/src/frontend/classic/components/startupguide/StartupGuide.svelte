@@ -42,7 +42,7 @@
 <Modal
     id="startupGuide"
     preventCloseOnClickOutside
-    modalHeading="Hakuneko"
+    modalHeading="ChainsmokerNeko"
     hasForm
     primaryButtonText={currentStep === steps.Tutorial && allStepsComplete ? GlobalSettings.Locale.Frontend_Classic_StartupGuide_Button_Close() : GlobalSettings.Locale.Frontend_Classic_StartupGuide_Button_Next()}
     primaryButtonDisabled={!allStepsComplete && currentStep === steps.Tutorial}

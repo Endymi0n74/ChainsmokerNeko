@@ -49,13 +49,28 @@ function Format(this: string, ...params: string[]) {
     return text;
 }
 
+/**
+ * Replaces the name of the original project with the name of this fork within a localization resource.
+ * The localization files must not be modified (they are synchronized with Crowdin), hence the name is
+ * replaced once while the resource is bound to its accessor.
+ */
+function ApplyBrandName(resource: unknown): string {
+    // NOTE: The "HakuNeko Assistant" browser extension is an external product which keeps its original
+    // name, written in the local language of each localization (e.g. "Asistente de HakuNeko", "助理").
+    const guards: string[] = [ 'assistant', 'asistente', '助理', 'مساعد' ];
+    return String(resource).replace(/\bHakuNeko\b|هاكونيكو/gi, (name: string, offset: number, source: string) => {
+        const context = (source.slice(Math.max(0, offset - 24), offset) + source.slice(offset + name.length, offset + name.length + 24)).toLowerCase();
+        return guards.some(guard => context.includes(guard)) ? name : 'ChainsmokerNeko';
+    });
+}
+
 export function CreateLocale(resource: VariantResource): ILocale {
     const result = {};
     for(const key in InvariantResourceKey) {
-        result[key] = Format.bind(invariant[key] ?? key);
+        result[key] = Format.bind(ApplyBrandName(invariant[key] ?? key));
     }
     for(const key in VariantResourceKey) {
-        result[key] = Format.bind(resource[key] ?? key);
+        result[key] = Format.bind(ApplyBrandName(resource[key] ?? key));
     }
     return result as ILocale;
 }

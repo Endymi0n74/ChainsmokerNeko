@@ -49,7 +49,7 @@
             .then(version => {
                 appVersion = version;
                 if (version) {
-                    document.title = `HakuNeko v${version}`;
+                    document.title = `ChainsmokerNeko v${version}`;
                 }
             })
             .catch(() => { /* ignore */ });

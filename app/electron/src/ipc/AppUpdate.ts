@@ -54,7 +54,7 @@ export class AppUpdate {
             const response = await fetch(`https://api.github.com/repos/${repository}/releases/latest`, {
                 headers: {
                     Accept: 'application/vnd.github+json',
-                    'User-Agent': 'hakuneko-update-checker',
+                    'User-Agent': 'chainsmokerneko-update-checker',
                 },
                 signal: AbortSignal.timeout(15000),
             });
@@ -88,18 +88,18 @@ export class AppUpdate {
         const platform = platformMap[process.platform];
         if (!platform) return `Error: unsupported platform ${process.platform}`;
 
-        const zipName = `hakuneko-${platform}.zip`;
+        const zipName = `ChainsmokerNeko-v${version}-${platform}.zip`;
         const downloadUrl = `https://github.com/${repository}/releases/download/${version}/${zipName}`;
 
         try {
             const response = await fetch(downloadUrl, {
-                headers: { 'User-Agent': 'hakuneko-updater' },
+                headers: { 'User-Agent': 'chainsmokerneko-updater' },
                 signal: AbortSignal.timeout(300_000),
             });
             if (!response.ok) return `Error: download failed (${response.status})`;
 
             const buffer = Buffer.from(await response.arrayBuffer());
-            const tmpDir = path.join(app.getPath('temp'), `hakuneko-update-${version}`);
+            const tmpDir = path.join(app.getPath('temp'), `chainsmokerneko-update-${version}`);
             const zipFile = path.join(tmpDir, zipName);
 
             await fs.mkdir(tmpDir, { recursive: true });

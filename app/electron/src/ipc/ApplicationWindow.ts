@@ -42,7 +42,7 @@ export class ApplicationWindow extends BrowserWindow {
                     preload: path.resolve(app.getAppPath(), 'preload.js'),
                 },
             });
-            this.splash.setTitle(`HakuNeko v${app.getVersion()}`);
+            this.splash.setTitle(`ChainsmokerNeko v${app.getVersion()}`);
             this.splash.removeMenu();
             this.splash.setMenu(null);
             this.splash.setMenuBarVisibility(false);

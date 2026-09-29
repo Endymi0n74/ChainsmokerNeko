@@ -11,7 +11,7 @@
             isCurrentPage={UI.contentscreen === '/'}
             on:click={() => (UI.contentscreen = '/')}
         >
-            Hakuneko
+            ChainsmokerNeko
         </BreadcrumbItem>
         {#if UI.contentscreen !== '/'}
             {@const steps = UI.contentscreen.split('/').slice(1)}

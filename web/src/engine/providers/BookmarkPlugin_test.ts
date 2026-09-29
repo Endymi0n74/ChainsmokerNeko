@@ -327,13 +327,13 @@ describe('BookmarkPlugin', () => {
             expect(actual.cancelled).toBe(false);
             expect(actual.exported).toBe(3);
             expect(fixture.InteractiveFileContentProviderMock.SaveFile).toHaveBeenCalledWith(expect.objectContaining({ data: TestFixture.DefaultStoredEntries }), {
-                suggestedName: `HakuNeko (${today}).bookmarks`,
+                suggestedName: `ChainsmokerNeko (${today}).bookmarks`,
                 types: [
                     {
                         accept: {
                             'application/json': [ '.bookmarks' ]
                         },
-                        description: 'HakuNeko Bookmarks'
+                        description: 'ChainsmokerNeko Bookmarks'
                     }
                 ]});
         });

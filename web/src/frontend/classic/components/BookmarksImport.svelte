@@ -40,7 +40,7 @@
     {#if !pressedButton}
         <InlineLoading
             status="inactive"
-            description="Import Hakuneko's bookmarks from previous version"
+            description="Import bookmarks from previous version"
         />
     {/if}
     {#if pressedButton === importButtonInfo}

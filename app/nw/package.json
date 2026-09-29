@@ -1,6 +1,6 @@
 {
     "name": "hakuneko-nw",
-    "title": "HakuNeko",
+    "title": "ChainsmokerNeko",
     "description": "Manga, Anime & Novel Downloader (NodeWebkit based desktop client)",
     "type": "module",
     "main": "app.js",

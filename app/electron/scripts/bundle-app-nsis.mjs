@@ -12,7 +12,7 @@ const title = pkgConfig.title ?? product;
  * Bundle a Windows NSIS installer (per-user, MUI2, bilingual EN/FR).
  * The installer installs to %LOCALAPPDATA%\Programs\<title> without elevation and
  * registers itself in Add/Remove Programs (HKCU). Unlike the portable zips, the
- * installed app keeps the default userData location (%APPDATA%\hakuneko-electron)
+ * installed app keeps the default userData location (%APPDATA%\ChainsmokerNeko)
  * so the `user-data-dir` manifest key is stripped from the packaged app.
  * See: https://nsis.sourceforge.io/Docs/Modern%20UI%202/
  */

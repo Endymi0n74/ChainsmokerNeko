@@ -38,7 +38,7 @@ export type BookmarkExportResult = {
 }
 
 const defaultBookmarkFileType: FilePickerAcceptType = {
-    description: 'HakuNeko Bookmarks',
+    description: 'ChainsmokerNeko Bookmarks',
     accept: {
         'application/json': [ '.bookmarks' ]
     }
@@ -172,7 +172,7 @@ export class BookmarkPlugin extends MediaContainer<Bookmark> {
         const today = new Date(Date.now() - 60000 * new Date().getTimezoneOffset()).toISOString().split('T').at(0);
         try {
             await this.fileIO.SaveFile(data, {
-                suggestedName: `HakuNeko (${today}).bookmarks`,
+                suggestedName: `ChainsmokerNeko (${today}).bookmarks`,
                 types: [ defaultBookmarkFileType ]
             });
             result.exported = bookmarks.length;

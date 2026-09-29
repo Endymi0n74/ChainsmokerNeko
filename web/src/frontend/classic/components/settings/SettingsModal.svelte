@@ -260,7 +260,7 @@
         </svelte:fragment>
     </Tabs>
     {#if appVersion}
-        <p class="app-version">HakuNeko v{appVersion}</p>
+        <p class="app-version">ChainsmokerNeko v{appVersion}</p>
     {/if}
 </Modal>
 
