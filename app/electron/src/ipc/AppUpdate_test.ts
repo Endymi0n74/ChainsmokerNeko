@@ -28,6 +28,11 @@ class TestFixture {
         const call = vi.mocked(this.mockIPC.Listen).mock.calls.find(([channel]) => channel === Channels.App.Check);
         return call?.[1] as () => Promise<IUpdateInfo | null>;
     }
+
+    public GetDownloadHandler(): (version: string) => Promise<string> {
+        const call = vi.mocked(this.mockIPC.Listen).mock.calls.find(([channel]) => channel === Channels.App.DownloadAndInstall);
+        return call?.[1] as (version: string) => Promise<string>;
+    }
 }
 
 let userDataDir: string;
@@ -114,14 +119,50 @@ describe('AppUpdate', () => {
         await expect(fixture.GetHandler()()).resolves.toBeNull();
     });
 
-    it('Should return null when no repository is configured', async () => {
+    it('Should check the fork even when the manifest points to another repository', async () => {
+        await fs.writeFile(path.join(userDataDir, 'package.json'), JSON.stringify({ repository: 'manga-download/haruneko' }), 'utf-8');
+        const fetchMock = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ tag_name: '2.0.0', html_url: 'https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/2.0.0', body: '' }),
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+        const fixture = new TestFixture();
+        fixture.CreateTestee();
+
+        await expect(fixture.GetHandler()()).resolves.toMatchObject({ version: '2.0.0' });
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://api.github.com/repos/Endymi0n74/ChainsmokerNeko/releases/latest',
+            expect.anything(),
+        );
+    });
+
+    it('Should check the fork when the manifest carries no repository', async () => {
         await fs.writeFile(path.join(userDataDir, 'package.json'), JSON.stringify({}), 'utf-8');
-        const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: '2.0.0' }) }));
+        const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
         vi.stubGlobal('fetch', fetchMock);
         const fixture = new TestFixture();
         fixture.CreateTestee();
 
         await expect(fixture.GetHandler()()).resolves.toBeNull();
-        expect(fetchMock).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://api.github.com/repos/Endymi0n74/ChainsmokerNeko/releases/latest',
+            expect.anything(),
+        );
+    });
+
+    it('Should download the archive from the fork whatever the manifest says', async () => {
+        await fs.writeFile(path.join(userDataDir, 'package.json'), JSON.stringify({ repository: 'manga-download/haruneko' }), 'utf-8');
+        const fetchMock = vi.fn(async () => ({ ok: false, status: 404 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const fixture = new TestFixture();
+        fixture.CreateTestee();
+
+        await expect(fixture.GetDownloadHandler()('2.0.0')).resolves.toBe('Error: download failed (404)');
+        const platformMap: Record<string, string> = { win32: 'win32-x64', darwin: 'darwin-x64', linux: 'linux-x64' };
+        const platform = platformMap[process.platform];
+        expect(fetchMock).toHaveBeenCalledWith(
+            `https://github.com/Endymi0n74/ChainsmokerNeko/releases/download/2.0.0/ChainsmokerNeko-v2.0.0-${platform}.zip`,
+            expect.anything(),
+        );
     });
 });

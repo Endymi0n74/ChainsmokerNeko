@@ -8,6 +8,14 @@ import { AppUpdate as Channels } from '../../../src/ipc/Channels';
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * The one and only repository this application may update from — this fork.
+ * The update channel is a constant, not a manifest value: neither the `repository`
+ * field of `package.json` nor any other configuration can ever redirect an update
+ * check or an archive download to the upstream project (manga-download/*).
+ */
+export const UPDATE_REPOSITORY = 'Endymi0n74/ChainsmokerNeko';
+
 /** Update descriptor returned to the renderer when a newer release exists. */
 export type IUpdateInfo = {
     version: string;
@@ -48,10 +56,8 @@ export class AppUpdate {
     }
 
     private async Check(): Promise<IUpdateInfo | null> {
-        const repository = await this.GetRepository();
-        if (!repository) return null;
         try {
-            const response = await fetch(`https://api.github.com/repos/${repository}/releases/latest`, {
+            const response = await fetch(`https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest`, {
                 headers: {
                     Accept: 'application/vnd.github+json',
                     'User-Agent': 'chainsmokerneko-update-checker',
@@ -64,7 +70,7 @@ export class AppUpdate {
             if (!latest || CompareVersions(latest, app.getVersion()) <= 0) return null;
             return {
                 version: latest.replace(/^v/i, ''),
-                url: release.html_url || `https://github.com/${repository}/releases/tag/${latest}`,
+                url: release.html_url || `https://github.com/${UPDATE_REPOSITORY}/releases/tag/${latest}`,
                 notes: release.body ?? '',
             };
         } catch {
@@ -77,9 +83,6 @@ export class AppUpdate {
      * Uses native OS tools (PowerShell on Windows, unzip on macOS/Linux) — zero npm deps.
      */
     private async DownloadAndInstall(version: string): Promise<string> {
-        const repository = await this.GetRepository();
-        if (!repository) return 'Error: repository not configured';
-
         const platformMap: Record<string, string> = {
             win32: 'win32-x64',
             darwin: 'darwin-x64',
@@ -89,7 +92,7 @@ export class AppUpdate {
         if (!platform) return `Error: unsupported platform ${process.platform}`;
 
         const zipName = `ChainsmokerNeko-v${version}-${platform}.zip`;
-        const downloadUrl = `https://github.com/${repository}/releases/download/${version}/${zipName}`;
+        const downloadUrl = `https://github.com/${UPDATE_REPOSITORY}/releases/download/${version}/${zipName}`;
 
         try {
             const response = await fetch(downloadUrl, {
@@ -155,16 +158,6 @@ export class AppUpdate {
             return 'Updating... The app will restart automatically.';
         } catch (error) {
             return `Error: ${error instanceof Error ? error.message : 'unknown error'}`;
-        }
-    }
-
-    private async GetRepository(): Promise<string> {
-        try {
-            const file = path.resolve(app.getAppPath(), 'package.json');
-            const manifest = JSON.parse(await fs.readFile(file, 'utf-8')) as { repository?: string };
-            return manifest.repository ?? '';
-        } catch {
-            return '';
         }
     }
 }
