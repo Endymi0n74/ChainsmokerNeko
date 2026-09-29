@@ -26,6 +26,7 @@
     import SettingsAdjust from 'carbon-icons-svelte/lib/SettingsAdjust.svelte';
     import SettingsView from 'carbon-icons-svelte/lib/SettingsView.svelte';
     import TaskSettings from 'carbon-icons-svelte/lib/TaskSettings.svelte';
+    import Renew from 'carbon-icons-svelte/lib/Renew.svelte';
     import SettingsMenu from './settings/SettingsModal.svelte';
     import PluginSelect from './PluginSelect.svelte';
     import BookmarksImport from './BookmarksImport.svelte';
@@ -52,6 +53,32 @@
     const aboutLabel = $derived(appVersion
         ? `Using version ${appVersion} — Vibe coding with Codebuff (Kumo) 🤖`
         : 'Using version — Vibe coding with Codebuff (Kumo) 🤖');
+
+    // Manual update check: the About entry doubles as its own status line (it wraps like the
+    // merged About entry above). The store answers `null` when the running application already
+    // is the latest release, and publishes the update itself for the notification toast.
+    let updateCheck = $state<'idle' | 'checking' | 'available' | 'uptodate'>('idle');
+    const updateCheckLabel = $derived.by(() => {
+        switch (updateCheck) {
+            case 'checking':
+                return 'Checking for updates...';
+            case 'available':
+                return UI.update ? `Update available — v${UI.update.version}` : 'Check for updates';
+            case 'uptodate':
+                return `Up to date${appVersion ? ` — v${appVersion}` : ''}`;
+            default:
+                return 'Check for updates';
+        }
+    });
+
+    async function checkForUpdates(): Promise<void> {
+        if (updateCheck === 'checking') {
+            return;
+        }
+        updateCheck = 'checking';
+        const update = await UI.CheckForUpdate();
+        updateCheck = update ? 'available' : 'uptodate';
+    }
 </script>
 
 <PluginSelect bind:isPluginModalOpen on:close={() => (isPluginModalOpen = false)} />
@@ -188,6 +215,14 @@
                 <span class="about-line">{aboutLabel}</span>
             </SideNavLink>
             <SideNavLink
+                icon={Renew}
+                class="clik-item"
+                title="Check for updates"
+                onclick={checkForUpdates}
+            >
+                <span class="about-line">{updateCheckLabel}</span>
+            </SideNavLink>
+            <SideNavLink
                 text="Maintainers"
                 icon={Events}
                 class="clik-item"
@@ -289,9 +324,10 @@
             background-color: var(--cds-hover-ui) !important;
         }
 
-        /* The About entry merges the version and the credit. Carbon forces
-           height:2rem on menu links and nowrap + ellipsis on their label, which
-           truncates the text: let this entry wrap over several lines and grow. */
+        /* The About entries (merged version + credit line, update check status) merge
+           several pieces of information into their label. Carbon forces height:2rem on
+           menu links and nowrap + ellipsis on their label, which truncates the text:
+           let these entries wrap over several lines and grow. */
         :global(.bx--side-nav__item .bx--side-nav__menu.bx--side-nav__menu
             a.bx--side-nav__link:has(.about-line)) {
             height: auto;

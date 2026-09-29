@@ -1,38 +1,34 @@
 <script lang="ts">
     import { ToastNotification } from 'carbon-components-svelte';
-    import type { IUpdateInfo } from '../../../engine/platform/AppWindow';
     import { Store as UI } from '../stores/Stores.svelte';
 
-    let update: IUpdateInfo = $state(null);
-    let open = $state(false);
     let installing = $state(false);
     let status = $state('');
     let checked = false;
 
-    // The window controller is injected by the frontend module: watch for it instead of
-    // reading it once in onMount, where it may still be undefined — the optional chain
-    // then short-circuits and the update check never runs (silently, no error).
+    // The controller is injected by the frontend module: watch for it instead of reading it
+    // once in onMount, where it may still be undefined — the optional chain would then
+    // short-circuit and the update check would never run, silently and without any error.
+    // The store dedupes the query, so the manual "Check for updates" entry of the sidenav
+    // can trigger it again at any time without duplicating a running request.
     $effect(() => {
-        const controller = UI.WindowController;
-        if (!controller || checked) return;
+        if (!UI.WindowController || checked) {
+            return;
+        }
         checked = true;
-        controller.CheckForUpdates()
-            .then(info => {
-                if (info) {
-                    update = info;
-                    open = true;
-                }
-            })
-            .catch(() => { /* Update check must never surface an error */ });
+        void UI.CheckForUpdate();
     });
 
     function dismiss() {
-        open = false;
-        update = null;
+        UI.updateOpen = false;
+        UI.update = null;
     }
 
     async function install() {
-        if (!update) return;
+        const update = UI.update;
+        if (!update) {
+            return;
+        }
         installing = true;
         status = 'Downloading...';
         try {
@@ -45,14 +41,14 @@
     }
 </script>
 
-{#if update}
+{#if UI.update}
     <div class="update-notification">
         <ToastNotification
-            bind:open
+            bind:open={UI.updateOpen}
             kind="info"
             lowContrast
             timeout={0}
-            title={`Update available — v${update.version}`}
+            title={`Update available — v${UI.update.version}`}
             closeButtonDescription="Dismiss update notification"
             on:close={dismiss}
         >
@@ -62,9 +58,9 @@
                 {:else}
                     <div class="update-actions">
                         <button class="update-install-btn" onclick={install}>
-                            Install v{update.version}
+                            Install v{UI.update.version}
                         </button>
-                        <a href={update.url} target="_blank" rel="noopener">
+                        <a href={UI.update.url} target="_blank" rel="noopener">
                             Download on GitHub
                         </a>
                     </div>
