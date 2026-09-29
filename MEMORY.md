@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 28 septembre 2026 — état courant **v3.0.7** (release poussée **et validée en réel**) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
+> Dernière mise à jour : 29 septembre 2026 — état courant **v3.0.8** (release poussée **et validée en réel**) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
 > 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
-> Dernière mise à jour (état) : 28 septembre 2026 (fix boucles Cloudflare CrunchyScan **puis JapScan** — voir addenda ci-dessous ; v3.0.7 poussée, validée au premier coup)
+> Dernière mise à jour (état) : 29 septembre 2026 (**v3.0.8** — connecteur KomaScans + intitulés localisés, voir addenda en fin de fichier ; fix boucles Cloudflare CrunchyScan **puis JapScan** validés au premier coup)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
 
@@ -35,8 +35,8 @@ dans un shell **Electron** (Chromium 150, Node 26 local / 24 CI).
 
 - **Repo** : [Endymi0n74/ChainsmokerNeko](https://github.com/Endymi0n74/ChainsmokerNeko)
 - **Upstream** : `manga-download/haruneko`
-- **Version courante** : **3.0.7** (28 septembre 2026) — fix boucle Cloudflare JapScan + cause racine du timeout de téléchargement (stall guard vs `CHAPTER_UPDATE_TIMEOUT_MS`), commit `b448bd64c`, tag + release GitHub (Latest, 10 artefacts CI), CI verte ; validée en réel au premier coup. Versions antérieures : 3.0.6 (27 sept., boucle CrunchyScan) ; voir §12 addenda.
-- **Release courante** : [ChainsmokerNeko 3.0.4](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.4) — 10 artefacts CI (3 zips + 3 NSIS Windows, AppImage, .deb, 2 DMG) ; releases 3.0.0→3.0.3 retirées le 5 sept (SHA préservés dans SYNC.md §1)
+- **Version courante** : **3.0.8** (28 septembre 2026) — nouveau connecteur **KomaScans** (`komascans.com` : catalogue sitemaps, chapitres hybrides, pages RSC) + intitulés de chapitre localisés (`LocalizeChapterWord`, fr/es comme le site) ; limite connue documentée : hors anglais `pages[].url` est l'image anglaise (la traduction est un overlay SVG rendu par le site). Commits `2c0d2c48b` (connecteur), `07941b5bc` (bump), `100742064` (localisation), tag + release GitHub (Latest, 10 artefacts CI), CI verte ; KomaScans validé en réel (bookmarks / viewer / téléchargement). Versions antérieures : 3.0.7 (28 sept., stall JapScan) ; 3.0.6 (27 sept., boucle CrunchyScan) ; voir §12 addenda.
+- **Release courante** : [ChainsmokerNeko 3.0.8](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.8) — 10 artefacts CI (3 zips + 3 NSIS Windows, AppImage, .deb, 2 DMG), notes FR ; releases 3.0.0→3.0.3 retirées le 5 sept (SHA préservés dans SYNC.md §1)
 
 ## 2. Chemins & remotes
 
@@ -358,3 +358,21 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 **Validations** : `npm run check` OK (tsc x2, eslint, check:rules, svelte-check 0/0, vue-tsc) -> vitest **2199 passed** (+4 `StallTimeoutFor` + 2 assertions `message === 'Aborted'`) -> `npm run bundle:x64` OK -> `app/electron/bundle/hakuneko-electron-v3.0.7-win32-x64.zip` (139 MiB, 104 fichiers), nouveau hash **MUKWFCXB** ; code verifie dans le build (`StallTimeoutFor` dans `HakuNeko.js` = `t===Downloading&&r<=0?WA:UA` avec `WA = CHAPTER_UPDATE_TIMEOUT_MS+3e4` ; `new DOMException('Aborted','AbortError')` dans `InterProcessCommunication.js`) -> app relancee **pid 74708**.
 
 **Validé par l'utilisateur le 28 sept.** : volume-24 (204 pages) télécharge **du premier coup**, sans reclic — extraction 204/204, drain 4.1 s (vs 39,3 s avant), **0** erreur de tâche, **0** timeout 300 s, **0** `stopping poller` anormal (session pid 74708, `MUKWFCXB`, 09:14:05). Le `[DownloadTask] N error(s)` n'est émis que si `errors.length > 0` : son absence = `Status.Completed` = `Media.Store()` appelé.
+
+---
+
+## Addendum 29 sept. — v3.0.8 : connecteur KomaScans, intitulés localisés, limite des locales non-en
+
+**Release** : bump 3 manifests + `app/electron/build/package.json` + CHANGELOG FR/EN (`07941b5bc`, lockfile racine intact) → push `fork/chainsmoker` → tag léger `3.0.8` (`100742064`) → CI `36424601913` **verte en 11 min 07 s** (5 jobs : typecheck/build, Linux, macOS, Windows, publish) → release **[ChainsmokerNeko 3.0.8](https://github.com/Endymi0n74/ChainsmokerNeko/releases/tag/3.0.8)** avec les 10 artefacts et des notes FR (écrites après publication via `gh release edit --notes-file`). Run de branche `36424578657` également vert. `origin` et `master` **jamais touchés**.
+
+**KomaScans** (`2c0d2c48b`, 5 fichiers, +485) :
+- **Catalogue** : `sitemap.xml` → `series-0.xml` (8 181 séries en) + `series-{locale}-0.xml` (19 fr, 22 par autre locale) ; titres reconstitués depuis les slugs (`SeriesTitleFromSlug`, ~90 % de fidélité), **tri alphabétique** fait par le connecteur (l'UI ne trie pas), tag de langue par locale + `Tags.Language.Multilingual` au constructeur.
+- **Chapitres** : mode **hybride** — la page série n'hydrate que 50 chapitres ; si `firstChapter` est absent de cette liste (série tronquée) → scan des sitemaps `chapters-N.xml` (en) / `chapters-{locale}-N.xml` (autres), **par lots de 4 requêtes** (mémoire bornée, ~45 s sur Nano Machine 331/331) ; ordre **décroissant** (convention moteur), **pas de `publishedAt`** (`lastmod` = date d'import, pas de publication).
+- **Pages** : payload RSC `pages[]` trié par `position` (le HTML ne contient que les lecteurs vidéo), `@ImageAjax(true)`, `Initialize()` no-op (API JSON publique, aucune fenêtre navigateur), `ValidateMangaURL` accepte `/series/` **et** `/read/` (résolu vers `/series/`).
+- ⚠️ **`scripts/website-index.mjs` inutilisable** : régénère un `_index.ts` invalide (exports `registry`/`MangaDramaChapter`, doublon `MyAnimeListManga`, BOM retirée) → ligne insérée **à la main** avant `KomBatch`.
+
+**Intitulés localisés + limite de contenu (décisions utilisateur)** :
+- Le site stocke `title` en anglais pour **toutes** les locales ; la localisation n'existe que dans son HTML rendu (« Chapitre 1 VF », « Capítulo 1 en español », et **« Chapter 1 »** pour de/id/pt/ar/tr). → fonction pure exportée **`LocalizeChapterWord(title, locale)`** : `fr → Chapitre`, `es → Capítulo`, **les 5 autres locales restent `Chapter`** (choix explicite : *reproduire le site*, jamais diverger de la source), idempotente, sans effet sur `Start Reading` / `107: Special Forces <4>`.
+- **Limite connue** : `pages[].url` est le **même fichier** que l'anglais (`sameUrl: true`, 622 704 o en webp pour GEED ch.1 ; `translationOverlay: null` côté `en` = le fichier EST le chapitre anglais fini). La traduction = `translationOverlay.cleanLayerUrl` (PNG de patch, 45 Ko) + `translation.regions[]` (texte + boîtes + polices), **dessinée en SVG dans le navigateur** par `PageTranslationOverlay` (`<text>`/`<tspan textLength>`, fitting `runtimeFit`). **Aucun composite serveur** : API limitées à `audience`/`views`/`progress`/`comments`, `renderKind: null`, aucun export cbz/zip → HakuNeko ne télécharge que l'octet de `page.url` : **contenu anglais** pour fr/es/de/id/pt/ar/tr, seuls les intitulés sont localisés. Composition via `FetchImage` surchargée = refaire le fitting de texte du site → écartée pour 3.0.8, éventuellement 3.0.9.
+
+**Validations** : `npm run check` **0 erreur / 0 avertissement** · vitest **2232 passed** (+5 `LocalizeChapterWord`) · `KomaScans_e2e` **5/5** (nano-machine, 44,6 s ; titre `Chapter 1 - Start Reading` en `en` inchangé) · `npm run bundle:x64` local ✓ (komascans présent dans le JS buildé) · **validation utilisateur** : « bookmarks ok / affichage viewer ok / téléchargement ok » (recherche « isekai » → 96/8332 titres).
