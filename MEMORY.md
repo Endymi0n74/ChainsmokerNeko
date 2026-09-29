@@ -1,9 +1,9 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
-> Dernière mise à jour : 29 septembre 2026 — état courant **v3.0.8** (release poussée **et validée en réel**) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
+> Dernière mise à jour : 29 septembre 2026 — état courant **v3.0.8** (release poussée **et validée en réel**) ; **v3.0.9 en test local** (composition des overlays traduits + drapeaux de langue, commit local, **non poussé**, voir addendum en fin de fichier) ; sessions du 1→4 sept condensées en §12 ; règles durables → AGENTS.md, leçons techniques → LESSONS.md
 > 📚 Structure doc : **MEMORY.md** = état courant · **AGENTS.md** = règles durables · **LESSONS.md** = leçons techniques — carte complète des docs racine en §0
-> Dernière mise à jour (état) : 29 septembre 2026 (**v3.0.8** — connecteur KomaScans + intitulés localisés, voir addenda en fin de fichier ; fix boucles Cloudflare CrunchyScan **puis JapScan** validés au premier coup)
+> Dernière mise à jour (état) : 29 septembre 2026 (**v3.0.9 en test local** — composition des overlays traduits KomaScans (validée au harnais) + drapeaux de langue dans la liste (validés en réel), **non poussé** ; release **v3.0.8** toujours courante, voir addenda en fin de fichier ; fix boucles Cloudflare CrunchyScan **puis JapScan** validés au premier coup)
 > ⚠️ **Règles durables** (langue, git/commits, push, suppressions, régression, versioning, release, i18n, build/CI, tests, pratiques agent) → voir **`AGENTS.md`**
 > ⚠️ **Leçons techniques** (plateforme, Cloudflare, sites, CI/CD) → voir **`LESSONS.md`**
 
@@ -376,3 +376,28 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 - **Limite connue** : `pages[].url` est le **même fichier** que l'anglais (`sameUrl: true`, 622 704 o en webp pour GEED ch.1 ; `translationOverlay: null` côté `en` = le fichier EST le chapitre anglais fini). La traduction = `translationOverlay.cleanLayerUrl` (PNG de patch, 45 Ko) + `translation.regions[]` (texte + boîtes + polices), **dessinée en SVG dans le navigateur** par `PageTranslationOverlay` (`<text>`/`<tspan textLength>`, fitting `runtimeFit`). **Aucun composite serveur** : API limitées à `audience`/`views`/`progress`/`comments`, `renderKind: null`, aucun export cbz/zip → HakuNeko ne télécharge que l'octet de `page.url` : **contenu anglais** pour fr/es/de/id/pt/ar/tr, seuls les intitulés sont localisés. Composition via `FetchImage` surchargée = refaire le fitting de texte du site → écartée pour 3.0.8, éventuellement 3.0.9.
 
 **Validations** : `npm run check` **0 erreur / 0 avertissement** · vitest **2232 passed** (+5 `LocalizeChapterWord`) · `KomaScans_e2e` **5/5** (nano-machine, 44,6 s ; titre `Chapter 1 - Start Reading` en `en` inchangé) · `npm run bundle:x64` local ✓ (komascans présent dans le JS buildé) · **validation utilisateur** : « bookmarks ok / affichage viewer ok / téléchargement ok » (recherche « isekai » → 96/8332 titres).
+
+---
+
+## Addendum 29 sept. — v3.0.9 (en test local) : composition des overlays traduits + drapeaux de langue
+
+**Statut** : travail **strictement local** sur `chainsmoker` (8 fichiers : 6 modifiés + 2 nouveaux), **rien poussé**, `origin`/`master` intacts. **Bump de version et sections `CHANGELOG.md`/`CHANGELOG.en.md` reportés à la release** (après validation complète de l'utilisateur). Validation finale : `npm run check` **0 erreur / 0 avertissement** · vitest **2285 passed / 37 fichiers** (+9 `GetMangaTags`, +2 `MangaPlugin_test`, +12 invariant i18n) · `bundle:x64` ✓ (zip 145 519 661 o, 29/09 10:57).
+
+**1. Composition des overlays traduits (décision utilisateur : version test en 3.0.9)** — image réellement traduite pour fr/es au lieu de l'image anglaise :
+- Transport : `translationOverlay` via `Page.Parameters` ; décorateur `@Common.ImageAjax` **supprimé** ; `FetchImage` **surchargé** : image de base via `Common.FetchImageAjax.call(this, page, priority, signal, true)` puis composition — **tout échec retombe sur l'image de base** (jamais de tâche en erreur, priorité/signal conservés).
+- Rendu : canvas 2D `fillText` (pas de SVG), sortie `canvas.convertToBlob({ type: 'image/webp', quality: 0.9 })`. Tout le code reste dans `KomaScans.ts` ; exports publics pour tests : `ComposeTranslatedPage`, `PrepareOverlayTextLayout`, `ParseOverlayFontStacks`.
+- **CORS = non-sujet** : le fetch Electron passe par IPC/processus principal (en-têtes `Referer`/`Origin` reformulés via `X-FetchAPI-`) ; `FontFace(arrayBuffer)` ne fait aucune requête réseau.
+
+**2. Trois bugs réels trouvés/corrigés par la validation visuelle** (harnais) :
+- La réécriture `url("…")` laissait les guillemets dans l'URL de police → `new Request('"https://…"')` échouait → **aucune police ne se chargeait** (rendu Arial au lieu de Comic Relief) ;
+- propriétés CSS personnalisées contenant `_` (`__font`) non reconnues : regex `[a-z0-9-]+` → `[\w-]+` ;
+- course entre pages parallèles sur le chargement des polices : `Map<string, Promise<void>>` partagé + garde `if (!keys.size)`.
+
+**3. Harnais de validation** : bundle du code **réel** via **rolldown** (esbuild/rollup absents du dépôt) avec stubs des imports applicatifs, données réelles du site injectées, servi sur `http://127.0.0.1:8137/harness.html` (serveur encore actif). Résultat GEED ch.1 FR : **7 régions composées** (722 316 o webp, ~700 ms), Comic Relief + Koma Patrick Hand SC (9 faces), nettoyage anglais propre, 2 appels concurrents → sorties identiques, polices chargées une fois.
+
+**4. Drapeaux de langue dans la liste (question utilisateur : « comment je différencie les entrées identiques ? »)** :
+- `web/src/frontend/classic/lib/flags.ts` (nouveau) : `ExtractUnicodeFlagFromTags` avec regex `^[\p{RI}\p{Extended_Pictographic}\uFE0F]+` (corrige le « 🌐 M » qu'aurait produit `slice(0,4)`) ; affiché devant le titre dans `Media.svelte` (liste des séries), helper partagé réutilisé par `MediaItem.svelte` (suppression du code dupliqué).
+- **Bug racine identifié** : au démarrage, `MangaPlugin.Prepare()` recrée les Manga **depuis le cache local** via `CreateEntry(id, title)` → **sans tag de langue** → aucun drapeau jusqu'au 🔄 (qui appelle `FetchMangas()` et remplace la liste). Symptôme constaté par l'utilisateur : « pas de drapeau » sur le build du matin.
+- **Correctif additif** (format de cache inchangé) : hook `MangaScraper.GetMangaTags(identifier)` (défaut `[]` → **zéro impact sur les ~900 autres connecteurs**), `MangaPlugin.CreateEntry` propage `...scraper.GetMangaTags(identifier)`, KomaScans surcharge → `[MapLanguageTag(identifier)]`.
+
+**5. Validations** : `check` 0/0 · vitest **2285 passed** · **validation utilisateur en réel** : drapeaux 🇬🇧🇫🇷🇪🇸🇮🇩🇩🇪🇵🇹🇸🇦🇹🇷 affichés **au démarrage, sans refresh** (« parfait ») ; composition embarquée dans le zip 10:57 (téléchargement FR en réel : à confirmer par l'utilisateur).
