@@ -76,6 +76,10 @@
         right: 1rem;
         bottom: 1rem;
         z-index: 1000;
+        /* max-content gives the box the room its two actions need (the button refuses to
+           shrink, so the link used to be squeezed until it broke mid-word), while the cap
+           keeps a long version from ever overflowing a narrow window. */
+        width: max-content;
         max-width: 24rem;
         -webkit-app-region: no-drag;
     }
@@ -84,9 +88,14 @@
     }
     .update-actions {
         display: flex;
+        /* never squeeze an action below its text width: it moves to its own line first */
+        flex-wrap: wrap;
         align-items: center;
         gap: 0.75rem;
         margin-top: 0.25rem;
+    }
+    .update-notification :global(a) {
+        white-space: nowrap;
     }
     .update-install-btn {
         background: var(--cds-link-01, #0f62fe);
