@@ -1,6 +1,5 @@
 <script lang="ts">
     import { ToastNotification } from 'carbon-components-svelte';
-    import { onMount } from 'svelte';
     import type { IUpdateInfo } from '../../../engine/platform/AppWindow';
     import { Store as UI } from '../stores/Stores.svelte';
 
@@ -8,9 +7,16 @@
     let open = $state(false);
     let installing = $state(false);
     let status = $state('');
+    let checked = false;
 
-    onMount(() => {
-        UI.WindowController?.CheckForUpdates()
+    // The window controller is injected by the frontend module: watch for it instead of
+    // reading it once in onMount, where it may still be undefined — the optional chain
+    // then short-circuits and the update check never runs (silently, no error).
+    $effect(() => {
+        const controller = UI.WindowController;
+        if (!controller || checked) return;
+        checked = true;
+        controller.CheckForUpdates()
             .then(info => {
                 if (info) {
                     update = info;
