@@ -51,6 +51,8 @@ export namespace RemoteBrowserWindowController {
         OnDomReady = 'RemoteBrowserWindowController::OnDomReady',
         /** Channel for IPC callback with signature: `(windowID: number, url: string, isMainFrame: boolean, isSameDocument: boolean) => Promise<void>` */
         OnBeforeNavigate = 'RemoteBrowserWindowController::OnBeforeNavigate',
+        /** Channel for IPC callback with signature: `(windowID: number, level: string, message: string) => Promise<void>` */
+        OnConsoleMessage = 'RemoteBrowserWindowController::OnConsoleMessage',
     };
 
     /** Send from the Render process and received in the Main process. */

@@ -26,11 +26,30 @@ export default class RemoteBrowserWindow implements IRemoteBrowserWindow {
     constructor(private readonly ipc: IPC<Channels.App, Channels.Web>) {
         this.ipc.Listen(Channels.Web.OnDomReady, this.OnDomReady.bind(this));
         this.ipc.Listen(Channels.Web.OnBeforeNavigate, this.OnBeforeNavigate.bind(this));
+        this.ipc.Listen(Channels.Web.OnConsoleMessage, this.OnConsoleMessage.bind(this));
     }
 
     private async OnDomReady(windowID: number): Promise<void> {
         if(windowID === this.windowID) {
             this.domReady.Dispatch();
+        }
+    }
+
+    /**
+     * Prints the reader window's own diagnostics into the renderer console (F12), where they can
+     * be read next to the `[probe]`/`[KUMO]` lines of the host. The main process has already
+     * filtered the stream on our `[JapScan]`/`[KUMO]` prefixes and formatted the line.
+     * @param windowID - The window the message originated from
+     * @param level - Original console level of the message
+     * @param message - Formatted `[ReaderWindow:…]` line
+     */
+    private async OnConsoleMessage(windowID: number, level: string, message: string): Promise<void> {
+        if(windowID === this.windowID) {
+            if(level === 'warning' || level === 'error') {
+                console.warn(message);
+            } else {
+                console.log(message);
+            }
         }
     }
 

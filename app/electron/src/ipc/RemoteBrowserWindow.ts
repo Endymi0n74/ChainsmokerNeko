@@ -59,6 +59,13 @@ export class RemoteBrowserWindowController {
             } else {
                 console.log(line);
             }
+            // Relay our own extraction diagnostics into the renderer console (F12): the reader
+            // window's output is otherwise only readable with `--enable-logging`, which leaves a
+            // 300 s reader timeout unexplainable from within the app. Filtered on the `[JapScan]`
+            // and `[KUMO]` prefixes so the website's console spam never crosses the IPC.
+            if (details.message.startsWith('[JapScan]') || details.message.startsWith('[KUMO]')) {
+                this.ipc.Send(Channels.Web.OnConsoleMessage, win.id, level, line);
+            }
         });
         win.webContents.on('dom-ready', () => this.ipc.Send(Channels.Web.OnDomReady, win.id));
         win.webContents.on('did-start-navigation', event => this.ipc.Send(Channels.Web.OnBeforeNavigate, win.id, event.url, event.isMainFrame, event.isSameDocument));

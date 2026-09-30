@@ -698,6 +698,9 @@ export abstract class FetchProvider {
             const runScript = async () => {
                 if (settled) return;
                 settled = true;
+                // Announce the injection: when a reader timeout leaves no `[JapScan]` line behind,
+                // this tells whether the extraction script was ever executed or never reached.
+                console.warn('[KUMO] runScript: executing for', request?.url);
                 try {
                     // Some readers (e.g. JapScan) only paint their pages once the window is
                     // actually visible (IntersectionObserver/lazy loaders pause in a hidden
