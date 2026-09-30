@@ -1,5 +1,13 @@
 import { FetchWindowPreloadScript } from '../platform/FetchProvider';
 import { BuildDRMPreload } from './JapScan.DRM.preload';
+import { RecordTimeout } from '../TimeoutProbe';
+
+/**
+ * Budget of the visible reader window: the extraction has to open the reader, let the
+ * interactive anti-bot settle and collect the lazy-loaded pages. Shared with the probe so a
+ * burned budget is logged with the very value the window was given.
+ */
+export const READER_EXTRACTION_BUDGET_MS = 300_000;
 
 export type OrderedPageLink = {
     link: string;
@@ -1279,6 +1287,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
     // Random per call so concurrent reader windows cannot observe each other.
     const eventName = `jkn${Math.random().toString(36).slice(2, 10)}`;
     const script = BuildReaderScript(eventName);
+    const startedAt = Date.now();
     try {
         // Open the reader with the site DRM bootstrap as preload (visible, generous
         // budget): the page's own protected script decodes its full page list once
@@ -1288,12 +1297,17 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
             BuildDRMPreload(eventName),
             script,
             1000,
-            300_000,
+            READER_EXTRACTION_BUDGET_MS,
             true
         );
         const links = (result?.links ?? []).filter((link, index, all) => all.indexOf(link) === index);
         return { links, total: result?.total ?? undefined, drm: result?.drm ?? undefined, dom: result?.dom ?? undefined, selector: result?.selector ?? undefined, probe: result?.probe ?? undefined, puzzle: result?.puzzle ?? undefined, drain: result?.drain ?? undefined, walk: result?.walk ?? undefined, scroll: result?.scroll ?? undefined, diag: result?.diag ?? undefined };
-    } catch {
+    } catch (error) {
+        // This used to swallow every error silently: a reader which burned its whole budget
+        // looked exactly like an empty chapter, and the log had nothing to explain the timeout
+        // card. The probe keeps the stage, the elapsed time and the URL before returning the
+        // empty result the callers expect.
+        RecordTimeout({ stage: 'reader-extract', label: 'ExtractPagesFromReader', budgetMs: READER_EXTRACTION_BUDGET_MS, elapsedMs: Date.now() - startedAt, error, url: referer });
         return { links: [] };
     }
 }

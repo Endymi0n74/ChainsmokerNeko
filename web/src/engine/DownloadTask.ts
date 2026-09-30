@@ -3,6 +3,7 @@ import { Priority } from './taskpool/DeferredTask';
 import type { StorageController } from './StorageController';
 import { type IObservable, Observable, ObservableArray } from './Observable';
 import { SetTimeout, ClearTimeout } from './BackgroundTimers';
+import { RecordTimeout, ProbeHref } from './TimeoutProbe';
 
 /**
  * Maximum time a single network request inside a download task may stay stalled
@@ -109,18 +110,36 @@ export class DownloadTask {
             // Bound chapter resolution too. Interactive challenges are handled by the
             // fetch provider and must settle within its own timeout; a broken connector
             // must not permanently occupy the shared download queue.
-            await WithTimeout(this.Media.Update(), CHAPTER_UPDATE_TIMEOUT_MS, `Chapter update for ${this.Media.Title ?? 'unknown chapter'}`);
+            const chapterLabel = `Chapter update for ${this.Media.Title ?? 'unknown chapter'}`;
+            const chapterStarted = Date.now();
+            await WithTimeout(this.Media.Update(), CHAPTER_UPDATE_TIMEOUT_MS, chapterLabel).catch(error => {
+                RecordTimeout({ stage: 'chapter-update', label: chapterLabel, budgetMs: CHAPTER_UPDATE_TIMEOUT_MS, elapsedMs: Date.now() - chapterStarted, error, url: ProbeHref(() => this.Media.URI) });
+                throw error;
+            });
             this.AssertMediaEntries();
             const promises = this.Media.Entries.Value.map(async (item, index: number) => {
                 try {
                     // Bound each individual page request: a stalled request is
                     // abandoned after STALL_TIMEOUT_MS and skipped, so the rest of
                     // the pages (and the whole queue) keep moving.
+                    const pageLabel = `Page fetch from ${this.Media.Title ?? 'unknown chapter'}`;
+                    const pageStarted = Date.now();
                     const data = await WithTimeout(
                         item.Fetch(Priority.Low, cancellator.signal),
                         STALL_TIMEOUT_MS,
-                        `Page fetch from ${this.Media.Title ?? 'unknown chapter'}`
-                    );
+                        pageLabel
+                    ).catch(error => {
+                        RecordTimeout({
+                            stage: 'page-stall',
+                            label: pageLabel,
+                            budgetMs: STALL_TIMEOUT_MS,
+                            elapsedMs: Date.now() - pageStarted,
+                            error,
+                            url: ProbeHref(() => (item as { URI?: URL }).URI),
+                            detail: `page ${index + 1}/${this.Media.Entries.Value.length}`,
+                        });
+                        throw error;
+                    });
                     // Skip empty or non-image blobs (e.g. JapScan CDN resources, placeholders):
                     // empty blobs export as 0-byte .bin; non-image blobs shift file numbering.
                     if (data instanceof Blob && (data.size === 0 || data.type.length > 0 && !data.type.startsWith("image/"))) {

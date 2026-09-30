@@ -9,6 +9,14 @@ import { DRMProvider } from './JapScan.DRM';
 import { TaskPool, Priority } from '../taskpool/TaskPool';
 import { RateLimit } from '../taskpool/RateLimit';
 import { FetchWindowScript } from '../platform/FetchProvider';
+import { RecordTimeout } from '../TimeoutProbe';
+
+/**
+ * Budget of the DRM provider's own window (`DRMProvider.CreateImageLinks` / `CreateChapterList`):
+ * the prebuilt module hardcodes 30 s, which expires against the async `captcha_d.js` puzzle —
+ * documented in `FetchPages`. Mirrored here so the probe reports the value the caller waited for.
+ */
+export const DRM_WINDOW_BUDGET_MS = 30_000;
 
 /**
  * JapScan's own anti-bot (the "Glisse pour remettre dans l'ordre" puzzle) is announced by
@@ -152,8 +160,17 @@ export default class extends DecoratableMangaScraper {
             return cached.chapters;
         }
         const chapters = await this.chaptersTaskPool.Add(async () => {
-            const data = await this.#drm.CreateChapterList(new URL(manga.Identifier, this.URI));
-            return data.map(({ id, title }) => new Chapter(this, manga, id, title));
+            const listURL = new URL(manga.Identifier, this.URI);
+            const startedAt = Date.now();
+            try {
+                const data = await this.#drm.CreateChapterList(listURL);
+                return data.map(({ id, title }) => new Chapter(this, manga, id, title));
+            } catch (error) {
+                // The chapter list goes through the DRM window as well: without this line a
+                // failure there was only visible as a generic error in the media list.
+                RecordTimeout({ stage: 'chapter-list', label: 'DRMProvider.CreateChapterList', budgetMs: DRM_WINDOW_BUDGET_MS, elapsedMs: Date.now() - startedAt, error, url: listURL.href });
+                throw error;
+            }
         }, Priority.Normal);
         this.#chapterCache.set(key, { chapters, ts: Date.now() });
         return chapters;
@@ -180,9 +197,13 @@ export default class extends DecoratableMangaScraper {
             // Last resort: the reader under-delivered and carried no DRM payload.
             // Query the DRM provider directly; its window may still time out on the
             // anti-bot, in which case the reader's partial result is kept.
+            const drmStarted = Date.now();
             try {
                 pages = MergePageLinks(await this.#drm.CreateImageLinks(chapterURL), readerPages);
-            } catch {
+            } catch (error) {
+                // Swallowed before: a DRM window which burned its 30 s looked like a chapter
+                // with a handful of pages, with nothing in the log to tell the two apart.
+                RecordTimeout({ stage: 'drm-pages', label: 'DRMProvider.CreateImageLinks', budgetMs: DRM_WINDOW_BUDGET_MS, elapsedMs: Date.now() - drmStarted, error, url: chapterURL.href, detail: `kept ${readerPages.length} reader page(s)` });
                 pages = readerPages;
             }
         }
