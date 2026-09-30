@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import {
     RecordTimeout,
     EnterStage,
     LeaveStage,
     StartHeartbeat,
     StopHeartbeat,
+    NoteTrail,
+    InstallTrail,
+    GetTrail,
     GetTimeouts,
     ResetTimeouts,
     FormatTimeoutSummary,
@@ -18,9 +21,11 @@ import {
 
 describe('TimeoutProbe', () => {
 
+    let warnSpy: MockInstance<typeof console.warn>;
+
     beforeEach(() => {
         ResetTimeouts();
-        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     });
 
     afterEach(() => {
@@ -28,7 +33,7 @@ describe('TimeoutProbe', () => {
         vi.useRealTimers();
     });
 
-    const lines = (): string[] => vi.mocked(console.warn).mock.calls.map(call => String(call[0]));
+    const lines = (): string[] => warnSpy.mock.calls.map(call => String(call[0]));
 
     it('Should recognize the timeouts raised by WithTimeout only', () => {
         expect(IsBudgetTimeout(new Error('Page fetch from chapter 12 timed out after 15000ms'))).toBe(true);
@@ -171,15 +176,89 @@ describe('TimeoutProbe', () => {
 
         // The inner stage of the running heartbeat is part of the line.
         EnterStage('reader-extract');
-        vi.mocked(console.warn).mockClear();
+        warnSpy.mockClear();
         vi.advanceTimersByTime(HEARTBEAT_MS);
         expect(lines()[0]).toContain('inner=reader-extract');
         LeaveStage('reader-extract');
 
         // Stopped heartbeats stay silent, even once their delay elapses.
         StopHeartbeat(token);
-        vi.mocked(console.warn).mockClear();
+        warnSpy.mockClear();
         vi.advanceTimersByTime(HEARTBEAT_MS * 3);
         expect(lines()).toHaveLength(0);
+    });
+
+    it('Should capture only the diagnostic prefixes into the trail', () => {
+        const at = Date.now();
+        NoteTrail('[KUMO] redirect: Interactive url: https://www.japscan.lol/x', at);
+        NoteTrail('FetchWindow()::invocations []', at);
+        NoteTrail('[probe] +1:00.0 heartbeat stage=chapter-update elapsed=30000ms inner=none', at);
+        NoteTrail('[probe]   +1:00.0 | [KUMO] recap echo', at);
+        NoteTrail('[probe] +1:00.0 session: 1 timeout(s)/1 event(s)', at);
+        NoteTrail('[ReaderWindow:4] [info] [JapScan] budget: phase=wait', at);
+        NoteTrail('[DownloadTask] Chapitre 94: 1 error(s) -> boom', at);
+
+        const texts = GetTrail().map(entry => entry.text);
+        expect(texts).toHaveLength(3);
+        expect(texts[0]).toContain('[KUMO] redirect');
+        expect(texts[1]).toContain('[ReaderWindow:4]');
+        expect(texts[2]).toContain('[DownloadTask]');
+    });
+
+    it('Should recap the trail since the start of the stage which timed out', () => {
+        const base = Date.now();
+        NoteTrail('[probe] step stage=chapter-update begin url=https://www.japscan.lol/manga/demo/94/', base - 10_000);
+        NoteTrail('[probe] step stage=reader-extract enter url=https://www.japscan.lol/manga/demo/94/', base + 100);
+        NoteTrail('[KUMO] runScript: executing for https://www.japscan.lol/manga/demo/94/', base + 150);
+        NoteTrail('[ReaderWindow:4] [info] [JapScan] budget: phase=wait DEADLINE ok', base + 4_000);
+        vi.spyOn(Date, 'now').mockReturnValue(base + 5_000);
+
+        RecordTimeout({ stage: 'chapter-update', label: 'Chapter update for Chapitre 94', budgetMs: 300_000, elapsedMs: 5_000, error: new Error('Chapter update for Chapitre 94 timed out after 300000ms') });
+
+        const output = lines();
+        expect(output).toHaveLength(6); // timeout + session + recap header + 3 captured lines
+        expect(output[2]).toMatch(/\[probe\] \+\d+:\d{2}\.\d trail since \+\d+:\d{2}\.\d \(3 line\(s\)\):/);
+        expect(output[3]).toContain('step stage=reader-extract enter');
+        expect(output[4]).toContain('[KUMO] runScript: executing');
+        expect(output[5]).toContain('[ReaderWindow:4] [info] [JapScan] budget');
+        // Everything printed before the stage started stays out of its recap.
+        expect(output.join('\n')).not.toContain('chapter-update begin');
+    });
+
+    it('Should recap at most the last lines of a long stage', () => {
+        const base = Date.now();
+        for (let index = 0; index < 40; index++) {
+            NoteTrail(`[KUMO] line ${index}`, base + index);
+        }
+        vi.spyOn(Date, 'now').mockReturnValue(base + 40);
+
+        RecordTimeout({ stage: 'reader-extract', label: 'ExtractPagesFromReader', budgetMs: 300_000, elapsedMs: 300_000, error: new Error('localized wording') });
+
+        const output = lines();
+        const recap = output.filter(line => line.includes('[KUMO] line'));
+        expect(recap).toHaveLength(30);
+        expect(output[2]).toContain('last 30 of 40 lines');
+        expect(recap[0]).toContain('[KUMO] line 10');
+        expect(recap[29]).toContain('[KUMO] line 39');
+    });
+
+    it('Should not recap a fast failure nor a page stall', () => {
+        NoteTrail('[KUMO] redirect: Interactive url: https://www.japscan.lol/x');
+
+        // Failing before its budget: the error line alone is self-explanatory.
+        RecordTimeout({ stage: 'chapter-update', label: 'Chapter update', budgetMs: 300_000, elapsedMs: 120, error: new Error('window closed') });
+        expect(lines()).toHaveLength(2);
+
+        // A page stall can repeat for every page of a chapter: no recap either.
+        RecordTimeout({ stage: 'page-stall', label: 'Page fetch from chapter', budgetMs: 15_000, elapsedMs: 15_010, error: new Error('Page fetch timed out after 15000ms') });
+        expect(lines()).toHaveLength(4);
+    });
+
+    it('Should route the console through the trail once installed', () => {
+        InstallTrail();
+        console.warn('[KUMO] poll#1 cf=false widget=false site=Interactive');
+
+        expect(GetTrail().map(entry => entry.text)).toContain('[KUMO] poll#1 cf=false widget=false site=Interactive');
+        expect(lines().some(line => line.includes('[KUMO] poll#1'))).toBe(true);
     });
 });

@@ -70,15 +70,88 @@ const activeStages = new Map<ProbeStage, number>();
 const heartbeats = new Map<number, { stage: ProbeStage; since: number; timer?: ReturnType<typeof setTimeout> }>();
 let heartbeatUID = 0;
 
+/** Console lines captured for the recap printed when a stage times out. */
+const trail: { at: number, text: string }[] = [];
+/** Prefixes whose console lines are worth recapping (our own diagnostics only). */
+const TRAIL_PREFIXES = [ '[KUMO]', '[JapScan]', '[ReaderWindow:', '[DownloadTask]', '[probe]' ];
+/** Lines generated *by* the recap itself (and the rolling heartbeat/summary noise) stay out. */
+const TRAIL_EXCLUSIONS = [ ' heartbeat stage=', ' session: ', ' trail since ', '[probe]   ' ];
+/** Ring buffer: enough to cover the longest stage (300 s) with margin. */
+export const MAX_TRAIL_LINES = 300;
+/** Recap lines printed after a timeout: enough context, still readable in one screen. */
+export const MAX_TRAIL_RECAP = 30;
+/** Marks the console methods which already carry the trail wrapper (avoids stacking layers). */
+const trailWrapped = new WeakSet<(...args: unknown[]) => void>();
+
+/**
+ * Formats a point in time relative to the session origin, e.g. `+4:30.2`.
+ * @param at - Absolute timestamp [ms]
+ * @returns The `+M:SS.s` clock shared by every probe line
+ */
+function FormatClock(at: number): string {
+    const elapsed = Math.max(0, at - ORIGIN);
+    const minutes = Math.floor(elapsed / 60_000);
+    const seconds = (elapsed % 60_000 / 1000).toFixed(1);
+    return `+${minutes}:${seconds.padStart(4, '0')}`;
+}
+
 /**
  * Builds the session-relative clock prefix, e.g. `+4:30.2`.
  * @returns The stamp shared by every probe line
  */
 function Stamp(): string {
-    const elapsed = Math.max(0, Date.now() - ORIGIN);
-    const minutes = Math.floor(elapsed / 60_000);
-    const seconds = (elapsed % 60_000 / 1000).toFixed(1);
-    return `+${minutes}:${seconds.padStart(4, '0')}`;
+    return FormatClock(Date.now());
+}
+
+/**
+ * Adds a console line to the session trail when it carries one of {@link TRAIL_PREFIXES}.
+ * @param text - The message which was printed to the console
+ * @param at - Capture time, defaults to now (the parameter exists for the tests)
+ */
+export function NoteTrail(text: string, at: number = Date.now()): void {
+    if (!TRAIL_PREFIXES.some(prefix => text.startsWith(prefix))) {
+        return;
+    }
+    if (TRAIL_EXCLUSIONS.some(exclusion => text.includes(exclusion))) {
+        return;
+    }
+    trail.push({ at, text });
+    while (trail.length > MAX_TRAIL_LINES) {
+        trail.shift();
+    }
+}
+
+/**
+ * Routes `console.log/warn/error` through the trail, so every diagnostic line of the session
+ * (`[KUMO]`, relayed `[ReaderWindow:…]`, `[JapScan]`, `[DownloadTask]`, `[probe]`) is remembered
+ * without instrumenting each producer. Idempotent: an already wrapped method is left alone, so
+ * tests may wrap their own console spy without stacking layers.
+ */
+export function InstallTrail(): void {
+    const target = console as unknown as Record<'log' | 'warn' | 'error', (...args: unknown[]) => void>;
+    for (const level of [ 'log', 'warn', 'error' ] as const) {
+        const current = target[level];
+        if (trailWrapped.has(current)) {
+            continue;
+        }
+        const wrapped = (...args: unknown[]): void => {
+            const text = args.filter(arg => typeof arg === 'string').join(' ');
+            if (text) {
+                NoteTrail(text);
+            }
+            current.apply(console, args);
+        };
+        trailWrapped.add(wrapped);
+        target[level] = wrapped;
+    }
+}
+
+/**
+ * Provides a copy of the captured console lines (oldest first).
+ * @returns The session trail, capped at {@link MAX_TRAIL_LINES} entries
+ */
+export function GetTrail(): readonly { at: number, text: string }[] {
+    return [ ...trail ];
 }
 
 /**
@@ -231,8 +304,19 @@ export function RecordTimeout(input: ProbeInput): ProbeEvent {
     }
     // The stage settled (badly): it must no longer be reported as running by the heartbeats.
     activeStages.delete(event.stage);
+    // Snapshot the trail before printing: the timeout and summary lines emitted below must not
+    // appear in their own recap. Only a real timeout gets one — a stage failing fast already
+    // explains itself in its own line — and `page-stall` is excluded because it can repeat for
+    // every page of a chapter (its 15 s window is covered by the surrounding lines anyway).
+    const recap = event.timedOut && input.stage !== 'page-stall' ? PrepareRecap(input.elapsedMs) : null;
     console.warn(`[probe] ${Stamp()} ${event.timedOut ? 'timeout' : 'fail'} stage=${event.stage} budget=${event.budgetMs} elapsed=${event.elapsedMs}${event.url ? ` url=${event.url}` : ''}${event.detail ? ` ${event.detail}` : ''} label="${event.label}"`);
     console.warn(`[probe] ${Stamp()} session: ${FormatTimeoutSummary()}`);
+    if (recap) {
+        console.warn(`[probe] ${Stamp()} trail since ${FormatClock(recap.cutoff)} (${recap.omitted > 0 ? `last ${recap.entries.length} of ${recap.omitted + recap.entries.length} lines` : `${recap.entries.length} line(s)`}):`);
+        for (const entry of recap.entries) {
+            console.warn(`[probe]   ${FormatClock(entry.at)} | ${entry.text}`);
+        }
+    }
     return event;
 }
 
@@ -263,12 +347,33 @@ export function GetTimeouts(): readonly ProbeEvent[] {
 }
 
 /**
- * Clears the session history, the stage markers and the pending heartbeats (used by the tests).
+ * Collects the trail captured since the beginning of the stage which is about to be reported,
+ * so a timeout carries the whole story of its stage instead of requiring the console to be
+ * scrolled back (a browser console cleared by a reload loses exactly those lines).
+ * @param elapsedMs - Time the stage ran, used to cut the trail at its start
+ * @returns The entries to recap plus the amount of earlier lines left out, or `null` when empty
+ */
+function PrepareRecap(elapsedMs: number): { cutoff: number, entries: { at: number, text: string }[], omitted: number } | null {
+    const cutoff = Date.now() - elapsedMs;
+    const captured = trail.filter(entry => entry.at >= cutoff);
+    if (captured.length === 0) {
+        return null;
+    }
+    const entries = captured.slice(-MAX_TRAIL_RECAP);
+    return { cutoff, entries, omitted: captured.length - entries.length };
+}
+
+/**
+ * Prints the session history, the stage markers and the pending heartbeats (used by the tests).
  */
 export function ResetTimeouts(): void {
     for (const token of [ ...heartbeats.keys() ]) {
         StopHeartbeat(token);
     }
     activeStages.clear();
+    trail.length = 0;
     events = [];
 }
+
+// Capture the console of the whole session from the moment the probe is loaded.
+InstallTrail();
