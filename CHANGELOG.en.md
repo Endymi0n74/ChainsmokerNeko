@@ -5,6 +5,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.16] - 2026-09-30
+
+### Fixed
+
+- **Intermittent JapScan chapter timeouts**: when the site navigates (post-clearance redirect) 7 to 13 seconds after the extraction script is injected, the document — and with it the execution context — disappears: `ExecuteScript` never resolves, the chapter update burns its 300 seconds without a single reply from the reader window and the whole chapter fails (observed on chapters 86, 94, 115.5 and 116, **always after an anti-bot challenge was solved** — chapters that succeed, on the other hand, load without a challenge). Any main-frame navigation during a pending injection now unblocks the flow at the next `DOMReady` (challenge detection, grace period, `runScript`), re-dispatching the script onto the new clean document. Every attempt carries a number — only the most recent one may resolve or fail the request, a superseded attempt is discarded with a trace — and a navigation-induced failure waits for the new document instead of failing the chapter; the `runScript: inject/returned attempt=N after Xms` milestones tell a successful injection apart from an execution that never gives control back.
+
+### Added
+
+- **Timeout diagnostic probe**: every sensitive stage (`chapter-update` 300 s, `page-stall` 15 s, `reader-extract` 300 s, `drm-pages` 30 s, `chapter-list` 30 s) leaves a filterable, timestamped (`+M:SS.s`) `[probe]` trail with stage milestones and a 30 s heartbeat; on every timeout an automatic recap replays the trail from the start of the stage (1.5 s lead-in, 30 lines max) mixed with the relayed console lines (`[KUMO]`, `[ReaderWindow:`, `[JapScan]`, `[DownloadTask]`, a 300-line ring). The reader window's console is relayed to the renderer — that relay is how the root cause above was identified.
+
 ## [3.0.15] - 2026-09-30
 
 ### Added

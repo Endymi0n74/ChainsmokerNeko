@@ -3,6 +3,16 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.16] - 2026-09-30
+
+### Fix
+
+- **Timeouts intermittents des chapitres JapScan** : quand le site navigue (redirection post-clearance) 7 à 13 secondes après l'injection du script d'extraction, le document — et avec lui le contexte d'exécution — disparaît : `ExecuteScript` ne se résout jamais, la mise à jour de chapitre brûle ses 300 secondes sans un seul retour de la fenêtre lecteur et le chapitre entier échoue (constaté sur les chapitres 86, 94, 115.5 et 116, **toujours après la résolution d'un défi anti-bot** — les chapitres qui réussissent, eux, se chargent sans défi). Toute navigation de la trame principale pendant une injection en vol débloque désormais le flux au `DOMReady` suivant (détection de challenge, période de grâce, `runScript`) : le script est ré-injecté sur le nouveau document propre. Chaque tentative porte un numéro — seule la plus récente peut résoudre ou échouer la requête, une tentative abandonnée est écartée avec une trace — et un échec dû à une navigation attend le nouveau document au lieu de faire échouer le chapitre ; les jalons `runScript: inject/returned attempt=N after Xms` distinguent l'injection réussie d'une exécution qui ne rend jamais la main.
+
+### Ajouté
+
+- **Sonde de diagnostic des timeouts** : chaque étape sensible (`chapter-update` 300 s, `page-stall` 15 s, `reader-extract` 300 s, `drm-pages` 30 s, `chapter-list` 30 s) laisse un fil filtrable `[probe]` horodaté (`+M:SS.s`) avec jalons d'étape et heartbeat toutes les 30 s ; à chaque timeout, un récap automatique reprend le fil depuis le début de l'étape (marge de 1,5 s, 30 lignes maximum) en y mêlant les lignes console relayées (`[KUMO]`, `[ReaderWindow:`, `[JapScan]`, `[DownloadTask]`, anneau de 300 lignes). La console de la fenêtre lecteur est relayée vers le renderer — c'est grâce à elle que la cause racine ci-dessus a été identifiée.
+
 ## [3.0.15] - 2026-09-30
 
 ### Ajouté
