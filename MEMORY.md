@@ -504,4 +504,4 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 
 **✅ Validé en réel le 30/09 (retour utilisateur, capture)** : l'auto-update a porté l'install de **3.0.13 → 3.0.15** en un seul saut (la 3.0.15 étant devenue *Latest*), et la capture montre le panneau **dans l'app** : carte réécrite (logo + crédits), « What's new » avec `3.0.15 — 2026-09-30`, surtitre `ADDED`, puce contenant `CHANGELOG.en.md` en style code, **boîte bornée + barre de défilement** (rien ne déborde, la page reste courte), bouton « Check for updates » en fantôme Carbon aligné sur le titre, lien « All releases on GitHub » en pied. Clic sur **Check for updates** → `Checking for updates...` → **`Up to date — v3.0.15`** et **aucune bannière** : points (a) et (b) clos.
 
-**Reste à confirmer** : composition/téléchargement FR (en attente depuis la 3.0.9).
+**✅ Point (c) clos le 30/09 à la demande de l'utilisateur** : plus aucun point ouvert — releases **3.0.9 → 3.0.15** publiées, auto-update et panneau « What's new » validés en réel, harnais nettoyés, documentation amont supprimée.
