@@ -183,7 +183,17 @@
     }
 
     document.addEventListener('media-paste-url', onMediaPasteURL);
+    /** Error of the last paste attempt: surfaced in the media list instead of the console only. */
+    let pasteError = $state<{ name: string, message: string } | undefined>();
+    /** `true` while a paste attempt is resolving its link (which may include a Cloudflare challenge window). */
+    let isPasting = $state(false);
+
     async function onMediaPasteURL(_event: Event) {
+        if (isPasting) {
+            return;
+        }
+        isPasting = true;
+        pasteError = undefined;
         try {
             const link = new URL(await navigator.clipboard.readText()).href;
             for (const website of HakuNeko.PluginController.WebsitePlugins) {
@@ -206,6 +216,12 @@
             throw new Exception(R.Frontend_Media_PasteLink_NotFoundError, link);
         } catch (error) {
             console.warn(error);
+            pasteError = {
+                name: error instanceof Error ? error.name : 'Error',
+                message: error instanceof Error ? error.message : String(error),
+            };
+        } finally {
+            isPasting = false;
         }
     }
 
@@ -250,6 +266,7 @@
             tooltipPosition="right"
             tooltipAlignment="center"
             iconDescription="Paste media link"
+            disabled={isPasting}
             onclick={onMediaPasteURL}
         />
     </div>
@@ -293,6 +310,22 @@
         <Search id="MediaFilterSearch" size="sm" bind:value={mediaNameFilter} />
     </div>
     <div id="MediaList" class="list" class:no-scroll={currentPlugin?.IsSameAs(HakuNeko.BookmarkPlugin)} bind:this={medialistref} bind:clientHeight={medialistrefHeight} onscroll={onMediaListScroll}>
+        {#if isPasting}
+            <div class="loading center">
+                <div><Loading withOverlay={false} /></div>
+                <div>... resolving link</div>
+            </div>
+        {/if}
+        {#if pasteError}
+            <div class="error">
+                <InlineNotification
+                    lowContrast
+                    title={pasteError.name}
+                    subtitle={pasteError.message}
+                    on:close={() => (pasteError = undefined)}
+                />
+            </div>
+        {/if}
         {#await loadPlugin}
             <div class="loading center">
                 <div><Loading withOverlay={false} /></div>

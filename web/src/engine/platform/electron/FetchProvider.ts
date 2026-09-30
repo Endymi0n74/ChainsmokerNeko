@@ -58,7 +58,7 @@ export default class extends FetchProvider {
         this.ipc.Send(Channels.App.Initialize, fetchApiSupportedPrefix);
     }
 
-    async Fetch(request: Request): Promise<Response> {
+    protected async FetchCore(request: Request): Promise<Response> {
         const response = await fetch(request);
         await super.ValidateResponse(response);
         return response;

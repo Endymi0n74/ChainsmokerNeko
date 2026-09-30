@@ -1,8 +1,27 @@
 import { vi, describe, expect, it, beforeEach, afterEach, type MockInstance } from 'vitest';
-import { MIN_CLEARANCE_LENGTH, NextClearanceState, NormalizeClearance, FetchProvider } from './FetchProviderCommon';
+import {
+    MIN_CLEARANCE_LENGTH, NextClearanceState, NormalizeClearance, FetchProvider,
+    IsCloudFlareChallengeError, IsCloudFlareChallengePage,
+} from './FetchProviderCommon';
 import { AddForkChallengeHandling } from './ChallengeReload';
+import { Exception } from '../Error';
+import { EngineResourceKey as R, LocaleID } from '../../i18n/ILocale';
+import { Key } from '../SettingsGlobal';
+import type { Choice, ISettings, SettingsManager } from '../SettingsManager';
+import type { HakuNeko } from '../HakuNeko';
 import type * as AntiScrapingDetectionModule from './AntiScrapingDetection';
 import type { FeatureFlags } from '../FeatureFlags';
+
+// Mocking globals: the localized `Exception.message` resolves through `GetLocale()`.
+{
+    const mockChoice = { Value: LocaleID.Locale_enUS } as unknown as Choice;
+    const mockSettings = { Get: vi.fn(key => key === Key.Language ? mockChoice : undefined) } as unknown as ISettings;
+    const mockSettingsManager = { OpenScope: vi.fn(() => mockSettings) } as unknown as SettingsManager;
+
+    globalThis.HakuNeko = Object.assign(globalThis.HakuNeko ?? {}, {
+        SettingsManager: mockSettingsManager
+    }) as unknown as HakuNeko;
+}
 
 /** Receives the window double handed out to the fetch flow by the mocked factory below. */
 const harness = vi.hoisted(() => ({ window: undefined as unknown }));
@@ -96,6 +115,35 @@ describe('NextClearanceState', () => {
     });
 });
 
+describe('IsCloudFlareChallengePage', () => {
+
+    it('Should detect the structural markers of a Cloudflare challenge page', () => {
+        expect(IsCloudFlareChallengePage('<script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script>')).toBe(true);
+        expect(IsCloudFlareChallengePage('<form id="challenge-form" method="POST"></form>')).toBe(true);
+        expect(IsCloudFlareChallengePage('<iframe src="https://challenges.cloudflare.com/turnstile/v1/anchor"></iframe>')).toBe(true);
+        expect(IsCloudFlareChallengePage('<div id="cf-chl-widget-abc"></div>')).toBe(true);
+    });
+
+    it('Should not match ordinary pages that merely use similar words', () => {
+        expect(IsCloudFlareChallengePage('<h1>Un instant, le manga arrive</h1><p>Just a moment of reading before the release…</p>')).toBe(false);
+        expect(IsCloudFlareChallengePage('<html><body><h1>Regular content</h1></body></html>')).toBe(false);
+    });
+});
+
+describe('IsCloudFlareChallengeError', () => {
+
+    it('Should accept the exceptions raised for challenge headers and 403 responses', () => {
+        expect(IsCloudFlareChallengeError(new Exception(R.FetchProvider_Fetch_CloudFlareChallenge, 'https://www.japscan.lol/'))).toBe(true);
+        expect(IsCloudFlareChallengeError(new Exception(R.FetchProvider_Fetch_Forbidden, 'https://www.japscan.lol/'))).toBe(true);
+    });
+
+    it('Should reject unrelated errors', () => {
+        expect(IsCloudFlareChallengeError(new Exception(R.FetchProvider_Fetch_VercelChallenge, 'https://example.com/'))).toBe(false);
+        expect(IsCloudFlareChallengeError(new Error('boom'))).toBe(false);
+        expect(IsCloudFlareChallengeError(undefined)).toBe(false);
+    });
+});
+
 /** Window double: lets the test drive document loads and script injections by hand. */
 class FakeWindow {
 
@@ -165,7 +213,7 @@ class FakeWindow {
 /** Concrete provider so the fetch flow can be exercised without a real website. */
 class TestProvider extends FetchProvider {
 
-    public async Fetch(): Promise<Response> {
+    protected async FetchCore(): Promise<Response> {
         throw new Error('not needed in this test');
     }
 }
@@ -259,5 +307,154 @@ describe('FetchWindowPreloadScript (script recovery)', () => {
         expect(failure).toContain('boom');
         expect(logged()).toContain('[KUMO] runScript error:');
         expect(logged()).not.toContain('re-dispatching');
+    });
+});
+
+describe('Fetch (Cloudflare challenge recovery)', () => {
+
+    let warn: MockInstance<typeof console.warn>;
+
+    beforeEach(() => {
+        warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    const logged = (): string => warn.mock.calls.map(args => args.join(' ')).join('\n');
+
+    /** Waits on native timers until the probe holds, reporting the log when it never does. */
+    const waitFor = async (label: string, probe: () => boolean, state: () => Record<string, unknown>): Promise<void> => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+            if (probe()) {
+                return;
+            }
+            await new Promise<void>(resolve => setTimeout(resolve, 20));
+        }
+        throw new Error(`${label} never became true: ${JSON.stringify({ ...state(), log: logged() })}`);
+    };
+
+    const windowState = (fake: FakeWindow): Record<string, unknown> => ({
+        domReady: fake.domReady.length,
+        injected: fake.injected.length,
+    });
+
+    /** A native fetch which Cloudflare rejects until the test releases it. */
+    class BlockedProvider extends FetchProvider {
+        public attempts = 0;
+        public released = false;
+        protected async FetchCore(): Promise<Response> {
+            this.attempts++;
+            if (!this.released) {
+                throw new Exception(R.FetchProvider_Fetch_Forbidden, 'https://www.japscan.lol/manga/demo/');
+            }
+            return new Response('<html><body>ok</body></html>', { status: 200 });
+        }
+    }
+
+    /** Cloudflare challenge page served with HTTP 200 (structural markers only). */
+    const CHALLENGE_PAGE = '<!DOCTYPE html><html><head><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></head><body><form id="challenge-form"></form></body></html>';
+
+    const createProvider = <T extends FetchProvider>(provider: T): T => {
+        provider.Initialize({ VerboseFetchWindow: { Value: false } } as unknown as FeatureFlags);
+        return provider;
+    };
+
+    it('Should resolve the challenge through the plugin window and retry the request', async () => {
+        const fake = new FakeWindow();
+        harness.window = fake;
+        const provider = createProvider(new BlockedProvider());
+
+        const pending = provider.Fetch(new Request('https://www.japscan.lol/manga/demo/'));
+        await waitFor('window DOMReady subscription', () => fake.domReady.length === 1, () => windowState(fake));
+        provider.released = true;
+        fake.Load();
+
+        const response = await pending;
+        expect(response.status).toBe(200);
+        expect(provider.attempts).toBe(2);
+        expect(fake.opened).toBe(1);
+        expect(fake.injected).toContain('() => true');
+        expect(logged()).toContain('retrying after challenge recovery');
+    });
+
+    it('Should propagate the error without a window for sites without the fork challenge handling', async () => {
+        const fake = new FakeWindow();
+        harness.window = fake;
+        const provider = createProvider(new BlockedProvider());
+
+        await expect(provider.Fetch(new Request('https://example.com/manga/demo/'))).rejects.toThrow();
+        expect(provider.attempts).toBe(1);
+        expect(fake.opened).toBe(0);
+    });
+
+    it('Should keep the cooldown from popping a second window for repeated failures', async () => {
+        const fake = new FakeWindow();
+        harness.window = fake;
+        const provider = createProvider(new BlockedProvider());
+
+        const first = provider.Fetch(new Request('https://www.japscan.lol/manga/demo/'));
+        await waitFor('window DOMReady subscription', () => fake.domReady.length === 1, () => windowState(fake));
+        fake.Load();
+        await expect(first).rejects.toThrow();
+        expect(fake.opened).toBe(1);
+        expect(provider.attempts).toBe(2);
+
+        await expect(provider.Fetch(new Request('https://www.japscan.lol/manga/demo/'))).rejects.toThrow();
+        expect(fake.opened).toBe(1);
+        expect(provider.attempts).toBe(3);
+    });
+
+    it('Should join an in-flight recovery instead of opening a second window', async () => {
+        const fake = new FakeWindow();
+        harness.window = fake;
+        const provider = createProvider(new BlockedProvider());
+
+        const first = provider.Fetch(new Request('https://www.japscan.lol/manga/demo/'));
+        await waitFor('window DOMReady subscription', () => fake.domReady.length === 1, () => windowState(fake));
+        const second = provider.Fetch(new Request('https://www.japscan.lol/manga/demo/'));
+        fake.Load();
+
+        await expect(first).rejects.toThrow();
+        await expect(second).rejects.toThrow();
+        expect(fake.opened).toBe(1);
+        expect(provider.attempts).toBe(4);
+    });
+
+    it('Should recover when Cloudflare serves its challenge page with a success status', async () => {
+        const fake = new FakeWindow();
+        harness.window = fake;
+
+        class ChallengeProvider extends FetchProvider {
+            public attempts = 0;
+            protected async FetchCore(): Promise<Response> {
+                this.attempts++;
+                return new Response(this.attempts === 1 ? CHALLENGE_PAGE : '<html><head></head><body>real</body></html>', { status: 200 });
+            }
+        }
+        const provider = createProvider(new ChallengeProvider());
+        // The test environment has no DOM: a stand-in parser is enough to observe the retry.
+        const DocumentParser = function (): unknown {
+            return {
+                parseFromString: () => ({
+                    head: { querySelector: () => null },
+                    body: { querySelectorAll: () => [] },
+                }),
+            };
+        };
+        vi.stubGlobal('DOMParser', DocumentParser);
+
+        try {
+            const pending = provider.FetchHTML(new Request('https://www.japscan.lol/manga/demo/'));
+            await waitFor('window DOMReady subscription', () => fake.domReady.length === 1, () => windowState(fake));
+            fake.Load();
+            await pending;
+            expect(provider.attempts).toBe(2);
+            expect(fake.opened).toBe(1);
+            expect(logged()).toContain('challenge page detected, retrying after recovery');
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });

@@ -129,7 +129,7 @@ export default class extends FetchProvider {
         //       chrome.declarativeWebRequest.onRequest.addListener(...);
     }
 
-    public async Fetch(request: Request): Promise<Response> {
+    protected async FetchCore(request: Request): Promise<Response> {
         // Fetch API defaults => https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
         await UpdateCookieHeader(request.url, request.headers);
         const response = await fetch(request);
