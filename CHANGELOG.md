@@ -3,6 +3,20 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.15] - 2026-09-30
+
+### Ajouté
+
+- **Panneau « What's new » sur la page d'accueil** : le bloc « Guides / Advanced / Support » laisse la place aux notes de la version en cours, lues dans `CHANGELOG.en.md` **embarqué dans le bundle** — donc hors ligne, sans appel à `hakuneko.download` — avec la version courante, un bouton « Check for updates » (même store que l'entrée « À propos » et la bannière : un seul contrôle en vol, et la bannière monte dès qu'une release plus récente existe) et un lien vers toutes les releases du dépôt. Les notes tiennent dans une boîte de `16em` scrollable : elles ne poussent jamais la page (section la plus longue, la 3.0.7, mesurée à 1746 px de contenu pour une boîte affichée de 202 px). Validation : helper pur `lib/changelog.ts` + 14 tests — extraction par section sans confusion `3.0.1` / `3.0.10` / `3.0.11`, échappement anti-XSS (aucun élément injecté), gras/code/liens, listes imbriquées, et un garde-fou qui fait échouer la suite si le changelog ne documente plus la version de l'application ; `npm run check` vert, 2300 tests web + 30 tests Electron verts, `vite build` vert (le changelog est bien présent dans `FrontendClassic.js`).
+
+### Modifié
+
+- **Carte d'accueil réécrite pour le fork** : « ChainsmokerNeko is a fork of HaruNeko: same interface, same connectors, and its own releases — the application updates itself from them », la philosophie « ad-hoc consumption » reformulée (et non plus le texte de l'amont « was made to help users who download media for circumstances that requires offline usage ») ; les crédits HaruNeko/HakuNeko sont conservés.
+
+### Retiré
+
+- **Le panneau de documentation de l'amont** (`Documentation.svelte` + `stores/Documentation.ts`) : il récupérait `https://hakuneko.download/docs/haruneko/`, une page dite « Temporary documentation » datée du 1ᵉʳ décembre 2023, composée de « Temporary filler » et de lorem ipsum (« Find your source », « Select a plugin », « Download », tout le bloc Support), écrite pour HakuNeko — soit un appel réseau hebdomadaire avec une semaine de cache en `localStorage` pour afficher du texte mort.
+
 ## [3.0.14] - 2026-09-29
 
 ### Fix

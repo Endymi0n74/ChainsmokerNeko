@@ -5,6 +5,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.15] - 2026-09-30
+
+### Added
+
+- **A “What's new” panel on the home page**: the “Guides / Advanced / Support” block now shows the release notes of the running version, read from `CHANGELOG.en.md` **bundled into the build** — hence offline, with no request to `hakuneko.download` — together with the current version, a “Check for updates” button (same store as the “About” entry and the banner: only one check ever in flight, and the banner is raised as soon as a newer release exists) and a link to every release of the repository. The notes live in a scrollable `16em` box, so they never push the page down (the longest section, 3.0.7, measures 1746 px of content inside a 202 px box). Validation: pure helper `lib/changelog.ts` plus 14 tests — section extraction that cannot confuse `3.0.1` / `3.0.10` / `3.0.11`, HTML escaping (no injected element), bold/code/links, nested bullets, and a guard which fails the suite when the changelog stops documenting the version of the application; `npm run check` green, 2300 web tests + 30 Electron tests green, `vite build` green (the changelog is present in `FrontendClassic.js`).
+
+### Changed
+
+- **The home page card now speaks for the fork**: “ChainsmokerNeko is a fork of HaruNeko: same interface, same connectors, and its own releases — the application updates itself from them”, with the “ad-hoc consumption” philosophy reworded (replacing the upstream text “was made to help users who download media for circumstances that requires offline usage”); the HaruNeko/HakuNeko credits are kept.
+
+### Removed
+
+- **The upstream documentation panel** (`Documentation.svelte` + `stores/Documentation.ts`): it was fetching `https://hakuneko.download/docs/haruneko/`, a page labelled “Temporary documentation” dated December 1, 2023, filled with “Temporary filler” and lorem ipsum (“Find your source”, “Select a plugin”, “Download”, the whole Support block), written for HakuNeko — one weekly network call with a one-week `localStorage` cache to display dead text.
+
 ## [3.0.14] - 2026-09-29
 
 ### Fixed
