@@ -9,7 +9,7 @@ import { DRMProvider } from './JapScan.DRM';
 import { TaskPool, Priority } from '../taskpool/TaskPool';
 import { RateLimit } from '../taskpool/RateLimit';
 import { FetchWindowScript } from '../platform/FetchProvider';
-import { RecordTimeout } from '../TimeoutProbe';
+import { RecordTimeout, EnterStage, LeaveStage } from '../TimeoutProbe';
 
 /**
  * Budget of the DRM provider's own window (`DRMProvider.CreateImageLinks` / `CreateChapterList`):
@@ -198,8 +198,10 @@ export default class extends DecoratableMangaScraper {
             // Query the DRM provider directly; its window may still time out on the
             // anti-bot, in which case the reader's partial result is kept.
             const drmStarted = Date.now();
+            EnterStage('drm-pages', `url=${chapterURL.href}`);
             try {
                 pages = MergePageLinks(await this.#drm.CreateImageLinks(chapterURL), readerPages);
+                LeaveStage('drm-pages', `merged ${pages.length} page(s) in ${Date.now() - drmStarted}ms`);
             } catch (error) {
                 // Swallowed before: a DRM window which burned its 30 s looked like a chapter
                 // with a handful of pages, with nothing in the log to tell the two apart.

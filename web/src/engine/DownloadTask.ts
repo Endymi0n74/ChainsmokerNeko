@@ -3,7 +3,7 @@ import { Priority } from './taskpool/DeferredTask';
 import type { StorageController } from './StorageController';
 import { type IObservable, Observable, ObservableArray } from './Observable';
 import { SetTimeout, ClearTimeout } from './BackgroundTimers';
-import { RecordTimeout, ProbeHref } from './TimeoutProbe';
+import { RecordTimeout, ProbeHref, RecordStep, StartHeartbeat, StopHeartbeat, STEP_MIN_MS } from './TimeoutProbe';
 
 /**
  * Maximum time a single network request inside a download task may stay stalled
@@ -112,10 +112,23 @@ export class DownloadTask {
             // must not permanently occupy the shared download queue.
             const chapterLabel = `Chapter update for ${this.Media.Title ?? 'unknown chapter'}`;
             const chapterStarted = Date.now();
-            await WithTimeout(this.Media.Update(), CHAPTER_UPDATE_TIMEOUT_MS, chapterLabel).catch(error => {
-                RecordTimeout({ stage: 'chapter-update', label: chapterLabel, budgetMs: CHAPTER_UPDATE_TIMEOUT_MS, elapsedMs: Date.now() - chapterStarted, error, url: ProbeHref(() => this.Media.URI) });
-                throw error;
-            });
+            const chapterURL = ProbeHref(() => this.Media.URI);
+            RecordStep('chapter-update', `begin url=${chapterURL ?? '?'} label="${chapterLabel}"`);
+            const heartbeat = StartHeartbeat('chapter-update');
+            try {
+                await WithTimeout(this.Media.Update(), CHAPTER_UPDATE_TIMEOUT_MS, chapterLabel).catch(error => {
+                    RecordTimeout({ stage: 'chapter-update', label: chapterLabel, budgetMs: CHAPTER_UPDATE_TIMEOUT_MS, elapsedMs: Date.now() - chapterStarted, error, url: chapterURL });
+                    throw error;
+                });
+            } finally {
+                StopHeartbeat(heartbeat);
+                // A fast chapter needs no breadcrumb: the `begin` line and the pages log already
+                // bracket it. Only a slow resolution is worth printing as `done`.
+                const chapterElapsed = Date.now() - chapterStarted;
+                if (chapterElapsed >= STEP_MIN_MS) {
+                    RecordStep('chapter-update', `done elapsed=${chapterElapsed}ms`);
+                }
+            }
             this.AssertMediaEntries();
             const promises = this.Media.Entries.Value.map(async (item, index: number) => {
                 try {

@@ -1,6 +1,6 @@
 import { FetchWindowPreloadScript } from '../platform/FetchProvider';
 import { BuildDRMPreload } from './JapScan.DRM.preload';
-import { RecordTimeout } from '../TimeoutProbe';
+import { RecordTimeout, EnterStage, LeaveStage } from '../TimeoutProbe';
 
 /**
  * Budget of the visible reader window: the extraction has to open the reader, let the
@@ -1288,6 +1288,10 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
     const eventName = `jkn${Math.random().toString(36).slice(2, 10)}`;
     const script = BuildReaderScript(eventName);
     const startedAt = Date.now();
+    // The `enter` breadcrumb is the anchor of the whole diagnostic: when the log then goes
+    // silent until the host timeout, the reader window (challenge, puzzle, scroll) is the
+    // stage which swallowed the time.
+    EnterStage('reader-extract', `url=${referer}`);
     try {
         // Open the reader with the site DRM bootstrap as preload (visible, generous
         // budget): the page's own protected script decodes its full page list once
@@ -1301,6 +1305,7 @@ export async function ExtractPagesFromReader(referer: string): Promise<ReaderExt
             true
         );
         const links = (result?.links ?? []).filter((link, index, all) => all.indexOf(link) === index);
+        LeaveStage('reader-extract', `links=${links.length} total=${result?.total ?? 'none'} dom=${result?.dom ?? 0} drm=${result?.drm ?? 0}`);
         return { links, total: result?.total ?? undefined, drm: result?.drm ?? undefined, dom: result?.dom ?? undefined, selector: result?.selector ?? undefined, probe: result?.probe ?? undefined, puzzle: result?.puzzle ?? undefined, drain: result?.drain ?? undefined, walk: result?.walk ?? undefined, scroll: result?.scroll ?? undefined, diag: result?.diag ?? undefined };
     } catch (error) {
         // This used to swallow every error silently: a reader which burned its whole budget

@@ -1,12 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     RecordTimeout,
+    EnterStage,
+    LeaveStage,
+    StartHeartbeat,
+    StopHeartbeat,
     GetTimeouts,
     ResetTimeouts,
     FormatTimeoutSummary,
     IsBudgetTimeout,
     ProbeHref,
     MAX_PROBE_EVENTS,
+    STEP_MIN_MS,
+    HEARTBEAT_MS,
     type ProbeEvent,
 } from './TimeoutProbe';
 
@@ -19,7 +25,10 @@ describe('TimeoutProbe', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        vi.useRealTimers();
     });
+
+    const lines = (): string[] => vi.mocked(console.warn).mock.calls.map(call => String(call[0]));
 
     it('Should recognize the timeouts raised by WithTimeout only', () => {
         expect(IsBudgetTimeout(new Error('Page fetch from chapter 12 timed out after 15000ms'))).toBe(true);
@@ -59,21 +68,18 @@ describe('TimeoutProbe', () => {
     it('Should log one line per event with its stage and URL, plus a session line', () => {
         RecordTimeout({ stage: 'page-stall', label: 'Page fetch from chapter 12', budgetMs: 15_000, elapsedMs: 15_008, error: new Error('timed out after 15000ms'), url: 'https://cdn.example.org/img-01.jpg', detail: 'page 1/20' });
 
-        const lines = vi.mocked(console.warn).mock.calls.map(call => String(call[0]));
-        expect(lines).toHaveLength(2);
-        expect(lines[0]).toContain('[probe] timeout');
-        expect(lines[0]).toContain('stage=page-stall');
-        expect(lines[0]).toContain('budget=15000');
-        expect(lines[0]).toContain('elapsed=15008');
-        expect(lines[0]).toContain('url=https://cdn.example.org/img-01.jpg');
-        expect(lines[0]).toContain('page 1/20');
-        expect(lines[1]).toContain('[probe] session:');
+        const output = lines();
+        expect(output).toHaveLength(2);
+        expect(output[0]).toMatch(/^\[probe\] \+\d+:\d{2}\.\d timeout stage=page-stall budget=15000 elapsed=15008/);
+        expect(output[0]).toContain('url=https://cdn.example.org/img-01.jpg');
+        expect(output[0]).toContain('page 1/20');
+        expect(output[1]).toMatch(/^\[probe\] \+\d+:\d{2}\.\d session: /);
     });
 
     it('Should announce plain failures with a distinct prefix', () => {
         RecordTimeout({ stage: 'chapter-list', label: 'DRMProvider.CreateChapterList', budgetMs: 30_000, elapsedMs: 90, error: new Error('boom') });
 
-        expect(vi.mocked(console.warn).mock.calls[0][0]).toContain('[probe] fail');
+        expect(lines()[0]).toMatch(/^\[probe\] \+\d+:\d{2}\.\d fail stage=chapter-list/);
     });
 
     it('Should keep the session history bounded', () => {
@@ -109,5 +115,71 @@ describe('TimeoutProbe', () => {
         expect(ProbeHref(() => new URL('https://example.org/manga/chapter'))).toBe('https://example.org/manga/chapter');
         expect(ProbeHref(() => undefined)).toBeUndefined();
         expect(ProbeHref(() => { throw new Error('Not implemented'); })).toBeUndefined();
+    });
+
+    it('Should print the enter breadcrumb of a stage with its URL', () => {
+        EnterStage('reader-extract', 'url=https://www.japscan.lol/manga/demo/12/');
+
+        const output = lines();
+        expect(output).toHaveLength(1);
+        expect(output[0]).toMatch(/^\[probe\] \+\d+:\d{2}\.\d step stage=reader-extract enter url=https:\/\/www\.japscan\.lol\/manga\/demo\/12\//);
+    });
+
+    it('Should leave a fast stage silently and a slow one with its elapsed time', () => {
+        const base = Date.now();
+        const now = vi.spyOn(Date, 'now');
+        now.mockReturnValue(base);
+        EnterStage('reader-extract');
+        LeaveStage('reader-extract', 'links=12');
+        // Under the step threshold: only the enter line was printed.
+        expect(lines()).toHaveLength(1);
+
+        now.mockReturnValue(base);
+        EnterStage('drm-pages');
+        now.mockReturnValue(base + STEP_MIN_MS + 1);
+        LeaveStage('drm-pages', 'merged 30 page(s)');
+        const output = lines();
+        expect(output).toHaveLength(3);
+        expect(output[2]).toMatch(/step stage=drm-pages leave elapsed=10001ms merged 30 page\(s\)/);
+        now.mockReturnValue(base);
+    });
+
+    it('Should not print a leave for a stage which never entered', () => {
+        LeaveStage('chapter-list', 'whatever', true);
+
+        expect(lines()).toHaveLength(0);
+    });
+
+    it('Should stop reporting a stage as active once its timeout is recorded', () => {
+        EnterStage('reader-extract');
+        RecordTimeout({ stage: 'reader-extract', label: 'ExtractPagesFromReader', budgetMs: 300_000, elapsedMs: 300_000, error: new Error('boom') });
+
+        // The leave of a stage cleared by RecordTimeout finds nothing to report.
+        LeaveStage('reader-extract', undefined, true);
+        expect(lines().filter(line => line.includes('leave'))).toHaveLength(0);
+    });
+
+    it('Should heartbeat while a stage is pending and stop on demand', () => {
+        vi.useFakeTimers();
+        const token = StartHeartbeat('chapter-update');
+
+        expect(lines()).toHaveLength(0);
+        vi.advanceTimersByTime(HEARTBEAT_MS);
+        let output = lines();
+        expect(output).toHaveLength(1);
+        expect(output[0]).toMatch(/^\[probe\] \+\d+:\d{2}\.\d heartbeat stage=chapter-update .*inner=none/);
+
+        // The inner stage of the running heartbeat is part of the line.
+        EnterStage('reader-extract');
+        vi.mocked(console.warn).mockClear();
+        vi.advanceTimersByTime(HEARTBEAT_MS);
+        expect(lines()[0]).toContain('inner=reader-extract');
+        LeaveStage('reader-extract');
+
+        // Stopped heartbeats stay silent, even once their delay elapses.
+        StopHeartbeat(token);
+        vi.mocked(console.warn).mockClear();
+        vi.advanceTimersByTime(HEARTBEAT_MS * 3);
+        expect(lines()).toHaveLength(0);
     });
 });

@@ -6,10 +6,18 @@
  * fallback of `FetchPages` — a chapter could therefore burn its whole 300 s budget and the log
  * stayed silent, leaving only the generic "timed out" card in the UI with nothing to explain why.
  *
- * Every probe line starts with `[probe] timeout` (budget consumed) or `[probe] fail` (the stage
- * errored before its budget), so the console can be filtered on `[probe]` alone. The bounded
- * session history (`GetTimeouts`) makes a pattern visible at a glance: how often, from which
- * stage, and against which URL.
+ * The probe prints three kinds of line, all filterable on `[probe]`:
+ * - `[probe] +M:SS.s step stage=… enter|…|leave …` — breadcrumbs for the stages being entered and
+ *   left, so a stage which never reports back is identifiable. A `leave` is only printed when the
+ *   stage took at least {@link STEP_MIN_MS}: a fast run is the norm, not a diagnostic.
+ * - `[probe] +M:SS.s heartbeat stage=… inner=…` — emitted every {@link HEARTBEAT_MS} while a
+ *   stage is pending, so a silent stretch of console can be told apart from a hung stage, and the
+ *   `inner=` part names the innermost stage which was running when the tick fired.
+ * - `[probe] +M:SS.s timeout|fail stage=…` plus `[probe] +M:SS.s session: …` — a stage which
+ *   consumed its budget (or errored early), and the rolling session summary.
+ *
+ * The `+M:SS.s` stamp is relative to the moment the probe module loaded, which is what lets those
+ * lines be placed against the interleaved `[KUMO]`/`[JapScan]` output of the same console.
  */
 
 /** The stages of the chapter pipeline which can burn their whole budget. */
@@ -46,7 +54,32 @@ const STALL_MESSAGE = /timed out after \d+ms/;
 /** Enough events to see a pattern, few enough to keep the session history cheap. */
 export const MAX_PROBE_EVENTS = 50;
 
+/** A `leave` breadcrumb is only printed when the stage lasted at least this long. */
+export const STEP_MIN_MS = 10_000;
+
+/** Liveness cadence while a stage is pending. */
+export const HEARTBEAT_MS = 30_000;
+
+/** Session origin of the `+M:SS.s` stamp printed on every probe line. */
+const ORIGIN = Date.now();
+
 let events: ProbeEvent[] = [];
+/** Stages currently running, with their start time (several chapters may run side by side). */
+const activeStages = new Map<ProbeStage, number>();
+/** Pending heartbeats, keyed by the token returned from {@link StartHeartbeat}. */
+const heartbeats = new Map<number, { stage: ProbeStage; since: number; timer?: ReturnType<typeof setTimeout> }>();
+let heartbeatUID = 0;
+
+/**
+ * Builds the session-relative clock prefix, e.g. `+4:30.2`.
+ * @returns The stamp shared by every probe line
+ */
+function Stamp(): string {
+    const elapsed = Math.max(0, Date.now() - ORIGIN);
+    const minutes = Math.floor(elapsed / 60_000);
+    const seconds = (elapsed % 60_000 / 1000).toFixed(1);
+    return `+${minutes}:${seconds.padStart(4, '0')}`;
+}
 
 /**
  * Determines whether an error is one of the timeouts raised by `WithTimeout`.
@@ -69,6 +102,99 @@ export function ProbeHref(read: () => URL | undefined): string | undefined {
         return read()?.href;
     } catch {
         return undefined;
+    }
+}
+
+/**
+ * Prints a breadcrumb without recording an event.
+ * @param stage - The stage the line belongs to
+ * @param message - Free text following the `stage=` field
+ */
+export function RecordStep(stage: ProbeStage, message: string): void {
+    console.warn(`[probe] ${Stamp()} step stage=${stage} ${message}`);
+}
+
+/**
+ * Marks a stage as running and prints its `enter` breadcrumb.
+ * @param stage - The stage being entered
+ * @param message - Free text, typically the URL about to be fetched
+ */
+export function EnterStage(stage: ProbeStage, message?: string): void {
+    if (!activeStages.has(stage)) {
+        activeStages.set(stage, Date.now());
+    }
+    RecordStep(stage, `enter${message ? ` ${message}` : ''}`);
+}
+
+/**
+ * Marks a stage as settled and prints its `leave` breadcrumb when it ran long enough.
+ * @param stage - The stage being left
+ * @param message - Free text, typically the amount of work the stage produced
+ * @param force - Print even when the stage was faster than {@link STEP_MIN_MS}
+ */
+export function LeaveStage(stage: ProbeStage, message?: string, force = false): void {
+    const since = activeStages.get(stage);
+    activeStages.delete(stage);
+    if (since === undefined) {
+        return;
+    }
+    const elapsedMs = Date.now() - since;
+    if (!force && elapsedMs < STEP_MIN_MS) {
+        return;
+    }
+    RecordStep(stage, `leave elapsed=${elapsedMs}ms${message ? ` ${message}` : ''}`);
+}
+
+/**
+ * Describes the stages which are currently running, oldest first — the `inner=` of a heartbeat.
+ * @returns e.g. `none` or `reader-extract(+89.5s)`
+ */
+function DescribeActive(): string {
+    if (activeStages.size === 0) {
+        return 'none';
+    }
+    const names: string[] = [];
+    let oldest = Date.now();
+    for (const [stage, since] of activeStages) {
+        names.push(stage);
+        if (since < oldest) {
+            oldest = since;
+        }
+    }
+    return `${names.join('+')}(+${((Date.now() - oldest) / 1000).toFixed(1)}s)`;
+}
+
+/**
+ * Starts a heartbeat which logs a liveness line every {@link HEARTBEAT_MS} until it is stopped.
+ * @param stage - The stage the caller is waiting for
+ * @returns A token to pass to {@link StopHeartbeat}
+ */
+export function StartHeartbeat(stage: ProbeStage): number {
+    const token = ++heartbeatUID;
+    const beat: { stage: ProbeStage; since: number; timer?: ReturnType<typeof setTimeout> } = { stage, since: Date.now() };
+    heartbeats.set(token, beat);
+    const schedule = (): void => {
+        beat.timer = setTimeout(() => {
+            if (!heartbeats.has(token)) {
+                return;
+            }
+            console.warn(`[probe] ${Stamp()} heartbeat stage=${beat.stage} elapsed=${Date.now() - beat.since}ms inner=${DescribeActive()}`);
+            schedule();
+        }, HEARTBEAT_MS);
+    };
+    schedule();
+    return token;
+}
+
+/**
+ * Stops a heartbeat started by {@link StartHeartbeat}. Safe to call for an unknown token.
+ * @param token - The token returned when the heartbeat started
+ */
+export function StopHeartbeat(token: number): void {
+    const beat = heartbeats.get(token);
+    heartbeats.delete(token);
+    if (beat?.timer !== undefined) {
+        clearTimeout(beat.timer);
     }
 }
 
@@ -103,8 +229,10 @@ export function RecordTimeout(input: ProbeInput): ProbeEvent {
     while (events.length > MAX_PROBE_EVENTS) {
         events.shift();
     }
-    console.warn(`[probe] ${event.timedOut ? 'timeout' : 'fail'} stage=${event.stage} budget=${event.budgetMs} elapsed=${event.elapsedMs}${event.url ? ` url=${event.url}` : ''}${event.detail ? ` ${event.detail}` : ''} label="${event.label}"`);
-    console.warn(`[probe] session: ${FormatTimeoutSummary()}`);
+    // The stage settled (badly): it must no longer be reported as running by the heartbeats.
+    activeStages.delete(event.stage);
+    console.warn(`[probe] ${Stamp()} ${event.timedOut ? 'timeout' : 'fail'} stage=${event.stage} budget=${event.budgetMs} elapsed=${event.elapsedMs}${event.url ? ` url=${event.url}` : ''}${event.detail ? ` ${event.detail}` : ''} label="${event.label}"`);
+    console.warn(`[probe] ${Stamp()} session: ${FormatTimeoutSummary()}`);
     return event;
 }
 
@@ -135,8 +263,12 @@ export function GetTimeouts(): readonly ProbeEvent[] {
 }
 
 /**
- * Clears the session history (used by the tests).
+ * Clears the session history, the stage markers and the pending heartbeats (used by the tests).
  */
 export function ResetTimeouts(): void {
+    for (const token of [ ...heartbeats.keys() ]) {
+        StopHeartbeat(token);
+    }
+    activeStages.clear();
     events = [];
 }
