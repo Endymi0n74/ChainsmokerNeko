@@ -80,6 +80,9 @@ const TRAIL_EXCLUSIONS = [ ' heartbeat stage=', ' session: ', ' trail since ', '
 export const MAX_TRAIL_LINES = 300;
 /** Recap lines printed after a timeout: enough context, still readable in one screen. */
 export const MAX_TRAIL_RECAP = 30;
+/** Extra history kept before a stage's start: its `begin` breadcrumb is printed just before the
+ * timer which measures `elapsed` begins, so a razor-sharp cutoff would always hide it. */
+const RECAP_LEAD_IN_MS = 1_500;
 /** Marks the console methods which already carry the trail wrapper (avoids stacking layers). */
 const trailWrapped = new WeakSet<(...args: unknown[]) => void>();
 
@@ -354,7 +357,7 @@ export function GetTimeouts(): readonly ProbeEvent[] {
  * @returns The entries to recap plus the amount of earlier lines left out, or `null` when empty
  */
 function PrepareRecap(elapsedMs: number): { cutoff: number, entries: { at: number, text: string }[], omitted: number } | null {
-    const cutoff = Date.now() - elapsedMs;
+    const cutoff = Date.now() - elapsedMs - RECAP_LEAD_IN_MS;
     const captured = trail.filter(entry => entry.at >= cutoff);
     if (captured.length === 0) {
         return null;

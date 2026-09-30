@@ -643,9 +643,25 @@ export abstract class FetchProvider {
 
         const win = CreateRemoteBrowserWindow();
         let destroyed = false;
+        /** Injection attempts of the script: only the latest one may settle the request. */
+        let scriptAttempts = 0;
+        /** `true` while an attempt is waiting inside `ExecuteScript`. */
+        let scriptInFlight = false;
+        /** Set when a main-frame navigation tore down the document an attempt was running in. */
+        let redispatchOnNextDomReady = false;
 
         win.BeforeWindowNavigate.Subscribe(async uri => {
             invocations.push({ name: 'BeforeNavigate', info: `URL: ${uri.href}` });
+            if (scriptInFlight) {
+                // A navigation destroys the execution context the script is running in: its
+                // `ExecuteScript` then never settles and the caller hangs until its budget
+                // expires (observed on JapScan, where the site navigates a few seconds after
+                // the clearance is issued — right in the middle of the page extraction).
+                // Remember it so the next DOMReady can dispatch the script again on the
+                // document which replaces this one.
+                redispatchOnNextDomReady = true;
+                console.warn(`[KUMO] runScript: main frame navigated to ${uri.href} while attempt=${scriptAttempts} was pending`);
+            }
             return null;
         });
 
@@ -698,9 +714,12 @@ export abstract class FetchProvider {
             const runScript = async () => {
                 if (settled) return;
                 settled = true;
+                const attempt = ++scriptAttempts;
+                scriptInFlight = true;
+                const startedAt = Date.now();
                 // Announce the injection: when a reader timeout leaves no `[JapScan]` line behind,
                 // this tells whether the extraction script was ever executed or never reached.
-                console.warn('[KUMO] runScript: executing for', request?.url);
+                console.warn(`[KUMO] runScript: executing attempt=${attempt} for`, request?.url);
                 try {
                     // Some readers (e.g. JapScan) only paint their pages once the window is
                     // actually visible (IntersectionObserver/lazy loaders pause in a hidden
@@ -710,11 +729,34 @@ export abstract class FetchProvider {
                         await Delay(1500);
                     }
                     await Delay(delay);
+                    console.warn(`[KUMO] runScript: inject attempt=${attempt} after ${Date.now() - startedAt}ms for`, request?.url);
                     const result = await win.ExecuteScript<T>(script);
+                    if (attempt !== scriptAttempts) {
+                        // A newer attempt took over after a navigation: this result belongs to a
+                        // document which no longer exists and must not settle the request.
+                        console.warn(`[KUMO] runScript: attempt=${attempt} superseded, discarding its result for`, request?.url);
+                        return;
+                    }
+                    scriptInFlight = false;
+                    console.warn(`[KUMO] runScript: returned attempt=${attempt} after ${Date.now() - startedAt}ms for`, request?.url);
                     ClearTimeout(cancellation);
                     await destroy();
                     resolve(result);
                 } catch (error) {
+                    if (attempt !== scriptAttempts) {
+                        console.warn(`[KUMO] runScript: attempt=${attempt} superseded, discarding its failure for`, request?.url);
+                        return;
+                    }
+                    scriptInFlight = false;
+                    if (redispatchOnNextDomReady) {
+                        // The navigation killed the script's context mid-flight (Electron settles
+                        // the pending `ExecuteScript` either never or with a frame-disposed error).
+                        // Keep the request pending: the next DOMReady re-dispatches the script on
+                        // the document which replaces this one, instead of failing a chapter whose
+                        // new document is already loading.
+                        console.warn(`[KUMO] runScript: attempt=${attempt} interrupted by navigation, waiting for the new document for`, request?.url, error?.message || error);
+                        return;
+                    }
                     ClearTimeout(cancellation);
                     await destroy();
                     if (error?.message?.includes("Failed to find window")) {
@@ -736,6 +778,20 @@ export abstract class FetchProvider {
                     stop();
                 }
                 stopPollers.length = 0;
+
+                // The document was replaced while an injection was pending (flagged by the
+                // `BeforeWindowNavigate` subscription above): the old attempt runs in a context
+                // which no longer exists and its `ExecuteScript` may hang forever. Unlock the
+                // flow below — challenge detection, grace re-check, `runScript` — so the script
+                // is dispatched again on the document which has just loaded, instead of waiting
+                // for a result that can never arrive.
+                if (redispatchOnNextDomReady) {
+                    redispatchOnNextDomReady = false;
+                    scriptInFlight = false;
+                    settled = false;
+                    invocations.push({ name: 'ScriptRecovery', info: `Document replaced while attempt=${scriptAttempts} was pending, re-dispatching` });
+                    console.warn(`[KUMO] runScript: document replaced while attempt=${scriptAttempts} was pending, re-dispatching for`, request?.url);
+                }
 
                 // Re-baseline the clearance for the document that just loaded (before any
                 // challenge detection delay), so only a clearance issued from here on can

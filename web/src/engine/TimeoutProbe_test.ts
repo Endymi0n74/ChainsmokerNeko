@@ -207,7 +207,8 @@ describe('TimeoutProbe', () => {
 
     it('Should recap the trail since the start of the stage which timed out', () => {
         const base = Date.now();
-        NoteTrail('[probe] step stage=chapter-update begin url=https://www.japscan.lol/manga/demo/94/', base - 10_000);
+        NoteTrail('[KUMO] stale entry from an earlier stage', base - 10_000);
+        NoteTrail('[probe] step stage=chapter-update begin url=? label="Chapter update for Chapitre 94"', base - 1_000);
         NoteTrail('[probe] step stage=reader-extract enter url=https://www.japscan.lol/manga/demo/94/', base + 100);
         NoteTrail('[KUMO] runScript: executing for https://www.japscan.lol/manga/demo/94/', base + 150);
         NoteTrail('[ReaderWindow:4] [info] [JapScan] budget: phase=wait DEADLINE ok', base + 4_000);
@@ -216,13 +217,15 @@ describe('TimeoutProbe', () => {
         RecordTimeout({ stage: 'chapter-update', label: 'Chapter update for Chapitre 94', budgetMs: 300_000, elapsedMs: 5_000, error: new Error('Chapter update for Chapitre 94 timed out after 300000ms') });
 
         const output = lines();
-        expect(output).toHaveLength(6); // timeout + session + recap header + 3 captured lines
-        expect(output[2]).toMatch(/\[probe\] \+\d+:\d{2}\.\d trail since \+\d+:\d{2}\.\d \(3 line\(s\)\):/);
-        expect(output[3]).toContain('step stage=reader-extract enter');
-        expect(output[4]).toContain('[KUMO] runScript: executing');
-        expect(output[5]).toContain('[ReaderWindow:4] [info] [JapScan] budget');
-        // Everything printed before the stage started stays out of its recap.
-        expect(output.join('\n')).not.toContain('chapter-update begin');
+        expect(output).toHaveLength(7); // timeout + session + recap header + 4 captured lines
+        expect(output[2]).toMatch(/\[probe\] \+\d+:\d{2}\.\d trail since \+\d+:\d{2}\.\d \(4 line\(s\)\):/);
+        // The stage's own `begin` sits in the lead-in window just before its timer started.
+        expect(output[3]).toContain('step stage=chapter-update begin');
+        expect(output[4]).toContain('step stage=reader-extract enter');
+        expect(output[5]).toContain('[KUMO] runScript: executing');
+        expect(output[6]).toContain('[ReaderWindow:4] [info] [JapScan] budget');
+        // Everything printed before the lead-in window stays out of the recap.
+        expect(output.join('\n')).not.toContain('stale entry from an earlier stage');
     });
 
     it('Should recap at most the last lines of a long stage', () => {
