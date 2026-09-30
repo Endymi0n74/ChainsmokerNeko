@@ -3,7 +3,7 @@
     import { Tile } from 'carbon-components-svelte';
     import { fade } from 'svelte/transition';
     import Suggestions from '../Suggestions.svelte';
-    import Documentation from './Documentation.svelte';
+    import WhatsNew from './WhatsNew.svelte';
 </script>
 
 <div id="Home" in:fade>
@@ -15,10 +15,10 @@
                 src={Logo}
                 style="height:3em;"
             />
-            <strong>ChainsmokerNeko</strong> was made to help users who download media
-            for circumstances that requires offline usage. <br />
-            The philosophy is <u>ad-hoc consumption</u>, get it when you want to
-            read/watch it.
+            <strong>ChainsmokerNeko</strong> is a fork of HaruNeko: same interface, same
+            connectors, and its own releases — the application updates itself from them.<br />
+            The philosophy is <u>ad-hoc consumption</u>: download what you want to read or
+            watch, when you want it, instead of stocking up thousands of chapters.
         </p>
         <p class="credits">
             ChainsmokerNeko is a fork of
@@ -29,9 +29,7 @@
         </p>
     </Tile>
     <Suggestions />
-    <Tile id="documentation" class="border ">
-        <Documentation />
-    </Tile>
+    <WhatsNew />
 </div>
 
 <style>
