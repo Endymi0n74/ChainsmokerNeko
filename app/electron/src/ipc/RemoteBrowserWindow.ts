@@ -7,6 +7,13 @@ import { RemoteBrowserWindowController as Channels } from '../../../src/ipc/Chan
 
 export class RemoteBrowserWindowController {
 
+    /**
+     * Windows destroyed through our own `CloseWindow` IPC. A window which disappears without
+     * this marker (the user closes it, the renderer crashes, the OS reclaims it) looks exactly
+     * like our own close to the web side — it only ever gets `Failed to find window with id N`.
+     */
+    private readonly closingWindows = new Set<number>();
+
     constructor (private readonly ipc: IPC<Channels.Web, Channels.App>) {
         this.ipc.Listen(Channels.App.OpenWindow, this.OpenWindow.bind(this) as Callback<number>);
         this.ipc.Listen(Channels.App.CloseWindow, this.CloseWindow.bind(this) as Callback);
@@ -46,6 +53,19 @@ export class RemoteBrowserWindowController {
         win.autoHideMenuBar = true;
         win.setMenuBarVisibility(false);
         win.webContents.debugger.attach('1.3');
+        const windowID = win.id;
+        // Announce a window which disappears on its own into the app console (F12): the web side
+        // only ever reports `Failed to find window with id N`, which cannot say whether the flow
+        // closed the window or whether it died under it (a crashed renderer closes the window
+        // too, and looks identical from the poller's side).
+        win.on('closed', () => {
+            if (!this.closingWindows.delete(windowID)) {
+                this.ipc.Send(Channels.Web.OnConsoleMessage, windowID, 'warning', `[ReaderWindow:${windowID}] [warning] window closed without CloseWindow (user, crash or OS)`);
+            }
+        });
+        win.webContents.on('render-process-gone', (_event, details) => {
+            this.ipc.Send(Channels.Web.OnConsoleMessage, windowID, 'error', `[ReaderWindow:${windowID}] [error] renderer gone: ${details.reason}`);
+        });
         win.webContents.setWindowOpenHandler(() => { return { action: 'deny' }; });
         // Route the reader window's in-page console output into the main-process log
         // (captured e.g. via `--enable-logging`) so extraction-script diagnostics are
@@ -62,8 +82,10 @@ export class RemoteBrowserWindowController {
             // Relay our own extraction diagnostics into the renderer console (F12): the reader
             // window's output is otherwise only readable with `--enable-logging`, which leaves a
             // 300 s reader timeout unexplainable from within the app. Filtered on the `[JapScan]`
-            // and `[KUMO]` prefixes so the website's console spam never crosses the IPC.
-            if (details.message.startsWith('[JapScan]') || details.message.startsWith('[KUMO]')) {
+            // and `[KUMO]` prefixes so the website's console spam never crosses the IPC — plus
+            // every page error, which is rare and exactly what a Cloudflare widget that never
+            // mounts looks like (api.js blocked by the network or by CSP, Turnstile failing).
+            if (details.message.startsWith('[JapScan]') || details.message.startsWith('[KUMO]') || level === 'error') {
                 this.ipc.Send(Channels.Web.OnConsoleMessage, win.id, level, line);
             }
         });
@@ -77,6 +99,8 @@ export class RemoteBrowserWindowController {
         const win = BrowserWindow.fromId(windowID);
         if (!win || win.isDestroyed()) return;
         if (win.webContents.debugger.isAttached()) win.webContents.debugger.detach();
+        // Mark our own close so the `closed` handler does not report it as an external one.
+        this.closingWindows.add(windowID);
         win.destroy();
     }
 

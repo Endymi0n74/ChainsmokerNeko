@@ -35,14 +35,26 @@ export function NormalizeClearance(value: string | undefined): string {
  *
  * @param previous - The baseline, or `undefined` when no read succeeded yet.
  * @param raw - The raw cookie value just read (`undefined` when the read itself failed).
- * @returns The baseline to keep and whether a genuinely NEW clearance was observed.
+ * @param seen - Every value observed so far by this poller; when provided, a value which differs
+ * from the baseline but was already seen is reported as `reappeared` (churn) instead of a new
+ * solve — several `cf_clearance` cookies scoped to the same URL can alternate between reads.
+ * @returns The baseline to keep, whether a genuinely NEW clearance was observed, and whether the
+ * observed change merely cycled back to a value already seen.
  */
-export function NextClearanceState(previous: string | undefined, raw: string | undefined): { baseline: string | undefined; changed: boolean } {
-    if (raw === undefined) return { baseline: previous, changed: false };
+export function NextClearanceState(previous: string | undefined, raw: string | undefined, seen?: Set<string>): { baseline: string | undefined; changed: boolean; reappeared: boolean } {
+    if (raw === undefined) return { baseline: previous, changed: false, reappeared: false };
     const value = NormalizeClearance(raw);
-    if (previous === undefined) return { baseline: value, changed: false };
-    if (value && value !== previous) return { baseline: value, changed: true };
-    return { baseline: previous, changed: false };
+    if (previous === undefined) {
+        if (seen && value) seen.add(value);
+        return { baseline: value, changed: false, reappeared: false };
+    }
+    if (value && value !== previous) {
+        const reappeared = !!seen?.has(value);
+        if (seen) seen.add(value);
+        return { baseline: value, changed: true, reappeared };
+    }
+    if (seen && value) seen.add(value);
+    return { baseline: previous, changed: false, reappeared: false };
 }
 
 /**
@@ -56,6 +68,27 @@ export const CHALLENGE_RECOVERY_COOLDOWN = 60_000;
  * flow itself, managed challenges get enough headroom to complete their proof phase.
  */
 export const CHALLENGE_RECOVERY_BUDGET = 180_000;
+
+/**
+ * Grace period [ms] between a `cf_clearance` change and the injection of the extraction script:
+ * the cookie proves the challenge was solved, but the challenge document may still be the
+ * current one because the post-solve navigation has not committed yet (or the site removes its
+ * overlay in place a moment later). Injecting during that window runs the extraction against the
+ * challenge DOM and returns nothing — the chapter list came back empty and was then cached for
+ * an hour. Solvers whose page never replaces the challenge get their script after the grace
+ * period anyway (bounded wait, never an endless one).
+ */
+export const COOKIE_CLEARANCE_DOM_GRACE = 30_000;
+
+/**
+ * Minimum age [ms] of the current challenge document before a stalled-challenge reload is
+ * allowed. Cloudflare and the site's own overlay inject their clickable control a few
+ * seconds *after* the load: reloading before it exists resets the proof phase, which is the
+ * `ReloadStalledCloudFlareChallenge: reload #1/3` loop observed on JapScan (the widget was
+ * reported absent at `poll#1`, roughly 4 s after the load, and the check fired at ~5 s).
+ * The widget-presence test below still vetoes any reload once the control is rendered.
+ */
+export const CHALLENGE_WIDGET_RENDER_GRACE = 12_000;
 
 /** Matches the exceptions raised when Cloudflare rejected a request (challenge header or plain 403). */
 const ChallengeErrorPattern = /^(?:Derived)?Exception<FetchProvider_Fetch_(?:CloudFlareChallenge|Forbidden)>$/;
@@ -81,6 +114,71 @@ const ChallengeContentPattern = /cdn-cgi\/challenge-platform|challenges\.cloudfl
  */
 export function IsCloudFlareChallengePage(content: string): boolean {
     return ChallengeContentPattern.test(content);
+}
+
+/** What a poll round of the challenge poller should do with the extraction script. */
+export type ScriptInjectionAction = 'inject' | 'hold' | 'force' | 'wait';
+
+/**
+ * Decides whether the extraction script may start after a poll round.
+ *
+ * A `cf_clearance` change is the authoritative "solved" signal (the cookie check in the poller),
+ * but it can arrive while the challenge document is still loaded: the post-solve navigation has
+ * not committed yet, the site removes its overlay in place moments later, or the change belongs
+ * to a solve performed in a previous window (every window baselines the cookie when it opens).
+ * Injecting at that instant runs the extraction against the challenge DOM and returns an empty
+ * result — the observed "0 items" chapter lists. The injection is therefore held back until the
+ * document replaces the challenge, bounded by {@link COOKIE_CLEARANCE_DOM_GRACE} so cookie-only
+ * solvers (whose page never navigates) still get their script.
+ *
+ * The deadline is **absolute**: it is anchored to the first held change and enforced even while
+ * the clearance keeps changing. Cloudflare rotates `cf_clearance` on every poll round while the
+ * challenge page sits (observed on JapScan: poll#1 at 7340 ms and poll#2 at 11915 ms of the same
+ * document, both reporting a change), and restarting the grace on each of them made the hold
+ * endless — the injection never happened and the window ended on its own timeout with an
+ * exception instead of a result.
+ * @param cleared - Whether the poll round considers the challenge resolved.
+ * @param clearanceNote - Why the cookie check settled (or did not settle) this round.
+ * @param cookieSolvedAt - Time [ms] at which the first cookie change was held back, otherwise `undefined`.
+ * @param now - The current time [ms].
+ * @returns The (possibly adjusted) injection flag, the pending-hold timestamp, and what happened.
+ */
+export function PlanScriptInjection(cleared: boolean, clearanceNote: string, cookieSolvedAt: number | undefined, now: number): { cleared: boolean; cookieSolvedAt: number | undefined; action: ScriptInjectionAction } {
+    if (cleared && clearanceNote === 'changed') {
+        // Fresh cookie change on a still-challenged document: start (or continue) the hold,
+        // keeping the deadline of the first change instead of pushing it further away.
+        if (cookieSolvedAt === undefined) return { cleared: false, cookieSolvedAt: now, action: 'hold' };
+        if (now - cookieSolvedAt >= COOKIE_CLEARANCE_DOM_GRACE) return { cleared: true, cookieSolvedAt: undefined, action: 'force' };
+        return { cleared: false, cookieSolvedAt, action: 'hold' };
+    }
+    if (!cleared && cookieSolvedAt !== undefined && now - cookieSolvedAt >= COOKIE_CLEARANCE_DOM_GRACE) {
+        // The document never replaced the challenge within the grace period: inject anyway
+        // instead of waiting for the poller/window timeout (the pre-hold behaviour).
+        return { cleared: true, cookieSolvedAt: undefined, action: 'force' };
+    }
+    // A DOM-cleared round injects immediately; everything else keeps waiting for the next poll.
+    return { cleared, cookieSolvedAt, action: cleared ? 'inject' : 'wait' };
+}
+
+/**
+ * Decides what the stalled-challenge check may do with a challenge document that currently
+ * renders no control (see the caller in `ReloadStalledCloudFlareChallenge`).
+ *
+ * Takes the check's observations: `isChallenge` (the document is a challenge interstitial),
+ * `hasRealWidget` (a control is rendered right now - never reload then), `widgetEverSeen`
+ * (a control was rendered by an earlier check of this document), `age` (milliseconds the
+ * current document has existed, undefined = unknown), `freshClearance` (this document issued
+ * a new cf_clearance: Cloudflare rotates without redirecting, the documented stall) and
+ * `remaining` (reloads left in the budget).
+ * @returns `'reload'` to restart the document, `'defer'` while the document is younger than
+ * `CHALLENGE_WIDGET_RENDER_GRACE` (a slow widget must not be reset), `'wait'` to keep watching
+ * without reloading.
+ */
+export function PlanStalledChallengeReload(options: { isChallenge: boolean; hasRealWidget: boolean; widgetEverSeen: boolean; age: number | undefined; freshClearance: boolean; remaining: number }): 'reload' | 'defer' | 'wait' {
+    if (options.remaining <= 0 || !options.isChallenge || options.hasRealWidget) return 'wait';
+    if (!options.freshClearance && options.widgetEverSeen) return 'wait';
+    if (typeof options.age !== 'number' || Number.isNaN(options.age) || options.age < CHALLENGE_WIDGET_RENDER_GRACE) return 'defer';
+    return 'reload';
 }
 
 /**
@@ -124,6 +222,254 @@ const ChallengePageSelectors = [
     '.h-captcha',
     '[name="cf-turnstile-response"]',
 ].join(', ');
+
+/**
+ * Expression injected into the challenge page by both the stalled-reload check and the
+ * Cloudflare detection script. It resolves to `{ widget, frames, dom, age, announce }`:
+ *
+ * - `widget`: a visible interactive control exists somewhere in this document — a Turnstile
+ *   or captcha frame (matched by its source, in the light DOM, in a nested same-origin frame
+ *   or inside a shadow root) or a rendered control (`input`, `label`, checkbox semantics,
+ *   Turnstile wrapper). The interstitial reported on JapScan showed the clickable box while
+ *   every selector above returned nothing, so the stalled-challenge reload kept resetting
+ *   the very challenge the user was about to click.
+ * - `frames`: number of child frames plus a compact inventory of every one of them (hidden
+ *   ones marked), and any selector error — appended to the `[KUMO] poll#` trace. A widget
+ *   the probes still miss identifies itself here instead of leaving a bare `widget=false`.
+ * - `dom`: when no widget was found, a compact inventory of the challenge-looking elements
+ *   (ids/classes carrying cf/chl/captcha/challenge/widget/overlay, controls, canvas/svg …, the
+ *   ones sitting out of the layout marked) plus a shallow walk of the body, so the markup
+ *   hosting the real control — or the leftover container proving `cf=true` is a false positive
+ *   — shows up in the console dump.
+ * - `age`: milliseconds since this document was created (`performance.now()`), used to hold
+ *   the stalled reload back until the widget had time to render — Cloudflare and the site
+ *   overlay inject their control a few seconds *after* the load, and reloading before that
+ *   resets the proof phase (the `reload #1/3` loop).
+ * - `announce`: what the page declares about a pending challenge before any control is
+ *   rendered — the site's own flag (`window.__captcha`) and Cloudflare's boot options
+ *   (`__cf_chl_opt`). It separates "challenge announced, widget not rendered yet" from "no
+ *   challenge at all", which is what `widget=false` on a bare body could never tell.
+ *
+ * Exported so the unit tests can evaluate it against a fake DOM.
+ */
+export const CHALLENGE_WIDGET_PROBE = `(() => {
+    const result = { widget: false, frames: '', dom: '', age: 0, announce: '' };
+    try {
+        result.age = Math.round(performance.now());
+    } catch (error) {
+        result.age = 0;
+    }
+    const boxOf = (node) => {
+        try {
+            const box = node.getBoundingClientRect();
+            return box ? { width: box.width, height: box.height } : null;
+        } catch (error) {
+            return null;
+        }
+    };
+    const visible = (box) => !!box && box.width > 0 && box.height > 0;
+    const attribute = (node, name) => {
+        try {
+            return String(node.getAttribute(name) || '');
+        } catch (error) {
+            return '';
+        }
+    };
+    const challengeSource = (node) => {
+        const source = attribute(node, 'src').toLowerCase();
+        return source.includes('challenges.cloudflare.com')
+            || source.includes('turnstile')
+            || source.includes('recaptcha')
+            || source.includes('hcaptcha');
+    };
+    const nameOf = (node) => {
+        let id = '';
+        let classes = '';
+        try {
+            id = node.id ? '#' + String(node.id).slice(0, 30) : '';
+            const raw = typeof node.className === 'string' ? node.className : '';
+            classes = raw.trim() ? '.' + raw.trim().split(' ').filter(Boolean).slice(0, 2).join('.').slice(0, 40) : '';
+        } catch (error) {
+            id = '';
+            classes = '';
+        }
+        return String(node.tagName || '?').toLowerCase() + id + classes;
+    };
+    const errors = [];
+    // Every child frame of this document, hidden or not: a widget frame which never opens
+    // (size 0) is as interesting as a missing one when the checkbox is on screen.
+    let childFrames = -1;
+    const inventory = [];
+    try {
+        const frames = Array.prototype.slice.call(document.querySelectorAll('iframe, frame, embed, object'));
+        childFrames = frames.length;
+        for (let index = 0; index < frames.length && inventory.length < 8; index++) {
+            const box = boxOf(frames[index]);
+            const size = Math.round(box ? box.width : 0) + 'x' + Math.round(box ? box.height : 0);
+            inventory.push(size + (visible(box) ? ' ' + attribute(frames[index], 'src').slice(0, 60) : ' (hidden)'));
+        }
+    } catch (error) {
+        errors.push('frames:' + error.message);
+    }
+    const visit = (root, depth) => {
+        if (!root || result.widget || depth > 4) return;
+        let nodes = [];
+        try {
+            nodes = Array.prototype.slice.call(root.querySelectorAll('iframe, frame, embed, object, input, label, [role="checkbox"], [class*="checkbox" i], [class*="turnstile" i], [id*="turnstile" i]'));
+        } catch (error) {
+            errors.push('sel:' + error.message);
+            return;
+        }
+        for (let index = 0; index < nodes.length && !result.widget; index++) {
+            const node = nodes[index];
+            const box = boxOf(node);
+            const tag = String(node.tagName || '').toUpperCase();
+            if (tag === 'IFRAME' || tag === 'FRAME' || tag === 'EMBED' || tag === 'OBJECT') {
+                // A hidden frame cannot host a clickable control: skip it entirely.
+                if (!visible(box)) continue;
+                if (challengeSource(node)) {
+                    result.widget = true;
+                    return;
+                }
+                let child = null;
+                try {
+                    child = node.contentDocument;
+                } catch (error) {
+                    child = null;
+                }
+                if (child) visit(child, depth + 1);
+            } else if (visible(box)) {
+                // A rendered control or Turnstile wrapper on the interstitial IS what the
+                // user clicks: its markup is not covered by the selectors above.
+                result.widget = true;
+                return;
+            }
+        }
+        if (result.widget || depth > 1) return;
+        let all = [];
+        try {
+            all = Array.prototype.slice.call(root.querySelectorAll('*'));
+        } catch (error) {
+            errors.push('walk:' + error.message);
+            return;
+        }
+        for (let index = 0; index < all.length && !result.widget; index++) {
+            if (all[index] && all[index].shadowRoot) visit(all[index].shadowRoot, depth + 1);
+        }
+    };
+    const describe = (root) => {
+        const lines = [];
+        try {
+            const interesting = Array.prototype.slice.call(root.querySelectorAll('[id*="cf" i], [class*="cf" i], [id*="chl" i], [class*="chl" i], [id*="captcha" i], [class*="captcha" i], [id*="challenge" i], [class*="challenge" i], [id*="widget" i], [class*="widget" i], [id*="overlay" i], [class*="overlay" i], [class*="turnstile" i], [role="checkbox"], label, input, button, textarea, iframe, embed, object, canvas, svg, [src*="cloudflare" i], [src*="cdn-cgi" i], [href*="cdn-cgi" i]'));
+            const visibleFirst = [];
+            const hiddenRest = [];
+            for (let index = 0; index < interesting.length; index++) {
+                const box = boxOf(interesting[index]);
+                if (!box) continue;
+                // Hidden matches matter as much as visible ones: a challenge container which
+                // sits in the DOM but out of the layout means isChallenge matched a solved
+                // (or not yet rendered) interstitial — the false-positive hypothesis. Visible
+                // entries are kept first so a common hidden form control never pushes the
+                // rendered challenge markup out of the dump.
+                const size = Math.round(box.width) + 'x' + Math.round(box.height);
+                // The source tells WHICH resource an entry is: a script src pointing at
+                // challenges.cloudflare.com proves the widget bootstrap was at least requested
+                // (its absence means the Turnstile api.js never even arrived), which the bare
+                // tag+size cannot say.
+                const node = interesting[index];
+                const ref = (node.getAttribute && (node.getAttribute('src') || node.getAttribute('href'))) || '';
+                const entry = nameOf(node) + ' ' + size + (ref ? ' ' + String(ref).slice(0, 80) : '') + (visible(box) ? '' : ' (hidden)');
+                if (visible(box)) {
+                    visibleFirst.push(entry);
+                } else {
+                    hiddenRest.push(entry);
+                }
+                if (visibleFirst.length >= 14) break;
+            }
+            for (let index = 0; index < visibleFirst.length && lines.length < 14; index++) {
+                lines.push(visibleFirst[index]);
+            }
+            for (let index = 0; index < hiddenRest.length && lines.length < 14; index++) {
+                lines.push(hiddenRest[index]);
+            }
+            if (lines.length < 6) {
+                const shallow = Array.prototype.slice.call(root.querySelectorAll('body > *, body > * > *'));
+                for (let index = 0; index < shallow.length && lines.length < 18; index++) {
+                    const box = boxOf(shallow[index]);
+                    if (!visible(box)) continue;
+                    const entry = nameOf(shallow[index]) + ' ' + Math.round(box.width) + 'x' + Math.round(box.height);
+                    if (lines.indexOf(entry) === -1) lines.push(entry);
+                }
+            }
+        } catch (error) {
+            return 'ERR:' + error.message;
+        }
+        return lines.join(' | ');
+    };
+    // A positioned element covering most of the viewport IS the blocking challenge UI even
+    // when it hosts no iframe and no form control: a site's own overlay (JapScan's security
+    // page, the #jc-overlay node) is a plain positioned layer, which is why every selector
+    // above misses it while the user is looking at something to click. Reloading that
+    // document resets the control (the ReloadStalledCloudFlareChallenge reload loop), so a
+    // covering layer counts as a widget, and names itself in "dom" for the console dump.
+    const covering = (root) => {
+        if (typeof window === 'undefined') return null;
+        try {
+            const width = window.innerWidth || document.documentElement.clientWidth || 0;
+            const height = window.innerHeight || document.documentElement.clientHeight || 0;
+            if (!width || !height) return null;
+            const nodes = Array.prototype.slice.call(root.querySelectorAll('body *'));
+            for (let index = 0; index < nodes.length; index++) {
+                const node = nodes[index];
+                const tag = String(node.tagName || '').toUpperCase();
+                if (tag === 'BODY' || tag === 'HTML') continue;
+                const box = boxOf(node);
+                if (!visible(box)) continue;
+                if (box.width < width * 0.4 || box.height < height * 0.4) continue;
+                let position = '';
+                try {
+                    position = window.getComputedStyle(node).position || '';
+                } catch (error) {
+                    position = '';
+                }
+                if (position === 'fixed' || position === 'absolute' || position === 'sticky') return node;
+            }
+        } catch (error) {
+            errors.push('overlay:' + error.message);
+        }
+        return null;
+    };
+    // What the page itself announces: the site sets a flag BEFORE rendering its own overlay,
+    // and Cloudflare boots with an options object. The trace can then tell "challenge
+    // announced but no control rendered yet" from "no challenge at all" — which decides
+    // whether the window is waiting for a widget or stuck on a false positive.
+    const announce = [];
+    try {
+        if (typeof window !== 'undefined') {
+            if (window.__captcha) announce.push('captcha=' + String(window.__captcha.needed));
+            if (window.__cf_chl_opt || window._cf_chl_opt) announce.push('cf-chl=1');
+        }
+    } catch (error) {
+        announce.push('err=' + error.message);
+    }
+    result.announce = announce.join(' ');
+    visit(document, 0);
+    if (!result.widget) {
+        const blocker = covering(document);
+        if (blocker) {
+            const box = boxOf(blocker);
+            result.widget = true;
+            result.dom = 'overlay ' + nameOf(blocker) + ' ' + Math.round(box ? box.width : 0) + 'x' + Math.round(box ? box.height : 0);
+        } else {
+            result.dom = describe(document);
+        }
+    }
+    let head = 'child=' + childFrames;
+    if (errors.length) head += ' err=' + errors.join(' ');
+    if (inventory.length) head += ' ' + inventory.join(' | ');
+    result.frames = head;
+    return result;
+})()`;
 
 export abstract class FetchProvider {
 
@@ -189,7 +535,12 @@ export abstract class FetchProvider {
      * {@link ShouldUseForkChallengeHandling}, and the cooldown suppresses repeated attempts).
      */
     protected async RecoverFromChallenge(request: Request): Promise<boolean> {
-        if (request.method !== 'GET' || !ShouldUseForkChallengeHandling(request.url)) {
+        const method = request.method;
+        const optedIn = ShouldUseForkChallengeHandling(request.url);
+        if (method !== 'GET' || !optedIn) {
+            // Without this line a declined recovery looked exactly like one that never ran: the
+            // error surfaced with no trace of why no window opened (same gap as the cooldown above).
+            console.warn(`[KUMO] Fetch: challenge recovery not applicable for ${request.url} (method=${method}, opted-in=${optedIn})`);
             return false;
         }
         const origin = new URL(request.url).origin;
@@ -199,10 +550,17 @@ export abstract class FetchProvider {
             return true;
         }
         if (Date.now() - (this.#challengeRecoveryStamps.get(origin) ?? 0) < CHALLENGE_RECOVERY_COOLDOWN) {
+            // Without this line a cooldown-suppressed recovery looked exactly like a fetch that
+            // never met a challenge: the error reached the UI with no trace of why no window opened.
+            console.warn('[KUMO] Fetch: challenge recovery suppressed by cooldown for', origin);
             return false;
         }
         this.#challengeRecoveryStamps.set(origin, Date.now());
-        const recovery = this.FetchWindowScript(new Request(request.url), '() => true', undefined, CHALLENGE_RECOVERY_BUDGET, false)
+        // NOTE: The script is evaluated verbatim by `executeJavaScript` — it must be an
+        // *expression* producing a structured-cloneable value. A function string such as
+        // `'() => true'` evaluates to a Function object, which the IPC layer cannot clone
+        // ("An object could not be cloned") and the recovery window would always fail.
+        const recovery = this.FetchWindowScript(new Request(request.url), 'true', undefined, CHALLENGE_RECOVERY_BUDGET, false)
             .then(() => undefined)
             .catch((error: unknown) => console.warn('[KUMO] Fetch: challenge recovery failed for', origin, error))
             .finally(() => this.#challengeRecoveries.delete(origin));
@@ -440,21 +798,56 @@ export abstract class FetchProvider {
 
         const checkScript = `
             (() => {
-                const hasRealWidget = !!document.querySelector('${ChallengeWidgetSelectors}');
                 const title = (document.title || '').toLowerCase();
                 const bodyText = (document.body?.innerText || '').toLowerCase();
-                const isChallenge = title.includes('just a moment')
-                    || title.includes('un instant')
-                    || bodyText.includes('checking your browser')
+                // Cloudflare serves the interstitial localized (FR here): normalize the
+                // accents so the French markers match like 'just a moment' does.
+                const plainText = bodyText.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+                const titleHit = title.includes('just a moment') || title.includes('un instant');
+                const bodyHit = bodyText.includes('checking your browser')
                     || bodyText.includes('verify you are human')
                     || bodyText.includes('attention required')
-                    || !!document.querySelector('${ChallengePageSelectors}');
+                    || plainText.includes('verifiez que vous etes humain')
+                    || plainText.includes('verification de securite en cours');
+                // Which structural selector matched, if any: the trace has to tell a real
+                // interstitial from a page still carrying a leftover, hidden container.
+                const selectorHit = '${ChallengePageSelectors}'.split(',').map(part => part.trim()).find(part => {
+                    try {
+                        return !!document.querySelector(part);
+                    } catch (error) {
+                        return false;
+                    }
+                }) || '';
+                const isChallenge = titleHit || bodyHit || !!selectorHit;
+                const why = [ titleHit && 'title', bodyHit && 'body', selectorHit && 'sel:' + selectorHit ].filter(Boolean).join('+');
+                // The clickable Turnstile checkbox ("Vérifiez que vous êtes humain") can be
+                // rendered outside the interstitial markup above (JapScan's security page):
+                // without the deep probe the page looked widget-less, so the stalled-challenge
+                // reload kept resetting the very challenge the user was about to click,
+                // while Cloudflare rotated cf_clearance on every load (false "solved" signal).
+                // The probe walks nested frames/shadow roots and is only paid when this
+                // document really is a challenge; its frame/element inventory feeds the poll
+                // trace, and "age" tells how long this document has existed (see the render
+                // grace in doCheck below).
+                const probe = isChallenge ? ${CHALLENGE_WIDGET_PROBE} : { widget: false, frames: '', dom: '', age: 0, announce: '' };
                 return {
                     isChallenge,
-                    hasRealWidget
+                    hasRealWidget: probe.widget || !!document.querySelector('${ChallengeWidgetSelectors}'),
+                    frames: probe.frames,
+                    dom: probe.dom,
+                    age: probe.age,
+                    announce: probe.announce,
+                    why
                 };
             })()
         `;
+
+        // Set as soon as one check observes a rendered control: from then on a reload could reset
+        // a challenge the user is interacting with, so only the documented fresh-clearance stall
+        // may restart the document (reason (b) below). Scoped to the current document: a control
+        // seen on a replaced document says nothing about what the user can click here.
+        let widgetEverSeen = false;
+        let lastAge: number | undefined = undefined;
 
         const doCheck = async () => {
             if (stopped || budget.remaining <= 0 || budget.reloadInFlight) return;
@@ -462,34 +855,74 @@ export abstract class FetchProvider {
                 const result = await win.ExecuteScript<{
                     isChallenge: boolean;
                     hasRealWidget: boolean;
+                    frames?: string;
+                    dom?: string;
+                    age?: number;
                 }>(checkScript);
 
+                // The probe's age is the current document's own clock (performance.now), so it
+                // goes back on every navigation - including the reloads issued below.
+                if (typeof result?.age === 'number') {
+                    if (lastAge !== undefined && result.age < lastAge) widgetEverSeen = false;
+                    lastAge = result.age;
+                }
+                if (result?.hasRealWidget) widgetEverSeen = true;
+
                 if (result?.isChallenge && !result?.hasRealWidget) {
-                    // NOTE: `cf_clearance` is httpOnly, so `document.cookie` can never see it.
-                    // Read the cookie through the debugger (CDP) instead — same session, httpOnly visible.
-                    const clearance = await this.ReadClearance(win, url);
-                    if (clearance === undefined) {
-                        // Debugger not ready (navigation just happened): retry on the next cycle
-                        // instead of falling back to a baseline-less (and thus harmful) reload.
+                    // Two independent reasons to restart the document, both still gated by the
+                    // render grace (see PlanStalledChallengeReload):
+                    //  (a) NO control was ever rendered here. Once the render grace has elapsed
+                    //      there is nothing a reload could reset, so the reload is deterministic.
+                    //      The previous gate relied solely on a fresh cf_clearance, which on
+                    //      JapScan alternates between two cookie values (trace `clr=reappeared`)
+                    //      and therefore matched only about half of the checks - the reload never
+                    //      fired at all (trace `nav=0` on a 20 s old challenge document).
+                    //  (b) the documented stall: this document issued a NEW cf_clearance while
+                    //      staying on the challenge (Cloudflare rotates without redirecting).
+                    let clearance = '';
+                    let freshClearance = false;
+                    if (widgetEverSeen) {
+                        // NOTE: `cf_clearance` is httpOnly, so `document.cookie` can never see it.
+                        // Read the cookie through the debugger (CDP) instead - same session, httpOnly visible.
+                        const read = await this.ReadClearance(win, url);
+                        if (read === undefined) {
+                            // Debugger not ready (navigation just happened): retry on the next cycle
+                            // instead of falling back to a baseline-less (and thus harmful) reload.
+                            return;
+                        }
+                        if (clearanceBaseline === undefined) {
+                            // First successful read establishes the baseline for this document.
+                            clearanceBaseline = read;
+                            return;
+                        }
+                        clearance = read;
+                        freshClearance = !!read && read !== clearanceBaseline && read !== budget.lastReloadedClearance;
+                    }
+                    const plan = PlanStalledChallengeReload({
+                        isChallenge: result.isChallenge,
+                        hasRealWidget: !!result.hasRealWidget,
+                        widgetEverSeen,
+                        age: result.age,
+                        freshClearance,
+                        remaining: budget.remaining
+                    });
+                    if (plan === 'defer') {
+                        const age = typeof result.age === 'number' ? `${result.age}ms` : 'unknown';
+                        console.warn(`[KUMO] ReloadStalledCloudFlareChallenge: deferred, challenge document is only ${age} old (waiting ${CHALLENGE_WIDGET_RENDER_GRACE}ms for the widget to render) for`, url);
+                        invocations.push({ name: 'ReloadStalledCloudFlareChallenge', info: `deferred: document age ${age} < ${CHALLENGE_WIDGET_RENDER_GRACE}ms render grace` });
                         return;
                     }
-                    if (clearanceBaseline === undefined) {
-                        // First successful read establishes the baseline for this document.
-                        clearanceBaseline = clearance;
-                        return;
-                    }
-                    // Reload ONLY when this document issued a NEW clearance: a stale or IP-bound
-                    // cookie keeps the page on the challenge forever, but reloading it only resets
-                    // the in-progress Turnstile — that is the visible loop reported on CrunchyScan.
-                    if (budget.remaining > 0 && clearance && clearance !== clearanceBaseline && clearance !== budget.lastReloadedClearance) {
+                    if (plan === 'reload') {
                         budget.remaining--;
                         budget.lastReloadedClearance = clearance;
                         budget.reloadInFlight = true;
                         reloadCount++;
+                        const age = typeof result.age === 'number' ? `${result.age}ms` : 'unknown';
                         invocations.push({
                             name: 'ReloadStalledCloudFlareChallenge',
-                            info: `Reload #${reloadCount}/${maxReloads} (managed challenge, no widget, fresh cf_clearance=${clearance.length})`
+                            info: `Reload #${reloadCount}/${maxReloads} (managed challenge, no widget, age ${age}${freshClearance ? ', fresh cf_clearance' : ''})`
                         });
+                        console.warn(`[KUMO] ReloadStalledCloudFlareChallenge: reload #${reloadCount}/${maxReloads} (no control rendered for ${age}) for`, url);
                         try {
                             await win.ExecuteScript('window.location.reload()');
                         } finally {
@@ -506,11 +939,17 @@ export abstract class FetchProvider {
         let scheduleAttempt = 0;
         const schedule = async () => {
             await doCheck();
-            if (!stopped && budget.remaining > 0) {
+            if (stopped) return;
+            if (budget.remaining > 0) {
                 // Back off exponentially (5s → 10s → 20s → … capped at 1 min) instead of
                 // hammering the window on a fixed 5s interval, so a slow managed challenge
                 // is given time to resolve without spinning the CPU.
                 timeoutId = await SetTimeout(schedule, BackoffDelay(scheduleAttempt++, interval, 60_000));
+            } else if (reloadCount > 0) {
+                // Explain the silence: the budget is spent, so nobody watches the challenge any
+                // more and the window is left to the poller/manual intervention.
+                console.warn(`[KUMO] ReloadStalledCloudFlareChallenge: reload budget exhausted (${maxReloads}/${maxReloads}), the challenge stays for`, url);
+                invocations.push({ name: 'ReloadStalledCloudFlareChallenge', info: `budget exhausted (${maxReloads}/${maxReloads}), giving up` });
             }
         };
         timeoutId = await SetTimeout(schedule, interval);
@@ -557,6 +996,17 @@ export abstract class FetchProvider {
         // clearance appearing later is then a genuine change. `undefined` (the read failed)
         // leaves the baseline unset so the first successful read below establishes it.
         let lastClearance: string | undefined = typeof baseline === 'string' ? NormalizeClearance(baseline) : undefined;
+        // Every clearance this poller has read so far: a value which cycles back (several
+        // `cf_clearance` cookies scoped to the same URL can alternate between two CDP reads)
+        // must be told apart from a genuinely new one, otherwise every round looks like a solve.
+        const seenClearances = new Set<string>(lastClearance ? [lastClearance] : []);
+        // Time [ms] at which a `cf_clearance` change was held back because the challenge document
+        // was still current; drives the bounded wait in `PlanScriptInjection`.
+        let cookieSolvedAt: number | undefined;
+        // `age` of the previous round: when it goes down the document was replaced (site-side
+        // navigation or self-reload) and not by us — see `cfNav` in the poll trace.
+        let lastDocumentAge: number | undefined;
+        let navigations = 0;
         const MAX_POLL_ATTEMPTS = 40;
         const poll = async () => {
             if (isSettled()) return;
@@ -570,11 +1020,56 @@ export abstract class FetchProvider {
             // and the extraction script starting, and it used to be completely silent:
             // a poller that never concluded left Media.Update() hanging until the 300 s
             // task timeout with nothing in the log to explain why (Volume 22, 28 sept.).
-            let cfIsChallenge = '-', cfWidget = '-', siteState = '-', clearanceNote = '-';
+            let cfIsChallenge = '-', cfWidget = '-', siteState = '-', clearanceNote = '-', cfFrames = '-', cfDom = '-', cfAge = '-', cfWhy = '-', cfAnnounce = '-', cfNav = '-', cfCdpFrames = '-';
             try {
-                const cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
+                const cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean; frames?: string; dom?: string; age?: number; announce?: string; why?: string }>(cloudflareDetectionScript);
                 cfIsChallenge = String(cloudflare?.isChallenge);
                 cfWidget = String(cloudflare?.hasRealWidget);
+                // Inventory of the frames and of the visible challenge-looking elements: it is
+                // the only way a widget the probes still miss can identify itself in the console
+                // dump (it is what turned `widget=false` on JapScan's clickable checkbox into a
+                // diagnosable fact instead of a bare boolean).
+                cfFrames = cloudflare?.frames ? cloudflare.frames : '-';
+                cfDom = cloudflare?.dom ? cloudflare.dom : '-';
+                cfAge = typeof cloudflare?.age === 'number' ? String(cloudflare.age) : '-';
+                // `why` = which marker made `cf=true` (title/body/selector), `announce` = what the
+                // page announces about a pending challenge (site flag, Cloudflare options object).
+                // Together they separate a real interstitial from a false positive on a page that
+                // merely carries leftover challenge markup, and "announced, not rendered yet"
+                // from "no challenge at all".
+                cfWhy = cloudflare?.why ? cloudflare.why : '-';
+                cfAnnounce = cloudflare?.announce ? cloudflare.announce : '-';
+                // `age` shrinking means the document restarted underneath us: a self-reload (the
+                // site's own navigation, not ours). Counted so a reload loop caused by the site
+                // is never mistaken for one of ours.
+                const documentAge = typeof cloudflare?.age === 'number' ? cloudflare.age : undefined;
+                if (documentAge !== undefined) {
+                    if (lastDocumentAge !== undefined && documentAge < lastDocumentAge) navigations++;
+                    lastDocumentAge = documentAge;
+                }
+                cfNav = String(navigations);
+                // The DOM inventory (`frames=`) only sees frames reachable from the document:
+                // Turnstile can host its widget inside a shadow root, which no querySelector
+                // reaches, so a frame present in the tree while `child=0` would prove the probes
+                // are blind to a control that may well be clickable on screen (reloading it then
+                // resets exactly what the user is about to click). Ask the debugger for the real
+                // frame tree instead of trusting the DOM walk alone.
+                if (cfIsChallenge === 'true' && cfWidget === 'false') {
+                    try {
+                        const tree: unknown = await win.SendDebugCommand<JSONElement>('Page.getFrameTree');
+                        const urls: string[] = [];
+                        const collect = (node: unknown) => {
+                            const entry = node as { frame?: { url?: string }; childFrames?: unknown[] };
+                            const href = entry?.frame?.url;
+                            if (href && href !== 'about:blank' && urls.indexOf(href) === -1) urls.push(href);
+                            for (const child of entry?.childFrames ?? []) collect(child);
+                        };
+                        collect((tree as { frameTree?: unknown } | undefined)?.frameTree);
+                        cfCdpFrames = urls.length ? urls.slice(0, 4).map(href => href.slice(0, 70)).join(' | ') : 'none';
+                    } catch (error) {
+                        cfCdpFrames = 'err:' + (error?.message ?? error);
+                    }
+                }
                 // A Turnstile widget disappearing from the DOM means the challenge was solved,
                 // even if residual challenge text remains in the body (e.g. MangaFire).
                 // Do not treat a challenge with no detectable widget as solved immediately:
@@ -602,7 +1097,7 @@ export abstract class FetchProvider {
                             continue;
                         }
                         const firstRead = lastClearance === undefined;
-                        const next = NextClearanceState(lastClearance, current);
+                        const next = NextClearanceState(lastClearance, current, seenClearances);
                         lastClearance = next.baseline;
                         if (firstRead) {
                             // Whatever was already there proves nothing (see `lastClearance`).
@@ -611,9 +1106,16 @@ export abstract class FetchProvider {
                             break; // Nothing can be "changed" until a later read.
                         }
                         if (next.changed) {
-                            cleared = true;
-                            clearanceNote = 'changed';
-                            invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
+                            if (next.reappeared) {
+                                // Churn, not a solve: the value cycled back to one this poller
+                                // already read. It neither clears the round nor starts a hold, and
+                                // the trace shows it as `clr=reappeared`.
+                                clearanceNote = 'reappeared';
+                            } else {
+                                cleared = true;
+                                clearanceNote = 'changed';
+                                invocations.push({ name: 'CfClearanceDetected', info: `cf_clearance cookie changed via CDP, challenge resolved` });
+                            }
                             break;
                         }
                         // Unchanged: keep waiting for a genuine new clearance.
@@ -632,9 +1134,34 @@ export abstract class FetchProvider {
             } finally {
                 // `cf`/`widget` = Cloudflare's own detection, `site` = the connector's
                 // (None/Automatic/Interactive), `clr` = why the cookie check did or did
-                // not settle it, `cleared` = whether the extraction script was started.
-                console.warn(`[KUMO] poll#${pollAttempts} cf=${cfIsChallenge} widget=${cfWidget} site=${siteState} clr=${clearanceNote} cleared=${cleared}`);
+                // not settle it (`reappeared` = a value cycling back between reads, churn
+                // rather than a solve), `cleared` = whether the extraction script was started.
+                // `frames`/`age` = what the widget probe saw in the challenge document (child
+                // frames + their sources, milliseconds since the load); `cdpFrames` = the same
+                // question asked to the debugger, which reaches frames no DOM query can see;
+                // `why` = the marker which
+                // made `cf=true`, `announce` = the pending-challenge flags the page declares, `nav`
+                // = how often the document restarted on its own so far; `dom` joins only while
+                // no widget is found, and lists the challenge-looking elements — hidden ones are
+                // marked, that dump is what identifies the markup hosting the real control.
+                const diagnostic = cfIsChallenge === 'true'
+                    ? ` frames=${cfFrames} age=${cfAge} nav=${cfNav} why=${cfWhy} announce=${cfAnnounce}${cfWidget === 'false' ? ` dom=${cfDom}` : ''}${cfWidget === 'false' && cfCdpFrames !== '-' ? ` cdpFrames=${cfCdpFrames}` : ''}`
+                    : '';
+                console.warn(`[KUMO] poll#${pollAttempts} cf=${cfIsChallenge} widget=${cfWidget}${diagnostic} site=${siteState} clr=${clearanceNote} cleared=${cleared}`);
             }
+            // A genuine cookie change can still point at the challenge document (navigation not
+            // committed yet, overlay removed in place moments later, or a change caused by a
+            // previous window's solve): hold the script back until the real page is current.
+            const plan = PlanScriptInjection(cleared, clearanceNote, cookieSolvedAt, Date.now());
+            if (plan.action === 'hold') {
+                console.warn('[KUMO] poll: cf_clearance changed but the challenge is still the current document, waiting for it to be replaced for', url);
+                invocations.push({ name: 'CfClearanceHold', info: `cf_clearance changed while the challenge page was still loaded, waiting up to ${COOKIE_CLEARANCE_DOM_GRACE}ms for the navigation` });
+            } else if (plan.action === 'force') {
+                console.warn('[KUMO] poll: the challenge document was never replaced within the grace period, injecting the script anyway for', url);
+                invocations.push({ name: 'CfClearanceGraceExpired', info: `challenge still current ${COOKIE_CLEARANCE_DOM_GRACE}ms after the cf_clearance change, injecting anyway` });
+            }
+            cleared = plan.cleared;
+            cookieSolvedAt = plan.cookieSolvedAt;
             if (cleared) {
                 invocations.push({ name: "ChallengeResolved", info: "Interactive challenge cleared, running extraction script" });
                 try {
@@ -659,9 +1186,12 @@ export abstract class FetchProvider {
         const win = CreateRemoteBrowserWindow();
         let destroyed = false;
 
-        const destroy = async () => {
+        const destroy = async (reason = 'unspecified') => {
             if (destroyed) return;
             destroyed = true;
+            // See the fork variant: the reason tells which path closed the window, which the
+            // `Failed to find window with id N` of a poller can never do by itself.
+            console.warn(`[KUMO] FetchWindow: closing window (${reason}) for`, request?.url);
             try {
                 if (this.featureFlags.VerboseFetchWindow.Value) {
                     console.log('FetchWindow()::invocations', invocations);
@@ -675,7 +1205,7 @@ export abstract class FetchProvider {
 
         return new Promise<T>(async (resolve, reject) => {
             let cancellation = await SetTimeout(async () => {
-                await destroy();
+                await destroy('fetch timeout');
                 reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
             }, timeout);
 
@@ -688,7 +1218,7 @@ export abstract class FetchProvider {
                         case FetchRedirection.Interactive:
                             ClearTimeout(cancellation);
                             cancellation = await SetTimeout(() => {
-                                destroy();
+                                destroy('interactive timeout (150s)');
                                 reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
                             }, 150_000);
                             await win.Show();
@@ -699,11 +1229,11 @@ export abstract class FetchProvider {
                             ClearTimeout(cancellation);
                             await Delay(delay);
                             const result = await win.ExecuteScript<T>(script);
-                            await destroy();
+                            await destroy('script settled');
                             resolve(result);
                     }
-                } catch {
-                    await destroy();
+                } catch (error) {
+                    await destroy(`classification failed: ${error?.message ?? error}`);
                 }
             });
 
@@ -711,7 +1241,7 @@ export abstract class FetchProvider {
             try {
                 await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
             } catch (error) {
-                await destroy();
+                await destroy(`open failed: ${error?.message ?? error}`);
                 ClearTimeout(cancellation);
                 reject(error);
             }
@@ -787,12 +1317,19 @@ export abstract class FetchProvider {
         // page — but the reload RESETS an in-progress Turnstile, which is exactly the
         // visible "flash loop" reported on CrunchyScan (and it silently voids a validation
         // the user is about to complete by hand). Only a clearance issued by the CURRENT
-        // document (the real "solved but never redirected" stall) may trigger a reload.
+        // document (the real "solved but never redirected" stall) may trigger a reload ONCE
+        // A CONTROL HAS BEEN SEEN; when nothing was ever rendered there is no Turnstile to
+        // reset and the age gate alone decides (see PlanStalledChallengeReload).
         let clearanceBaseline: string | undefined;
 
-        const destroy = async () => {
+        const destroy = async (reason = 'unspecified') => {
             if (destroyed) return;
             destroyed = true;
+            // Which path closed the window: `Failed to find window with id N` in the poller
+            // trace says the window vanished, never why. A fetch timeout, a settled script
+            // (extraction done) and a crash are three completely different stories for the
+            // caller, and the console was silent about all of them.
+            console.warn(`[KUMO] FetchWindow: closing window (${reason}) for`, request?.url);
             try {
                 for (const stop of stopPollers) {
                     stop();
@@ -813,7 +1350,7 @@ export abstract class FetchProvider {
 
             let cancellation = await SetTimeout(async () => {
                 settled = true;
-                await destroy();
+                await destroy('fetch timeout');
                 reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
             }, timeout);
 
@@ -846,7 +1383,7 @@ export abstract class FetchProvider {
                     scriptInFlight = false;
                     console.warn(`[KUMO] runScript: returned attempt=${attempt} after ${Date.now() - startedAt}ms for`, request?.url);
                     ClearTimeout(cancellation);
-                    await destroy();
+                    await destroy(`script settled attempt=${attempt}`);
                     resolve(result);
                 } catch (error) {
                     if (attempt !== scriptAttempts) {
@@ -864,7 +1401,7 @@ export abstract class FetchProvider {
                         return;
                     }
                     ClearTimeout(cancellation);
-                    await destroy();
+                    await destroy(`script failed attempt=${attempt}: ${error?.message ?? error}`);
                     if (error?.message?.includes("Failed to find window")) {
                         console.warn("[KUMO] runScript: window already destroyed, resolving empty for", request?.url);
                         resolve(undefined as T);
@@ -919,26 +1456,45 @@ export abstract class FetchProvider {
                     (() => {
                         const title = (document.title || '').toLowerCase();
                         const body = (document.body?.innerText || '').toLowerCase();
-                        const isChallenge = title.includes('just a moment')
-                            || title.includes('un instant')
-                            || body.includes('checking your browser')
+                        // Cloudflare serves the interstitial localized (FR here): normalize the
+                        // accents so the French markers match like 'just a moment' does.
+                        const plain = body.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+                        const titleHit = title.includes('just a moment') || title.includes('un instant');
+                        const bodyHit = body.includes('checking your browser')
                             || body.includes('verify you are human')
                             || body.includes('attention required')
                             || body.includes('cf-chl-')
-                            || !!document.querySelector('${ChallengePageSelectors}');
-                        const hasRealWidget = !!document.querySelector('${ChallengeWidgetSelectors}');
-                        return { isChallenge, hasRealWidget };
+                            || plain.includes('verifiez que vous etes humain')
+                            || plain.includes('verification de securite en cours');
+                        // Which structural selector matched, if any: the trace has to tell a real
+                        // interstitial from a page still carrying a leftover, hidden container.
+                        const selectorHit = '${ChallengePageSelectors}'.split(',').map(part => part.trim()).find(part => {
+                            try {
+                                return !!document.querySelector(part);
+                            } catch (error) {
+                                return false;
+                            }
+                        }) || '';
+                        const isChallenge = titleHit || bodyHit || !!selectorHit;
+                        const why = [ titleHit && 'title', bodyHit && 'body', selectorHit && 'sel:' + selectorHit ].filter(Boolean).join('+');
+                        // Same probe as the stalled-reload check: wherever the page renders the
+                        // clickable control (nested frame, shadow root, plain checkbox), a visible
+                        // one means the user can solve it — never reload it, and keep the window
+                        // interactive instead of treating it as an auto-resolving challenge.
+                        const probe = isChallenge ? ${CHALLENGE_WIDGET_PROBE} : { widget: false, frames: '', dom: '', age: 0, announce: '' };
+                        const hasRealWidget = probe.widget || !!document.querySelector('${ChallengeWidgetSelectors}');
+                        return { isChallenge, hasRealWidget, frames: probe.frames, dom: probe.dom, age: probe.age, announce: probe.announce, why };
                     })()
                 `;
 
-                let cloudflare: { isChallenge: boolean; hasRealWidget: boolean } | undefined;
+                let cloudflare: { isChallenge: boolean; hasRealWidget: boolean; frames?: string; dom?: string; age?: number; announce?: string; why?: string } | undefined;
                 // The grace delay above protects Cloudflare's proof phase. Do not keep
                 // probing for 20 seconds after it: CrunchyScan needs its visible window
                 // before the caller's listing timeout expires. Retry transient navigation
                 // races with exponential backoff instead of a fixed delay.
                 for (let attempt = 0; attempt < 4 && cloudflare === undefined; attempt++) {
                     try {
-                        cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean }>(cloudflareDetectionScript);
+                        cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean; frames?: string; dom?: string; age?: number; announce?: string; why?: string }>(cloudflareDetectionScript);
                     } catch {
                         if (attempt < 3) await Delay(BackoffDelay(attempt, 500, 2_000));
                     }
@@ -984,7 +1540,7 @@ export abstract class FetchProvider {
                     cancellation = await SetTimeout(() => {
                         if (!settled) {
                             settled = true;
-                            void destroy();
+                            void destroy('interactive timeout (150s)');
                             reject(new Exception(R.FetchProvider_FetchWindow_TimeoutError));
                         }
                     }, 150_000);
@@ -1077,7 +1633,7 @@ export abstract class FetchProvider {
             try {
                 await win.Open(request, this.featureFlags.VerboseFetchWindow.Value, preload);
             } catch (error) {
-                await destroy();
+                await destroy(`open failed: ${error?.message ?? error}`);
                 settled = true;
                 ClearTimeout(cancellation);
                 reject(error);

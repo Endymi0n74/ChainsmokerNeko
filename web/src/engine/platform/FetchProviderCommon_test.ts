@@ -1,7 +1,8 @@
 import { vi, describe, expect, it, beforeEach, afterEach, type MockInstance } from 'vitest';
 import {
     MIN_CLEARANCE_LENGTH, NextClearanceState, NormalizeClearance, FetchProvider,
-    IsCloudFlareChallengeError, IsCloudFlareChallengePage,
+    IsCloudFlareChallengeError, IsCloudFlareChallengePage, PlanScriptInjection, COOKIE_CLEARANCE_DOM_GRACE,
+    CHALLENGE_WIDGET_PROBE, CHALLENGE_WIDGET_RENDER_GRACE, PlanStalledChallengeReload,
 } from './FetchProviderCommon';
 import { AddForkChallengeHandling } from './ChallengeReload';
 import { Exception } from '../Error';
@@ -113,6 +114,23 @@ describe('NextClearanceState', () => {
         expect(removed.baseline).toBe(PERSISTED);
         expect(removed.changed).toBe(false);
     });
+
+    it('Should report a clearance cycling back to an already-read value as churn', () => {
+        // Two cf_clearance cookies scoped to the same URL alternate between two CDP reads: the
+        // value differs from the baseline every time, so without a memory of what was read the
+        // poller reported a solve on every round and the hold never reached its deadline.
+        const seen = new Set<string>();
+        const baseline = NextClearanceState(undefined, PERSISTED, seen).baseline;
+        const renewed = NextClearanceState(baseline, FRESH, seen);
+        expect(renewed.changed).toBe(true);
+        expect(renewed.reappeared).toBe(false);
+        const back = NextClearanceState(renewed.baseline, PERSISTED, seen);
+        expect(back.changed).toBe(true);
+        expect(back.reappeared).toBe(true);
+        expect(back.baseline).toBe(PERSISTED);
+        // Without the memory the same read stays a plain change: the third argument is opt-in.
+        expect(NextClearanceState(baseline, FRESH).reappeared).toBe(false);
+    });
 });
 
 describe('IsCloudFlareChallengePage', () => {
@@ -141,6 +159,106 @@ describe('IsCloudFlareChallengeError', () => {
         expect(IsCloudFlareChallengeError(new Exception(R.FetchProvider_Fetch_VercelChallenge, 'https://example.com/'))).toBe(false);
         expect(IsCloudFlareChallengeError(new Error('boom'))).toBe(false);
         expect(IsCloudFlareChallengeError(undefined)).toBe(false);
+    });
+});
+
+describe('PlanScriptInjection', () => {
+
+    it('Should hold back a cookie change while the challenge document is still current', () => {
+        const plan = PlanScriptInjection(true, 'changed', undefined, 1_000);
+        expect(plan.action).toBe('hold');
+        expect(plan.cleared).toBe(false);
+        expect(plan.cookieSolvedAt).toBe(1_000);
+    });
+
+    it('Should keep the deadline of the first change while the clearance keeps changing', () => {
+        // Cloudflare rotates cf_clearance on every poll round while the challenge page sits
+        // (observed on JapScan: two rounds of the same document, 7340 ms and 11915 ms, both
+        // reporting a change). Restarting the grace on each of them made the hold endless: the
+        // injection never happened and the window ended on its own timeout instead of a result.
+        const first = PlanScriptInjection(true, 'changed', undefined, 1_000);
+        const churn = PlanScriptInjection(true, 'changed', first.cookieSolvedAt, 1_000 + COOKIE_CLEARANCE_DOM_GRACE - 1);
+        expect(churn.action).toBe('hold');
+        expect(churn.cleared).toBe(false);
+        expect(churn.cookieSolvedAt).toBe(1_000);
+    });
+
+    it('Should force the injection when the churn continues past the grace period', () => {
+        const plan = PlanScriptInjection(true, 'changed', 1_000, 1_000 + COOKIE_CLEARANCE_DOM_GRACE);
+        expect(plan.action).toBe('force');
+        expect(plan.cleared).toBe(true);
+        expect(plan.cookieSolvedAt).toBeUndefined();
+    });
+
+    it('Should inject immediately when the document itself cleared the challenge', () => {
+        // The cookie block is skipped on a DOM-cleared round, so the note is "skipped".
+        const plan = PlanScriptInjection(true, 'skipped', undefined, 1_000);
+        expect(plan.action).toBe('inject');
+        expect(plan.cleared).toBe(true);
+        expect(plan.cookieSolvedAt).toBeUndefined();
+    });
+
+    it('Should keep waiting while the hold is fresh and nothing else cleared the challenge', () => {
+        const plan = PlanScriptInjection(false, 'unchanged:40', 1_000, 1_000 + COOKIE_CLEARANCE_DOM_GRACE - 1);
+        expect(plan.action).toBe('wait');
+        expect(plan.cleared).toBe(false);
+        expect(plan.cookieSolvedAt).toBe(1_000);
+    });
+
+    it('Should force the injection once the grace period elapsed without a replacement', () => {
+        const plan = PlanScriptInjection(false, 'unchanged:40', 1_000, 1_000 + COOKIE_CLEARANCE_DOM_GRACE);
+        expect(plan.action).toBe('force');
+        expect(plan.cleared).toBe(true);
+        expect(plan.cookieSolvedAt).toBeUndefined();
+    });
+
+    it('Should not force anything when no cookie change is pending', () => {
+        const plan = PlanScriptInjection(false, 'baseline:0', undefined, Number.MAX_SAFE_INTEGER);
+        expect(plan.action).toBe('wait');
+        expect(plan.cleared).toBe(false);
+    });
+});
+
+describe('PlanStalledChallengeReload', () => {
+
+    const CHALLENGED = { isChallenge: true, hasRealWidget: false, widgetEverSeen: false, age: CHALLENGE_WIDGET_RENDER_GRACE, freshClearance: false, remaining: 3 };
+
+    it('Should reload a challenge which never rendered a control once the grace elapsed', () => {
+        // JapScan: the interstitial keeps its site skeleton, Turnstile never mounts its iframe,
+        // and cf_clearance oscillates between two cookie values, so the previous
+        // "fresh cf_clearance" gate matched only about half of the checks and the reload never
+        // fired (trace `nav=0` on a 19990 ms old challenge document).
+        expect(PlanStalledChallengeReload(CHALLENGED)).toBe('reload');
+    });
+
+    it('Should defer the reload while the document is younger than the render grace', () => {
+        expect(PlanStalledChallengeReload({ ...CHALLENGED, age: CHALLENGE_WIDGET_RENDER_GRACE - 1 })).toBe('defer');
+    });
+
+    it('Should defer the reload while the document age is unknown', () => {
+        expect(PlanStalledChallengeReload({ ...CHALLENGED, age: undefined })).toBe('defer');
+    });
+
+    it('Should wait when a control was rendered without a fresh clearance', () => {
+        // A rendered widget means the user may be interacting with it: only the documented
+        // "fresh clearance, same document" stall may restart that page.
+        expect(PlanStalledChallengeReload({ ...CHALLENGED, widgetEverSeen: true })).toBe('wait');
+    });
+
+    it('Should reload on a fresh clearance even after a control was rendered', () => {
+        expect(PlanStalledChallengeReload({ ...CHALLENGED, widgetEverSeen: true, freshClearance: true })).toBe('reload');
+    });
+
+    it('Should wait once the reload budget is exhausted', () => {
+        expect(PlanStalledChallengeReload({ ...CHALLENGED, remaining: 0 })).toBe('wait');
+    });
+
+    it('Should wait while the current document is not a challenge', () => {
+        expect(PlanStalledChallengeReload({ ...CHALLENGED, isChallenge: false })).toBe('wait');
+    });
+
+    it('Should never reload a document that renders a control right now', () => {
+        expect(PlanStalledChallengeReload({ ...CHALLENGED, hasRealWidget: true, freshClearance: true })).toBe('wait');
     });
 });
 
@@ -217,6 +335,138 @@ class TestProvider extends FetchProvider {
         throw new Error('not needed in this test');
     }
 }
+
+describe('CHALLENGE_WIDGET_PROBE', () => {
+
+    /** Minimal element double: enough surface for the probe's frame/checkbox walk. */
+    const element = (options: { tag?: string; src?: string; id?: string; className?: string; width?: number; height?: number; contentDocument?: unknown; shadowRoot?: unknown } = {}) => {
+        const { tag = 'IFRAME', src, id = '', className = '', width = 300, height = 65, contentDocument, shadowRoot } = options;
+        return {
+            tagName: tag,
+            id,
+            className,
+            getBoundingClientRect: () => ({ width, height }),
+            getAttribute: (name: string) => name === 'src' ? src ?? null : null,
+            contentDocument,
+            shadowRoot,
+        };
+    };
+
+    /**
+     * The probe issues five distinct queries, each answered by its own bucket: the widget
+     * selectors (frame walk), `*` (shadow roots), `body *` (covering overlay), the
+     * challenge-looking selector list (`dump`) and the shallow body walk.
+     */
+    const root = (widgets: unknown[] = [], all: unknown[] = [], extra: { covering?: unknown[]; dump?: unknown[]; shallow?: unknown[] } = {}) => ({
+        querySelectorAll: (selector: string) => {
+            if (selector === '*') return all;
+            if (selector === 'body *') return extra.covering ?? [];
+            if (selector.startsWith('body >')) return extra.shallow ?? [];
+            if (selector.startsWith('[id*=')) return extra.dump ?? [];
+            return widgets;
+        },
+    });
+
+    const run = (document: unknown, view?: unknown) => new Function('document', 'window', `return ${CHALLENGE_WIDGET_PROBE};`)(document, view) as { widget: boolean; frames: string; dom: string; age: number; announce: string };
+
+    const turnstile = (width = 300, height = 65) => element({ src: 'https://challenges.cloudflare.com/turnstile/v0/g/abc', width, height });
+
+    it('Should report no widget on a document without challenge controls', () => {
+        const result = run(root());
+        expect(result.widget).toBe(false);
+        expect(result.frames).toBe('child=0');
+        expect(result.dom).toBe('');
+        expect(result.age).toBeGreaterThanOrEqual(0);
+    });
+
+    it('Should detect a visible Turnstile frame and expose it in the frame inventory', () => {
+        const result = run(root([ turnstile() ]));
+        expect(result.widget).toBe(true);
+        expect(result.frames).toContain('child=1');
+        expect(result.frames).toContain('300x65');
+        expect(result.frames).toContain('challenges.cloudflare.com');
+        expect(result.dom).toBe('');
+    });
+
+    it('Should neither report nor list an invisible widget frame as a widget', () => {
+        const result = run(root([ turnstile(0, 0) ]));
+        expect(result.widget).toBe(false);
+        // A hidden frame is listed as such: knowing it exists is part of the diagnosis.
+        expect(result.frames).toContain('0x0 (hidden)');
+    });
+
+    it('Should find the widget inside a nested same-origin frame', () => {
+        const nested = element({ src: '', width: 1600, height: 900, contentDocument: root([ turnstile() ]) });
+        const result = run(root([ nested ]));
+        expect(result.widget).toBe(true);
+        expect(result.frames).toContain('1600x900');
+    });
+
+    it('Should detect a rendered checkbox which no selector covers', () => {
+        expect(run(root([ element({ tag: 'INPUT', width: 13, height: 13 }) ])).widget).toBe(true);
+    });
+
+    it('Should descend into a shadow root', () => {
+        const host = { shadowRoot: root([ turnstile() ]) };
+        expect(run(root([], [ host ])).widget).toBe(true);
+    });
+
+    it('Should treat a viewport-covering positioned layer as the blocking widget', () => {
+        const overlay = element({ tag: 'DIV', id: 'jc-overlay', className: 'security-layer', width: 1280, height: 720 });
+        const view = { innerWidth: 1280, innerHeight: 720, getComputedStyle: () => ({ position: 'fixed' }) };
+        const result = run(root([], [], { covering: [ overlay ] }), view);
+        expect(result.widget).toBe(true);
+        expect(result.dom).toContain('overlay');
+        expect(result.dom).toContain('div#jc-overlay');
+    });
+
+    it('Should not treat a covering layer without a positioning scheme as a widget', () => {
+        const wrapper = element({ tag: 'DIV', id: 'cf-wrapper', width: 1280, height: 720 });
+        const view = { innerWidth: 1280, innerHeight: 720, getComputedStyle: () => ({ position: 'static' }) };
+        expect(run(root([], [], { covering: [ wrapper ] }), view).widget).toBe(false);
+    });
+
+    it('Should name the challenge-looking elements when no widget is found', () => {
+        const overlay = element({ tag: 'DIV', id: 'jc-overlay', width: 400, height: 200 });
+        const result = run(root([], [], { dump: [ overlay ] }));
+        expect(result.widget).toBe(false);
+        expect(result.dom).toContain('div#jc-overlay 400x200');
+    });
+
+    it('Should report the pending-challenge flags the page announces before rendering', () => {
+        // JapScan announces its puzzle through `window.__captcha` while Cloudflare boots with
+        // an options object: both are the proof that a challenge is coming, which is exactly
+        // what a bare `widget=false` on an empty body cannot tell apart from no challenge.
+        expect(run(root(), { __captcha: { needed: true } }).announce).toBe('captcha=true');
+        expect(run(root(), { __cf_chl_opt: { cRay: 'x' } }).announce).toBe('cf-chl=1');
+        expect(run(root(), { __captcha: { needed: false }, _cf_chl_opt: {} }).announce).toBe('captcha=false cf-chl=1');
+        expect(run(root(), {}).announce).toBe('');
+    });
+
+    it('Should mark the hidden challenge-looking elements and list the visible ones first', () => {
+        const leftover = element({ tag: 'INPUT', width: 0, height: 0 });
+        const overlay = element({ tag: 'DIV', id: 'jc-overlay', width: 400, height: 200 });
+        // Document order puts the leftover hidden container first; the dump must not let it
+        // push the rendered markup out, or the trace would blame a solved interstitial.
+        const result = run(root([], [], { dump: [ leftover, overlay ] }));
+        expect(result.dom).toContain('input 0x0 (hidden)');
+        expect(result.dom).toContain('div#jc-overlay 400x200');
+        expect(result.dom.indexOf('div#jc-overlay')).toBeLessThan(result.dom.indexOf('(hidden)'));
+    });
+
+    it('Should list the Cloudflare challenge resources with their source', () => {
+        // The source answers what a bare tag+size cannot: whether the Turnstile bootstrap was
+        // at least requested. A document whose dump mentions no `challenges.cloudflare.com`
+        // resource never even asked for a widget, which is a different failure than "asked,
+        // refused" and points at the network/CDN rather than at the widget detection.
+        const script = element({ tag: 'SCRIPT', src: 'https://challenges.cloudflare.com/turnstile/v0/api.js', width: 0, height: 0 });
+        const result = run(root([], [], { dump: [ script ] }));
+        expect(result.widget).toBe(false);
+        expect(result.dom).toContain('script 0x0');
+        expect(result.dom).toContain('challenges.cloudflare.com/turnstile');
+        expect(result.dom).toContain('(hidden)');
+    });
+});
 
 describe('FetchWindowPreloadScript (script recovery)', () => {
 
@@ -375,7 +625,7 @@ describe('Fetch (Cloudflare challenge recovery)', () => {
         expect(response.status).toBe(200);
         expect(provider.attempts).toBe(2);
         expect(fake.opened).toBe(1);
-        expect(fake.injected).toContain('() => true');
+        expect(fake.injected).toContain('true');
         expect(logged()).toContain('retrying after challenge recovery');
     });
 

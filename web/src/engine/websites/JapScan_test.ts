@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { IsIncompleteReaderResult, IsVolumeChapter, JAPSCAN_CHALLENGE_DETECTION_SCRIPT, MergePageLinks, MIN_READER_PAGES_FOR_COMPLETE_RESULT, ShouldCompleteWithDRM } from './JapScan';
+import { ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from '../platform/ChallengeReload';
 
 describe('JapScan page fallback helpers', () => {
     it('Should merge DRM pages before reader-only pages', () => {
@@ -57,8 +58,22 @@ function CreateOverlay(overrides: Partial<IOverlayStub> = {}): IOverlayStub {
 }
 
 describe('JapScan challenge detection', () => {
+
+    let warn: MockInstance<typeof console.warn>;
+
+    beforeEach(() => {
+        // The script reports the branch which decided the classification through the relayed
+        // console line; keep it out of the test output and assert on it instead.
+        warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        warn.mockRestore();
+    });
+
     it('Should report the puzzle while the overlay is actually visible', () => {
         expect(RunChallengeDetection(CreateOverlay())).toBe(true);
+        expect(warn).toHaveBeenCalledWith('[KUMO] JapScanChallenge overlay:visible -> Interactive');
     });
 
     it('Should stop reporting the challenge once the overlay is hidden by CSS', () => {
@@ -83,5 +98,15 @@ describe('JapScan challenge detection', () => {
         const detect = new Function('document', 'window', `return (${JAPSCAN_CHALLENGE_DETECTION_SCRIPT.trim()});`) as
             (scope: unknown, global: unknown) => boolean;
         expect(detect(document, window)).toBe(false);
+    });
+});
+
+describe('JapScan challenge registration', () => {
+    it('Should opt into the stalled-challenge reload and keep the fork challenge handling', () => {
+        // Managed Cloudflare challenges on JapScan issue a clearance without redirecting:
+        // the bounded reload (which chains the fork handling) is what unpins the window.
+        expect(ShouldReloadStalledChallenge('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
+        expect(ShouldUseForkChallengeHandling('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
+        expect(ShouldReloadStalledChallenge('https://example.com/manga/demo/')).toBe(false);
     });
 });

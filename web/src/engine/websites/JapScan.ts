@@ -3,7 +3,7 @@ import icon from './JapScan.webp';
 import { DecoratableMangaScraper, type Manga, Chapter, Page, type MangaPlugin } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
-import { AddForkChallengeHandling } from '../platform/ChallengeReload';
+import { AddStalledChallengeReload } from '../platform/ChallengeReload';
 import { ExtractPagesFromReader } from './JapScan.Extract';
 import { DRMProvider } from './JapScan.DRM';
 import { TaskPool, Priority } from '../taskpool/TaskPool';
@@ -40,17 +40,32 @@ export const JAPSCAN_CHALLENGE_DETECTION_SCRIPT = `
     (() => {
         try {
             const overlay = document.querySelector('#jc-overlay');
+            let answer = false;
+            let reason = '';
             if (overlay) {
                 // Present: only a rendered overlay blocks. Once it is hidden by CSS the
                 // puzzle was solved, whatever window.__captcha.needed still says.
                 const style = window.getComputedStyle(overlay);
-                return style.display !== 'none'
+                answer = style.display !== 'none'
                     && style.visibility !== 'hidden'
                     && parseFloat(style.opacity) > 0
                     && overlay.offsetHeight > 0;
+                reason = 'overlay:' + (answer ? 'visible' : 'hidden');
+            } else {
+                // Absent: the site may only be announcing the puzzle so far.
+                answer = !!(window.__captcha && window.__captcha.needed === true);
+                reason = 'captcha:' + (answer ? 'needed' : 'absent');
             }
-            // Absent: the site may only be announcing the puzzle so far.
-            return !!(window.__captcha && window.__captcha.needed === true);
+            // Relayed into the host console by the [KUMO] prefix filter, next to the poll
+            // trace: the trace reported site=Interactive while the widget probe saw neither
+            // an overlay node nor a captcha flag in the same document, so the branch which
+            // decided the classification has to name itself.
+            try {
+                console.warn('[KUMO] JapScanChallenge ' + reason + (answer ? ' -> Interactive' : ' -> None'));
+            } catch (error) {
+                // Diagnostics must never be able to break the detection itself.
+            }
+            return answer;
         } catch { return false; }
     })()
 `;
@@ -59,7 +74,11 @@ AddAntiScrapingDetection(async invoke => {
     const result = await invoke<boolean>(JAPSCAN_CHALLENGE_DETECTION_SCRIPT);
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
-AddForkChallengeHandling(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
+// Cloudflare's managed challenge on JapScan issues a fresh cf_clearance but never redirects
+// the interstitial (the same stall documented for CrunchyScan in CLOUDFLARE.md §7): without
+// the opt-in reload every extraction window pins on "Just a moment..." until its timeout.
+// `AddStalledChallengeReload` also registers the fork challenge handling (it chains both).
+AddStalledChallengeReload(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
 
 export const MIN_READER_PAGES_FOR_COMPLETE_RESULT = 5;
 
@@ -172,7 +191,11 @@ export default class extends DecoratableMangaScraper {
                 throw error;
             }
         }, Priority.Normal);
-        this.#chapterCache.set(key, { chapters, ts: Date.now() });
+        // An extraction which ran against a still-challenged document comes back empty: caching
+        // it would pin "0 items" for the whole TTL without a single retry in between.
+        if (chapters.length > 0) {
+            this.#chapterCache.set(key, { chapters, ts: Date.now() });
+        }
         return chapters;
     }
 
