@@ -5,6 +5,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.17] - 2026-10-01
+
+### Fixed
+
+- **Simple requests blocked by Cloudflare are resolved through the plugin window again**: a simple request rejected with `CF-Mitigated` or `403` used to fail without offering any resolution — once `cf_clearance` expired, pasting a media URL and the listings silently did nothing. The fetch provider now resolves those failures through the site's challenge window (the fork flow), retries the request exactly once, concurrent requests join the window which is already open, and a cooldown prevents one window per request; challenge pages served with a success status are detected in `FetchHTML` and handled the same way. The media list surfaces the paste error as a notification instead of the console only.
+- **A Cloudflare challenge which renders no control no longer stalls until the timeout**: when Cloudflare issues a `cf_clearance` without ever rendering a widget and without redirecting the interstitial, the stalled reload was gated on a fresh clearance — a probabilistic signal firing only about half the time, which left the window pinned until its timeout. `PlanStalledChallengeReload` now decides between two cases: no control ever rendered → deterministic reload after a 12 s render grace with no clearance gate (the widget itself stays in charge, reloading a checkbox the user is about to click only resets it), a control seen first and then a fresh clearance → unchanged behaviour for CrunchyScan. Empty chapter lists are no longer cached (an extraction run against a still-challenged document cannot pin "0 items") and JapScan opts into the stalled reload.
+- **Every reader window close is now explicit**: the flow logs its reason (timeout, script settled, script failed, open failed) before closing, and a window which disappears without our command — a click, a renderer crash, the OS — announces itself in the console with the crash reason when there is one. A poller's `Failed to find window with id N` can no longer be mistaken for our own cleanup.
+
+### Added
+
+- **Challenge stall diagnostics**: the probe line now also reports the document age, the markers which decided the classification, the challenge scripts and elements with their source and visibility, and — while no widget is visible — the real frame tree as the debugger sees it (`cdpFrames=`), which reaches frames hidden inside a shadow root that no DOM query can see. On the Electron side, reader window consoles are relayed into the application console, errors included.
+
 ## [3.0.16] - 2026-09-30
 
 ### Fixed

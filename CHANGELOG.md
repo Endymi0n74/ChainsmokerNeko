@@ -3,6 +3,18 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.17] - 2026-10-01
+
+### Fix
+
+- **Les requêtes simples bloquées par Cloudflare repassent par la fenêtre du plugin** : une requête simple rejetée (`CF-Mitigated`, `403`) échouait sans proposer aucune résolution — une fois le `cf_clearance` expiré, le collage d'URL média et les listages ne se passaient plus rien. Le fetch provider résout désormais ces échecs par la fenêtre de défi du site (flux fork), relance la requête une seule fois, et les requêtes concurrentes rejoignent la fenêtre déjà ouverte avec un cooldown pour éviter une fenêtre par requête ; les pages de défi servies avec un statut de succès sont détectées dans `FetchHTML` et traitées de la même façon. La liste médias affiche l'erreur du collage comme notification au lieu de la seule console.
+- **Un défi Cloudflare qui n'affiche aucun contrôle ne bloque plus jusqu'au délai dépassé** : quand Cloudflare émet un `cf_clearance` sans jamais rendre de widget et sans rediriger l'interstitiel, le rechargement de la page bloquée était conditionné à une clearance fraîche — un signal probabiliste déclenché seulement environ une fois sur deux, ce qui laissait la fenêtre figée jusqu'à son timeout. `PlanStalledChallengeReload` tranche désormais en deux cas : aucun contrôle jamais rendu → rechargement déterministe après une grâce de rendu de 12 s, sans condition de clearance (le widget reste prioritaire : recharger une case que l'utilisateur est en train de cliquer ne fait que la remettre à zéro), contrôle déjà vu puis clearance fraîche → comportement inchangé pour CrunchyScan. Les listes de chapitres vides ne sont plus mises en cache (un extrait sur un document encore en défi ne fige plus « 0 élément ») et JapScan bascule sur l'opt-in de rechargement.
+- **Chaque fermeture d'une fenêtre lecteur est désormais explicite** : le flux journalise sa raison (délai dépassé, script résolu, script en échec, ouverture impossible) avant de fermer, et une fenêtre qui disparaît sans notre commande — clic, crash du renderer, système — l'annonce dans la console avec la raison du crash quand il y en a un. Le `Failed to find window with id N` des sondeurs ne peut plus se confondre avec notre propre nettoyage.
+
+### Ajouté
+
+- **Diagnostics de blocage du défi** : la ligne de sonde déclare en plus l'âge du document, les marqueurs qui ont décidé du classement, les scripts et éléments de défi avec leur source et leur visibilité, et — quand aucun widget n'est visible — l'arbre de frames réel tel que le voit le débogueur (`cdpFrames=`), qui atteint les frames cachées dans une shadow root que la requête DOM ne voit pas. Côté electron, les consoles des fenêtres de lecture sont relayées vers la console de l'application, erreurs comprises.
+
 ## [3.0.16] - 2026-09-30
 
 ### Fix
