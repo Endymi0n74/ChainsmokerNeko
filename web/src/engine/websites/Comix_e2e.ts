@@ -12,13 +12,14 @@ new TestFixture({
         timeout: 15_000
     },
     child: {
-        id: '/title/k7yg7-the-spark-in-your-eyes/2536461-chapter-66',
-        title: '66 - The Period of Humans (4) [UToon]',
+        id: '/title/k7yg7-the-spark-in-your-eyes/11243755-chapter-232',
+        title: '232 [Violet Scans]',
         timeout: 15_000
     },
     entry: {
-        index: 1,
-        size: 254_320,
-        type: 'image/webp'
+        index: 0,
+        size: 64_546,
+        type: 'image/webp',
+        timeout: 15_000
     }
 }).AssertWebsite();

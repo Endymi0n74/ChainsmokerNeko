@@ -1,6 +1,7 @@
 import { Tags } from '../Tags';
 import icon from './Comix.webp';
-import { FetchWindowScript } from '../platform/FetchProvider';
+import { Fetch, FetchWindowScript } from '../platform/FetchProvider';
+import type { Priority } from '../taskpool/TaskPool';
 import { DecoratableMangaScraper, type MangaPlugin, Manga, Chapter, Page } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
 import { RateLimit } from '../taskpool/RateLimit';
@@ -14,17 +15,33 @@ type APIChapter = {
 };
 
 /**
- * Discover the site's bundled axios instance and make it available as `__axios`.
+ * Discover the site's bundled HTTP client and expose it as `__get(url, config)`.
  * The site encrypts its API responses (e.g. `{"e": "<base64>"}`) and decrypts them
- * inside its own axios interceptors, so requests must go through the page's axios
- * rather than a plain `fetch`.
+ * inside its own axios interceptors, so requests must go through the page's client
+ * rather than a plain `fetch`. The client is picked by shape (the bag of HTTP verbs,
+ * optionally a raw axios instance) instead of by export name: those names are rebuilt
+ * on every deploy of the site. Depending on the build, `get` resolves either to the
+ * full axios response or directly to the payload, hence the adaptive unwrapping.
  */
 const ScriptAxios = `
     const __envURL = performance.getEntriesByType('resource').map(entry => entry.name).find(url => url.includes('/env-'));
     if (!__envURL) throw new Error('Comix: env chunk not loaded');
     const __envModule = await import(__envURL);
-    const __axios = __envModule.x ?? __envModule.default?.x;
-    if (typeof __axios !== 'function') throw new Error('Comix: axios not found in env chunk');
+    const __values = [__envModule, __envModule.default]
+        .filter(chunk => chunk && typeof chunk === 'object')
+        .flatMap(chunk => Object.values(chunk));
+    const __isHTTPClient = client => client && typeof client === 'object'
+        && ['get', 'post', 'put', 'patch', 'delete'].every(method => typeof client[method] === 'function');
+    const __isAxiosInstance = client => client && typeof client === 'object'
+        && typeof client.request === 'function' && !!client.interceptors;
+    const __client = __values.find(__isHTTPClient) ?? __values.find(__isAxiosInstance);
+    if (!__client) throw new Error('Comix: http client not found in env chunk');
+    const __get = async (url, config) => {
+        const response = await __client.get(url, config);
+        const isAxiosResponse = response && typeof response === 'object'
+            && typeof response.status === 'number' && 'headers' in response && 'config' in response;
+        return isAxiosResponse ? response.data : response;
+    };
 `;
 
 const ScriptChapters = `
@@ -33,7 +50,7 @@ const ScriptChapters = `
         const hid = location.pathname.split('/').filter(Boolean)[1].split('-')[0];
         const chapters = [];
         for (let page = 1; ; page++) {
-            const { data } = await __axios.get('/manga/' + hid + '/chapters', { params: { page, limit: 100, 'order[number]': 'desc' } });
+            const data = await __get('/manga/' + hid + '/chapters', { params: { page, limit: 100, 'order[number]': 'desc' } });
             for (const chapter of data.items ?? []) {
                 chapters.push({ id: chapter.id, number: chapter.number, name: chapter.name ?? '', group: chapter.group?.name ?? null });
             }
@@ -47,7 +64,7 @@ const ScriptPages = `
     (async () => {
         ${ScriptAxios}
         const id = location.pathname.split('/').filter(Boolean).pop().split('-')[0];
-        const { data } = await __axios.get('/chapters/' + id);
+        const data = await __get('/chapters/' + id);
         return (data.pages?.items ?? []).map(page => page.url).filter(Boolean);
     })()
 `;
@@ -59,7 +76,7 @@ const ScriptMangas = `
             for (let attempt = 0; attempt < 3; attempt++) {
                 if (attempt > 0) await new Promise(done => setTimeout(done, 1000 * attempt));
                 try {
-                    const { data } = await __axios.get('/manga', { params: { page, limit: 100, 'order[chapter_updated_at]': 'desc' } });
+                    const data = await __get('/manga', { params: { page, limit: 100, 'order[chapter_updated_at]': 'desc' } });
                     return data;
                 } catch { /* retry */ }
             }
@@ -95,7 +112,6 @@ const ScriptMangas = `
 AddStalledChallengeReload(/^https:\/\/(?:www\.)?comix\.to/);
 
 @Common.MangaCSS(/^{origin}\/title\/[^/]+$/, 'meta[property="og:title"]')
-@Common.ImageAjax()
 export default class extends DecoratableMangaScraper {
 
     public constructor() {
@@ -122,6 +138,19 @@ export default class extends DecoratableMangaScraper {
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {
         const images = await FetchWindowScript<string[]>(new Request(new URL(chapter.Identifier, this.URI)), ScriptPages);
-        return images.map(image => new Page(this, chapter, new URL(image), { Referer: this.URI.href }));
+        return images.map(image => new Page(this, chapter, new URL(image)));
+    }
+
+    /**
+     * The image CDN answers HTTP 403 to any request carrying a non-empty `Referer` (hotlink protection),
+     * even when the referer is the image's own origin, so the pages must be requested without any referer,
+     * the same way the site's own reader loads them.
+     */
+    public override async FetchImage(page: Page, priority: Priority, signal: AbortSignal): Promise<Blob> {
+        return this.imageTaskPool.Add(async () => {
+            const request = new Request(page.Link, { signal, referrerPolicy: 'no-referrer' });
+            const response = await Fetch(request);
+            return response.blob();
+        }, priority, signal);
     }
 }

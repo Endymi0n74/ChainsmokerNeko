@@ -5,6 +5,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.18] - 2026-10-07
+
+### Fixed
+
+- **The Comix connector works again**: comix.to's 1 October build re-bundled its exports — the axios instance was no longer exposed as the `x` export (which had become a plain `e=>aa(t,e)` helper, passing the `typeof === 'function'` check while having no `.get`), hence the `TypeError: __axios.get is not a function` thrown for every title, chapter and page listing. The connector scripts now locate the HTTP client **by shape** — the bag of `get/post/put/patch/delete` verbs, falling back to a raw axios instance — instead of by an export name that changes on every deploy, with adaptive unwrapping: depending on the build, `get` resolves either to the full axios response or directly to the payload.
+- **Comix images can be downloaded again**: the image CDN (rotating hosts such as `*.softvisualstudio.site`, `*.kkplayer.wtf`) answers `403` (hotlink protection) to any request carrying a non-empty `Referer`, even one reduced to the image's own origin, while the connector always attached `Referer: https://comix.to/` — so every page download hit `FetchProvider_Fetch_Forbidden`. `FetchPages` no longer attaches a `Referer` to the pages and `FetchImage` downloads with `referrerPolicy: 'no-referrer'`, the way the site's own reader loads its images.
+
+### Changed
+
+- **The Comix e2e fixtures target a healthy image host**: chapter 66, used by the fixtures, is served from `rnn-d.kkplayer.wtf`, a host which no longer answers (TCP timeout, unchanged public DNS resolution) — the "fetch valid blob" test could only ever time out. `Comix_e2e` and the full flow of `CloudflareList_e2e` now use chapter 232, hosted on a reachable CDN node, with a note to avoid falling back onto a dead host.
+
 ## [3.0.17] - 2026-10-01
 
 ### Fixed

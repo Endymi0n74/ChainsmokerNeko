@@ -56,7 +56,9 @@
 
 ### Comix (réécrit sans DRM)
 - Liste (91k mangas) + chapitres + pages via `FetchWindowScript` sur l'axios du site (réponses chiffrées `{"e":...}`)
-- Images: `@Common.ImageAjax()` + header `Referer`
+- **Client HTTP repéré par forme, jamais par nom d'export** (7 oct.) : le chunk `env-` est rebâti à chaque déploiement ; l'export `x`, qui portait l'instance axios, est devenu un helper `e=>aa(t,e)` — le garde `typeof === 'function'` passait donc et `.get` manquait (`__axios.get is not a function`). Chercher l'objet dont `get/post/put/patch/delete` sont des fonctions (sinon une instance axios brute : `request` + `interceptors`), et désencapsuler selon la forme de la réponse (`status` number + `headers` + `config` → `.data`, sinon la valeur telle quelle) : selon le build, `get` renvoie la réponse axios complète ou directement la payload.
+- Images : **sans aucun `Referer`** — le CDN (hébergeurs tournants `*.softvisualstudio.site`, `*.kkplayer.wtf`) répond `403` (hotlink protection) à tout `Referer` non vide, y compris réduit à l'origine de l'image, et `200` sans referer. `@Common.ImageAjax()` joint toujours un `Referer` → remplacé par un `FetchImage` maison avec `referrerPolicy: 'no-referrer'`.
+- **Hébergeur image mort = timeout, pas une régression** : `rnn-d.kkplayer.wtf` (31.43.191.33) ne répond plus depuis la machine, le navigateur ni curl, avec une résolution DNS publique identique — le site lui-même ne peut plus l'afficher ; repointer les fixtures e2e sur un chapitre hébergé ailleurs plutôt que de conclure à un bug du connecteur.
 - **Fix "aucune image"** (`0f44b305`): échec détection anti-scraping → `FetchRedirection.None` (on scrape quand même)
 - Anciens fichiers `Comix.DRM.*` supprimés
 

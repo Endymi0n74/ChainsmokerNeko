@@ -109,7 +109,10 @@ describe('Cloudflare-protected websites', () => {
         {
             id: 'comix',
             mangaURL: 'https://comix.to/title/k7yg7-the-spark-in-your-eyes',
-            chapterID: '/title/k7yg7-the-spark-in-your-eyes/2536461-chapter-66',
+            // NOTE: chapter 66 is served from `rnn-d.kkplayer.wtf`, an image host that no longer answers
+            // (TCP timeout, confirmed dead via public DNS 2026-10-07) — keep this pointed at a chapter
+            // hosted on a healthy CDN node, otherwise the image step can only ever time out.
+            chapterID: '/title/k7yg7-the-spark-in-your-eyes/11243755-chapter-232',
         },
     ]) {
         it(`should scrape chapters, pages and an image from '${args.id}'`, { timeout: 240_000 }, async () => {

@@ -3,6 +3,17 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.18] - 2026-10-07
+
+### Fix
+
+- **Le connecteur Comix fonctionne de nouveau** : le build du 1er octobre de comix.to a regroupé ses exports — l'instance axios n'était plus exposée sous l'export `x` (redevenu un simple helper `e=>aa(t,e)`, qui satisfaisait le test `typeof === 'function'` sans posséder de `.get`), d'où l'erreur `TypeError: __axios.get is not a function` sur chaque liste de titres, de chapitres et de pages. Les scripts du connecteur repèrent désormais le client HTTP **par forme** — le sac de verbes `get/post/put/patch/delete`, à défaut une instance axios brute — au lieu d'un nom d'export qui change à chaque déploiement, avec une désencapsulation adaptative : selon le build, `get` renvoie la réponse axios complète ou directement la payload.
+- **Les images Comix sont de nouveau téléchargeables** : le CDN images (hébergeurs tournants `*.softvisualstudio.site`, `*.kkplayer.wtf`) répond `403` (hotlink protection) à toute requête portant un `Referer` non vide, même réduit à l'origine de l'image, alors que le connecteur joignait systématiquement `Referer: https://comix.to/` — l'application recevait donc `FetchProvider_Fetch_Forbidden` sur chaque page. `FetchPages` n'attache plus de `Referer` aux pages et `FetchImage` télécharge avec `referrerPolicy: 'no-referrer'`, la façon qu'a le lecteur du site de charger ses images.
+
+### Modifié
+
+- **Les tests e2e Comix visent un hébergeur image sain** : le chapitre 66 des fixtures est servi par `rnn-d.kkplayer.wtf`, un hôte qui ne répond plus (timeout TCP, résolution publique inchangée) — le test « fetch valid blob » ne pouvait que tomber en timeout. `Comix_e2e` et le flux complet de `CloudflareList_e2e` utilisent désormais le chapitre 232, hébergé sur un nœud CDN joignable, avec une note pour éviter de retomber sur un hôte mort.
+
 ## [3.0.17] - 2026-10-01
 
 ### Fix
