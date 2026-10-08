@@ -16,6 +16,16 @@ const execFileAsync = promisify(execFile);
  */
 export const UPDATE_REPOSITORY = 'Endymi0n74/ChainsmokerNeko';
 
+/**
+ * Minimum delay between two queries against the update service. The GitHub API allows
+ * unauthenticated clients (this check carries no token) only 60 requests per hour per IP,
+ * and every trigger of the application — the automatic startup check and both manual
+ * "Check for updates" entries — shares that single budget. Within the interval the outcome
+ * of the previous query is served from memory, failed attempts included: a rate-limited or
+ * offline service must never be hammered by repeated checks.
+ */
+export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
 /** Update descriptor returned to the renderer when a newer release exists. */
 export type IUpdateInfo = {
     version: string;
@@ -50,12 +60,40 @@ export function CompareVersions(left: string, right: string): number {
  */
 export class AppUpdate {
 
+    /** Timestamp of the last query against the update service — see {@link UPDATE_CHECK_INTERVAL_MS}. */
+    private lastCheckAt = 0;
+    /** Outcome of the last query, served from memory to every caller inside the interval. */
+    private lastCheckResult: IUpdateInfo | null = null;
+    /** The query currently in flight, so concurrent callers await one single request. */
+    private pendingCheck: Promise<IUpdateInfo | null> | null = null;
+
     constructor(private readonly ipc: IPC<Channels.Web, Channels.App>) {
         ipc.Listen(Channels.App.Check, this.Check.bind(this) as Callback<IUpdateInfo | null>);
         ipc.Listen(Channels.App.DownloadAndInstall, this.DownloadAndInstall.bind(this) as Callback<string>);
     }
 
-    private async Check(): Promise<IUpdateInfo | null> {
+    /**
+     * Enforces the hourly budget: at most one query per {@link UPDATE_CHECK_INTERVAL_MS},
+     * whatever the number of triggers. The timestamp is claimed *before* the request is
+     * sent, so even a failed attempt consumes the budget instead of inviting an
+     * immediate retry against a service that is down or rate-limiting us.
+     */
+    private Check(): Promise<IUpdateInfo | null> {
+        if (this.pendingCheck) return this.pendingCheck;
+        if (this.lastCheckAt > 0 && Date.now() - this.lastCheckAt < UPDATE_CHECK_INTERVAL_MS) {
+            return Promise.resolve(this.lastCheckResult);
+        }
+        this.lastCheckAt = Date.now();
+        this.pendingCheck = this.QueryUpdateService().then(result => {
+            this.lastCheckResult = result;
+            return result;
+        }).finally(() => {
+            this.pendingCheck = null;
+        });
+        return this.pendingCheck;
+    }
+
+    private async QueryUpdateService(): Promise<IUpdateInfo | null> {
         try {
             const response = await fetch(`https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest`, {
                 headers: {

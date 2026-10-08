@@ -3,6 +3,12 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.20] - 2026-10-08
+
+### Fix
+
+- **La vérification des mises à jour n'interroge plus GitHub plus d'une fois par heure** : chaque clic sur « Check for updates » (entrée du menu latéral ou panneau « What's new ») déclenchait une requête neuve vers l'API GitHub, qui n'accepte que 60 requêtes/heure non authentifiées par adresse IP — le quota était vite épuisé, la vérification échouait ensuite en `403` et **l'échec s'affichait comme « Up to date »** (le panneau mentait pour ne jamais casser l'interface). Le point d'entrée unique de l'application revendique désormais le budget horaire (`UPDATE_CHECK_INTERVAL_MS = 60 min`) **avant** d'envoyer la requête : tous les déclencheurs de l'heure — vérification au démarrage, clics, appels simultanés — partagent une seule interrogation et reçoivent le dernier résultat connu sans toucher au réseau, **un échec compris** — un service hors ligne ou en limite de débit n'invite jamais une tempête de re-essais. Les notes de release du panneau « What's new » sont lues dans le changelog embarqué (aucune requête).
+
 ## [3.0.19] - 2026-10-08
 
 ### Fix

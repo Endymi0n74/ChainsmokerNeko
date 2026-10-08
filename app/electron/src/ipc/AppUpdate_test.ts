@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { app } from 'electron';
 import type { IPC } from './InterProcessCommunication';
-import { AppUpdate, CompareVersions, type IUpdateInfo } from './AppUpdate';
+import { AppUpdate, CompareVersions, UPDATE_CHECK_INTERVAL_MS, type IUpdateInfo } from './AppUpdate';
 import { AppUpdate as Channels } from '../../../src/ipc/Channels';
 
 vi.mock('electron', () => ({
@@ -46,6 +46,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
     await fs.rm(userDataDir, { recursive: true, force: true });
 });
 
@@ -117,6 +118,62 @@ describe('AppUpdate', () => {
         fixture.CreateTestee();
 
         await expect(fixture.GetHandler()()).resolves.toBeNull();
+    });
+
+    it('Should query the update service at most once per hour', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ tag_name: '2.0.0', html_url: 'https://example.org', body: '' }),
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+        const fixture = new TestFixture();
+        fixture.CreateTestee();
+        const handler = fixture.GetHandler();
+
+        await expect(handler()).resolves.toMatchObject({ version: '2.0.0' });
+        await expect(handler()).resolves.toMatchObject({ version: '2.0.0' });
+        expect(fetchMock, 'every trigger inside the hour shares the single request').toHaveBeenCalledTimes(1);
+
+        vi.setSystemTime(Date.now() + UPDATE_CHECK_INTERVAL_MS - 1_000);
+        await expect(handler()).resolves.toMatchObject({ version: '2.0.0' });
+        expect(fetchMock, 'still inside the hourly window').toHaveBeenCalledTimes(1);
+
+        vi.setSystemTime(Date.now() + 2_000);
+        await expect(handler()).resolves.toMatchObject({ version: '2.0.0' });
+        expect(fetchMock, 'the window has elapsed, the service is queried again').toHaveBeenCalledTimes(2);
+    });
+
+    it('Should let a failed attempt consume the hourly budget instead of inviting a retry storm', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn(async () => { throw new Error('offline'); });
+        vi.stubGlobal('fetch', fetchMock);
+        const fixture = new TestFixture();
+        fixture.CreateTestee();
+        const handler = fixture.GetHandler();
+
+        await expect(handler()).resolves.toBeNull();
+        await expect(handler()).resolves.toBeNull();
+        expect(fetchMock, 'a failing service is not hammered').toHaveBeenCalledTimes(1);
+
+        vi.setSystemTime(Date.now() + UPDATE_CHECK_INTERVAL_MS + 1_000);
+        await expect(handler()).resolves.toBeNull();
+        expect(fetchMock, 'the next attempt is allowed once the hour has elapsed').toHaveBeenCalledTimes(2);
+    });
+
+    it('Should serve concurrent callers from one single in-flight request', async () => {
+        const fetchMock = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ tag_name: '2.0.0', html_url: 'https://example.org', body: '' }),
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+        const fixture = new TestFixture();
+        fixture.CreateTestee();
+        const handler = fixture.GetHandler();
+
+        const [first, second] = await Promise.all([handler(), handler()]);
+        expect(first).toEqual(second);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('Should check the fork even when the manifest points to another repository', async () => {

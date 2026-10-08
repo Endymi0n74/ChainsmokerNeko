@@ -5,6 +5,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.20] - 2026-10-08
+
+### Fixed
+
+- **The update check now queries GitHub at most once per hour**: every click on "Check for updates" (sidenav entry or "What's new" panel) issued a fresh request to the GitHub API, which allows only 60 unauthenticated requests per hour per IP — the budget was quickly exhausted, the check then failed with a `403`, and **the failure was displayed as "Up to date"** (the panel lied to stay quiet). The application's single entry point now claims the hourly budget (`UPDATE_CHECK_INTERVAL_MS = 60 min`) *before* sending the request: every trigger within the hour — startup check, clicks, concurrent calls — shares one single query and receives the last known outcome without touching the network, **failures included** — an offline or rate-limited service never invites a retry storm. The check can no longer exceed one request per hour. The release notes of the "What's new" panel are read from the bundled changelog (no request).
+
 ## [3.0.19] - 2026-10-08
 
 ### Fixed
