@@ -5,6 +5,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.19] - 2026-10-08
+
+### Fixed
+
+- **A dead image host no longer poisons every subsequent Comix download**: `FetchImage` ran unbounded once queued into the image pool (the download task's 15 s budget only rejects the promise, it never cancels the request), so four requests left in flight against a dead domain — the rotating `*.kkplayer.wtf` CDNs drop without notice — kept the pool workers pinned, and every following page, including pages of other chapters served by perfectly healthy hosts, died waiting for a worker after 15 s, long after the host had recovered. Each image request is now bounded at 15 s from its own start (cancellation via `AbortController`), and a host whose request failed at the network level enters a 20 s cooldown: the remaining pages fail immediately with a clear error instead of stacking new waits on a dead host, and downloads resume by themselves once the host is back. Transient network errors get a single retry after 500 ms.
+- **Chapters with more than ~57 pages no longer lose their tail**: the download task's 15 s budget starts when every page is launched, while the Comix pool only started requests at 4 per second (250 ms throttle) — beyond roughly 57 pages, all remaining pages died in the queue with `timed out after 15000ms` without ever having been requested, even though the host answered in 50 ms (measured on the 183-page chapter 232: 58 pages recovered). The pool throttle now runs at 20 requests/s (50 ms): concurrency stays at 4 simultaneous requests, only the start cadence increases — the ceiling now exceeds 300 pages and small chapters get faster (15 pages in 0.9 s instead of 3.7 s). `FetchImage` also rejects non-`ok` HTTP responses with the status instead of letting them masquerade as images: a broken page becomes a visible error rather than a silent hole.
+
 ## [3.0.18] - 2026-10-07
 
 ### Fixed

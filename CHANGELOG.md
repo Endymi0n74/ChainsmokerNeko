@@ -3,6 +3,13 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.19] - 2026-10-08
+
+### Fix
+
+- **Une panne d'hôte d'image n'entraîne plus en cascade l'échec des téléchargements Comix suivants** : `FetchImage` s'exécutait sans borne propre une fois placé dans le pool d'images (le budget de 15 s de la tâche de téléchargement n'annule que la promesse, jamais la requête), si bien que quatre requêtes laissées en vol sur un domaine mort — les CDN tournants `*.kkplayer.wtf` retombent sans préavis — gardaient les workers du pool bloqués, et toutes les pages suivantes, y compris celles d'autres chapitres servis par des hôtes en pleine santé, mouraient en attente de worker au bout de 15 s, bien après le rétablissement de l'hôte. Chaque requête image est désormais bornée à 15 s à partir de son propre démarrage (annulation via `AbortController`), et un hôte dont la requête a échoué au niveau réseau passe en refroidissement 20 s : les pages restantes échouent immédiatement avec une erreur claire au lieu d'empiler de nouvelles attentes sur un hôte mort, et le téléchargement reprend de lui-même dès que l'hôte revient. Les erreurs réseau passagères bénéficient d'une reprise unique après 500 ms.
+- **Les chapitres de plus de ~57 pages ne perdent plus toute leur queue** : le budget de 15 s de la tâche de téléchargement part au lancement de toutes les pages alors que le pool Comix ne démarrait les requêtes qu'à 4 par seconde (throttle de 250 ms) — au-delà d'environ 57 pages, toutes les pages suivantes mouraient en file d'attente avec `timed out after 15000ms` sans jamais avoir été demandées, alors même que l'hôte répondait en 50 ms (mesuré sur le chapitre 232 de 183 pages : 58 pages récupérées). Le throttle du pool passe à 20 requêtes/s (50 ms) : la concurrence reste à 4 requêtes simultanées, seule la cadence de démarrage augmente — le plafond dépasse désormais 300 pages et les petits chapitres s'accélèrent (15 pages en 0,9 s au lieu de 3,7 s). `FetchImage` rejette aussi les réponses HTTP non-`ok` en affichant le statut, au lieu de les faire passer pour des images : une page cassée devient une erreur visible et non plus un trou silencieux.
+
 ## [3.0.18] - 2026-10-07
 
 ### Fix

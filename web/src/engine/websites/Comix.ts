@@ -6,6 +6,7 @@ import { DecoratableMangaScraper, type MangaPlugin, Manga, Chapter, Page } from 
 import * as Common from './decorators/Common';
 import { RateLimit } from '../taskpool/RateLimit';
 import { AddStalledChallengeReload } from '../platform/ChallengeReload';
+import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
 
 type APIChapter = {
     id: number;
@@ -13,6 +14,26 @@ type APIChapter = {
     name: string;
     group: string | null;
 };
+
+/**
+ * Maximum time a single image request may run once the task pool has started it. The
+ * download task also bounds the whole page (queue wait included), but that outer budget
+ * cannot abort the request itself: without this bound a dead image host keeps the pool
+ * workers busy forever and every subsequent download of this website fails as well,
+ * long after the host has recovered.
+ */
+const IMAGE_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * After an image host failed at the network level, keep it marked as unreachable for this
+ * grace period: the pages queued behind the failure then reject immediately (with a clear
+ * message) instead of stacking new waits on a host known to be dead, and the cooldown
+ * expires by itself so downloads resume as soon as the host recovers.
+ */
+const IMAGE_HOST_COOLDOWN_MS = 20_000;
+
+/** Image hosts currently marked as unreachable, with the end of their cooldown period. */
+const imageHostCooldowns = new Map<string, number>();
 
 /**
  * Discover the site's bundled HTTP client and expose it as `__get(url, config)`.
@@ -116,7 +137,12 @@ export default class extends DecoratableMangaScraper {
 
     public constructor() {
         super('comix', 'Comix', 'https://comix.to', Tags.Media.Manga, Tags.Media.Manhwa, Tags.Media.Manhua, Tags.Language.English, Tags.Source.Aggregator);
-        this.imageTaskPool.RateLimit = new RateLimit(4, 1);
+        // The download task starts its per-page budget as soon as the page is launched,
+        // queue wait included, while the pool only starts the requests one by one. A
+        // throttle of 4 requests/s starved every chapter beyond ~57 pages (their tail died
+        // in the queue without ever being requested); 20 requests/s keeps the pool workers
+        // (4 concurrent requests, unchanged) busy enough for the largest chapters.
+        this.imageTaskPool.RateLimit = new RateLimit(20, 1);
     }
 
     public override get Icon() {
@@ -145,12 +171,55 @@ export default class extends DecoratableMangaScraper {
      * The image CDN answers HTTP 403 to any request carrying a non-empty `Referer` (hotlink protection),
      * even when the referer is the image's own origin, so the pages must be requested without any referer,
      * the same way the site's own reader loads them.
+     *
+     * The CDN also rotates throwaway domains: a host can drop without notice (observed on
+     * `*.kkplayer.wtf`). Each request is therefore bounded on its own (see IMAGE_FETCH_TIMEOUT_MS)
+     * so a dead host cannot pin the pool workers, and a host that failed at the network level is
+     * put in cooldown (see IMAGE_HOST_COOLDOWN_MS) so the remaining pages fail fast instead of
+     * rebuilding the queue that made downloads unreliable in the first place.
      */
     public override async FetchImage(page: Page, priority: Priority, signal: AbortSignal): Promise<Blob> {
+        // NOTE: the test fixtures invoke the page fetch with a null signal: treat it as "no cancellation".
+        const cancellation: AbortSignal | null = signal;
         return this.imageTaskPool.Add(async () => {
-            const request = new Request(page.Link, { signal, referrerPolicy: 'no-referrer' });
-            const response = await Fetch(request);
-            return response.blob();
-        }, priority, signal);
+            const host = page.Link.host;
+            const cooldownUntil = imageHostCooldowns.get(host) ?? 0;
+            if (cooldownUntil > Date.now()) {
+                throw new Error(`Image host unreachable: ${host}`);
+            }
+            let lastError: unknown;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                if (cancellation?.aborted) throw new DOMException('Aborted', 'AbortError');
+                const attemptSignal = new AbortController();
+                const onAbort = () => attemptSignal.abort();
+                cancellation?.addEventListener('abort', onAbort, { once: true });
+                const timeout = await SetTimeout(() => attemptSignal.abort(), IMAGE_FETCH_TIMEOUT_MS);
+                try {
+                    const response = await Fetch(new Request(page.Link, { signal: attemptSignal.signal, referrerPolicy: 'no-referrer' }));
+                    if (!response.ok) {
+                        // The host answered: it is alive, so no cooldown (the status error is likely
+                        // systematic for this URL, a blind retry would only waste the time budget).
+                        throw new Error(`Image request failed with HTTP ${response.status}: ${host}`);
+                    }
+                    return await response.blob();
+                } catch (error) {
+                    if (cancellation?.aborted) throw error;
+                    if (attemptSignal.signal.aborted) {
+                        imageHostCooldowns.set(host, Date.now() + IMAGE_HOST_COOLDOWN_MS);
+                        throw new Error(`Image host did not answer within ${IMAGE_FETCH_TIMEOUT_MS}ms: ${host}`);
+                    }
+                    if (!(error instanceof TypeError)) throw error;
+                    // Transient network error (reset, DNS hiccup): a single immediate retry,
+                    // the second consecutive failure puts the host in cooldown below.
+                    lastError = error;
+                } finally {
+                    ClearTimeout(timeout);
+                    cancellation?.removeEventListener('abort', onAbort);
+                }
+                if (attempt < 1) await Delay(500);
+            }
+            imageHostCooldowns.set(host, Date.now() + IMAGE_HOST_COOLDOWN_MS);
+            throw lastError instanceof Error ? lastError : new Error(String(lastError));
+        }, priority, signal ?? undefined);
     }
 }
