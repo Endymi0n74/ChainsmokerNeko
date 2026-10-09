@@ -27,7 +27,6 @@ export const legacyWebsiteIdentifierMap = new Map([
     [ 'mangaproz', 'mangapro' ],
     [ 'mangaraw', 'mangageko' ],
     [ 'mangatale', 'ikiru' ],
-    [ 'manhuascan', 'kaliscan' ],
     [ 'neteasecomic', 'bilibilimanhua' ],
     [ 'reaperscansid', 'shinigamiid' ],
     [ 'scanhentaimenu', 'xmanga' ],
