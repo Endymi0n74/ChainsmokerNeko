@@ -51,6 +51,27 @@ export function NextClearanceState(previous: string | undefined, raw: string | u
 }
 
 /**
+ * The `cf=` label of one observed `cf_clearance` read: what a poll round actually concluded about
+ * the cookie, in one word, so the trace of a session can be read (and grep'd) without replaying the
+ * decisions which produced it.
+ *
+ * `present` is the case the old trace could not express at all (`unchanged:<length>`): the origin
+ * serves a clearance the window did NOT obtain, i.e. the challenge is still in front of the user.
+ * @param note - The note a `ReadClearanceRound` returned (`unchanged:<length>`, `baseline:<length>`,
+ * `changed`, `rotated`, `reappeared`, `read-failed`, `skipped`).
+ */
+export function DescribeClearanceNote(note: string): string {
+    if (note === 'changed') return 'issued';
+    if (note === 'rotated') return 'rotated';
+    if (note === 'reappeared') return 'reappeared';
+    if (note === 'read-failed') return 'unreadable';
+    if (note === 'skipped') return 'none';
+    const length = /^(?:unchanged|baseline):(\d+)$/.exec(note)?.[1];
+    if (length !== undefined) return Number(length) > 0 ? 'present' : 'none';
+    return note;
+}
+
+/**
  * Budget [ms] for the recovery window: interactive challenges are capped at 150 s by the window
  * flow itself, managed challenges get enough headroom to complete their proof phase.
  */

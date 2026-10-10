@@ -5,7 +5,7 @@ import { CreateRemoteBrowserWindow, type IRemoteBrowserWindow } from './RemoteBr
 import { CheckAntiScrapingDetection, FetchRedirection } from './AntiScrapingDetection';
 import { CHALLENGE_WINDOW_COOLDOWN, MAX_CHALLENGE_WINDOWS, GetChallengeWindowOrigin, GetClearanceValidationGrace, PlanChallengeWindow, RecordChallengeWindow, ResetChallengeWindowBudget, ShouldReloadAfterClearance, ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from './ChallengeReload';
 import { ChallengeSession } from './ChallengeSession';
-import { CHALLENGE_WIDGET_RENDER_GRACE, CLEARANCE_NAVIGATION_GRACE, COOKIE_CLEARANCE_DOM_GRACE, MAX_CLEARANCE_RELOADS, MIN_CLEARANCE_LENGTH, NextClearanceState, NormalizeClearance, PlanClearanceReload, PlanScriptInjection, PlanStalledChallengeReload, type ScriptInjectionAction } from './ChallengeDecisions';
+import { CHALLENGE_WIDGET_RENDER_GRACE, CLEARANCE_NAVIGATION_GRACE, COOKIE_CLEARANCE_DOM_GRACE, DescribeClearanceNote, MAX_CLEARANCE_RELOADS, MIN_CLEARANCE_LENGTH, NextClearanceState, NormalizeClearance, PlanClearanceReload, PlanScriptInjection, PlanStalledChallengeReload, type ScriptInjectionAction } from './ChallengeDecisions';
 import type { FeatureFlags } from '../FeatureFlags';
 import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
 
@@ -19,8 +19,8 @@ import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
  */
 export {
     CHALLENGE_WIDGET_RENDER_GRACE, CLEARANCE_NAVIGATION_GRACE, COOKIE_CLEARANCE_DOM_GRACE,
-    MAX_CLEARANCE_RELOADS, MIN_CLEARANCE_LENGTH, NextClearanceState, NormalizeClearance,
-    PlanClearanceReload, PlanScriptInjection, PlanStalledChallengeReload,
+    DescribeClearanceNote, MAX_CLEARANCE_RELOADS, MIN_CLEARANCE_LENGTH, NextClearanceState,
+    NormalizeClearance, PlanClearanceReload, PlanScriptInjection, PlanStalledChallengeReload,
 };
 export type { ScriptInjectionAction };
 
@@ -1039,6 +1039,11 @@ export abstract class FetchProvider {
             // task timeout with nothing in the log to explain why (Volume 22, 28 sept.).
             let cfIsChallenge = '-', cfWidget = '-', siteState = '-', clearanceNote = '-', cfFrames = '-', cfDom = '-', cfAge = '-', cfWhy = '-', cfAnnounce = '-', cfNav = '-', cfCdpFrames = '-', cfMarkers = '-';
             let cfDocumentAge: number | undefined;
+            // Whether the document itself carries a completed turnstile response: the `token=` of the
+            // trace, i.e. which of the two reasons a clearance change can have (`ChallengePolicy`
+            // `requireSolveToken`). Kept out of the computed values above on purpose: it is the one
+            // reading which tells a solve apart from Cloudflare rotating the cookie while RENDERING.
+            let cfToken: boolean | undefined;
             try {
                 const cloudflare = await win.ExecuteScript<{ isChallenge: boolean; hasRealWidget: boolean; frames?: string; dom?: string; age?: number; announce?: string; why?: string; cfMarkers?: string; turnstileSolved?: boolean }>(cloudflareDetectionScript);
                 cfIsChallenge = String(cloudflare?.isChallenge);
@@ -1056,6 +1061,7 @@ export abstract class FetchProvider {
                 // Numeric twin of `cfAge` for the clearance plan below, which must neither reload
                 // nor fail a document younger than the render grace.
                 cfDocumentAge = typeof cloudflare?.age === 'number' ? cloudflare.age : undefined;
+                cfToken = typeof cloudflare?.turnstileSolved === 'boolean' ? cloudflare.turnstileSolved : undefined;
                 // `why` = which marker made `cf=true` (title/body/selector), `announce` = what the
                 // page announces about a pending challenge (site flag, Cloudflare options object).
                 // Together they separate a real interstitial from a false positive on a page that
@@ -1153,6 +1159,22 @@ export abstract class FetchProvider {
                     ? ` frames=${cfFrames} age=${cfAge} nav=${cfNav} why=${cfWhy} announce=${cfAnnounce}${cfMarkers !== '-' ? ` cfmark=${cfMarkers}` : ''}${cfWidget === 'false' ? ` dom=${cfDom}` : ''}${cfWidget === 'false' && cfCdpFrames !== '-' ? ` cdpFrames=${cfCdpFrames}` : ''}`
                     : '';
                 console.warn(`[KUMO] poll#${pollAttempts} cf=${cfIsChallenge} widget=${cfWidget}${diagnostic} site=${siteState} clr=${clearanceNote} cleared=${cleared}`);
+                // The same round, as ONE greppable line handed to the persistent sink (`diagnostics.log`
+                // → the replay harness reads it). Without it the most common outcome — a challenge the
+                // window is still facing, no clearance in the jar — left no evidence at all, which is
+                // precisely why every diagnosis of this path used to be a screenshot.
+                session.TraceRound({
+                    generation,
+                    isChallenge: cfIsChallenge === 'true',
+                    hasRealWidget: cfWidget === '-' ? undefined : cfWidget === 'true',
+                    frames: cfFrames === '-' ? undefined : cfFrames,
+                    navigations,
+                    age: cfDocumentAge,
+                    clearanceNote,
+                    cleared,
+                    site: siteState === '-' ? undefined : siteState,
+                    turnstileSolved: cfToken,
+                });
             }
             // A navigation replaced the document while this round was in flight (its `stop()` was
             // called by the DOMReady which follows the navigation): every reading above then belongs

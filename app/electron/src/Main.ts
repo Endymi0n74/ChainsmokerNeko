@@ -221,7 +221,10 @@ async function OpenWindow(): Promise<void> {
         new CloudFlareImport(ipc);
         new AppUpdate(ipc);
         new BloatGuard(ipc, win.webContents);
-        new Diagnostics(ipc);
+        // Also mirrors this window's console (`[KUMO]` challenge decisions, `[JapScan]` diag, page
+        // errors) into the rotating diagnostics log: the challenge path runs in the renderer, so
+        // without this every diagnosis depends on a screenshot of DevTools.
+        new Diagnostics(ipc, win.webContents);
         win.RegisterChannels(ipc);
         await win.loadURL(uri.href).catch(error => console.warn(error));
     } catch(error) {

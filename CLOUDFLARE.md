@@ -83,6 +83,67 @@ untrusted IP/session — that is where the helper below comes in.
 > i.e. it fits both budgets — and on CrunchyScan the flow is classified *Interactive*, which replaces
 > that timeout with the **150 s** interactive one anyway. No window budget had to be raised.
 
+### 2.1 One owner for the challenge state (v3.0.22)
+
+The challenge path is split so that each question has **exactly one** answerer:
+
+| Module | Owns |
+|--------|------|
+| `ChallengePolicy.ts` | **ONE declarative table per site** (fork handling, age-driven reload, clearance reload, validation grace, `requireSolveToken`, reload budget). Registering twice *completes* the previous declaration instead of resetting it, and a site which declares nothing keeps the upstream behaviour exactly: it is never rerouted and no reload may touch its challenge. |
+| `ChallengeDecisions.ts` | The pure pieces: thresholds, the `cf_clearance` bookkeeping and the three planners (`PlanStalledChallengeReload`, `PlanClearanceReload`, `PlanScriptInjection`). |
+| `ChallengeSession.ts` | The state and **every decision** of ONE window: reload budgets, document generation, cookie baseline, document classification, and the reload / fail / hold / extract call. |
+| `ChallengeReload.ts` | The site-facing vocabulary (`AddClearanceReload`, `AddStalledChallengeReload`, `AddForkChallengeHandling`) and the **per-origin window budget** — the only state that has to outlive a window. |
+
+Two properties that used to be bugs are now structural:
+
+- **A superseded round cannot decide.** Every round carries the generation of the document it
+  read; if a navigation replaced that document, the round gets `ignore` — it neither reloads,
+  nor fails, nor extracts from readings that belong to a page which no longer exists. That is
+  what produced the "two reloads *and* the failure spent in 1.5 s" report: four survivor rounds
+  sharing one window.
+- **The transport observes, the session decides.** `FetchProviderCommon.ts` opens windows, reads
+  the page and executes the approved action; it no longer holds a second opinion about reloads
+  or budgets. `Stop()`/`Settle()` are checked inside every decision, so a poller's `stop()` is
+  enough even when an `ExecuteScript` already in flight cannot be cancelled.
+
+### 2.2 Reading a challenge session after the fact
+
+The decisions used to be readable only in `F12`, which is why every diagnosis was a screenshot.
+They are now a file:
+
+- `app/electron/src/ipc/Diagnostics.ts` mirrors the application window's console into
+  `userData/diagnostics.log` (5 MB rotation), keeping `[KUMO]`, `[JapScan]`, `[ReaderWindow` and
+  every `error`.
+- `HAKUNEKO_TRACE_DIR` redirects that log elsewhere — the replay harness points it at
+  `haruneko/.tmp/traces/<session>/`.
+- `web/src/engine/platform/ChallengeTrace.ts` writes **one greppable line per decision** both to
+  the console (unchanged `F12` experience) and through the diagnostics channel.
+
+```
+[KUMO] trace t=… origin=https://www.japscan.foo gen=2 phase=challenge reloads=0/2 doc=challenge age=6724ms cf=rotated widget=0 frames=child=0 nav=0 token=0 site=Interactive cleared=0 decision=poll
+```
+
+`cf=` is what the cookie check concluded — `none`, `present` (a clearance the window did not
+obtain: the challenge is still in front of you), `issued`, `rotated` (Cloudflare rotating the
+cookie while rendering is **not** a solve), `reappeared` (churn) or `unreadable` — and
+`decision=` is what the engine did about it (`poll`, `wait`, `defer`, `reload`, `ignore`, `fail`,
+`extract`).
+
+To reproduce a session on the real app and the real profile:
+
+```bash
+npm run build:web && npm --workspace=app/electron run build
+node scripts/challenge-replay.mjs --site japscan --timeout 90000
+```
+
+It drives the running app through the same public surface the website e2e suite uses, bounds
+every step by its own budget, and writes `trace.log`, `console.log`, `cookies.json` (cookie
+**metadata** only — never a value), `frames.json`, `screenshots/` and `session.json` into the
+session directory. It refuses to start if the app's port is taken or an instance already runs on
+the profile (`--force` to override), and it **never clicks the Turnstile**: the interactive
+challenge is a human step, and the harness removes the guessing, not the click. Solve it in the
+window it opens and the trace records exactly what the engine did with it.
+
 ---
 
 ## 3. Helper "Import cf_clearance from the browser"

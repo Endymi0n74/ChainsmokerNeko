@@ -6,6 +6,7 @@ import {
     IsCloudFlareChallengeError, IsCloudFlareChallengePage, PlanScriptInjection, COOKIE_CLEARANCE_DOM_GRACE,
     CHALLENGE_WIDGET_PROBE, CHALLENGE_WIDGET_RENDER_GRACE, PlanStalledChallengeReload,
     MAX_CLEARANCE_RELOADS, CLEARANCE_NAVIGATION_GRACE, PlanClearanceReload, ReloadChallengeWindow,
+    DescribeClearanceNote,
 } from './FetchProviderCommon';
 import { AddClearanceReload, AddForkChallengeHandling, MAX_CHALLENGE_WINDOWS, ResetChallengeWindowBudgets, ShouldUseForkChallengeHandling, ShouldUseStalledChallengeReload } from './ChallengeReload';
 import { Exception } from '../Error';
@@ -145,6 +146,27 @@ describe('NextClearanceState', () => {
         expect(back.baseline).toBe(PERSISTED);
         // Without the memory the same read stays a plain change: the third argument is opt-in.
         expect(NextClearanceState(baseline, FRESH).reappeared).toBe(false);
+    });
+});
+
+describe('DescribeClearanceNote', () => {
+    it('Should name what a poll round concluded about the cookie, in one word', () => {
+        // Each of these notes was a distinct line in a screenshot until this trace existed; a reader
+        // of `diagnostics.log` must be able to tell them apart without replaying the decisions.
+        expect(DescribeClearanceNote('changed')).toBe('issued');
+        expect(DescribeClearanceNote('rotated')).toBe('rotated');
+        expect(DescribeClearanceNote('reappeared')).toBe('reappeared');
+        expect(DescribeClearanceNote('read-failed')).toBe('unreadable');
+        expect(DescribeClearanceNote('skipped')).toBe('none');
+        // `unchanged:0` is the ordinary "the user is still facing the challenge" round — the case the
+        // legacy poll line expressed as a bare `clr=unchanged:0` and no trace could search for.
+        expect(DescribeClearanceNote('unchanged:0')).toBe('none');
+        expect(DescribeClearanceNote('unchanged:0')).not.toBe(DescribeClearanceNote(`unchanged:${MIN_CLEARANCE_LENGTH}`));
+        expect(DescribeClearanceNote(`unchanged:${MIN_CLEARANCE_LENGTH}`)).toBe('present');
+        expect(DescribeClearanceNote('baseline:0')).toBe('none');
+        expect(DescribeClearanceNote(`baseline:${MIN_CLEARANCE_LENGTH}`)).toBe('present');
+        // Anything unrecognized is passed through rather than silently flattened to a known word.
+        expect(DescribeClearanceNote('error:Failed to find window')).toBe('error:Failed to find window');
     });
 });
 

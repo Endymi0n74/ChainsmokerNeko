@@ -1,7 +1,7 @@
 import { type ChallengePolicy, FindChallengePolicy } from './ChallengePolicy';
 import {
-    CLEARANCE_NAVIGATION_GRACE, MAX_CLEARANCE_RELOADS, NormalizeClearance, NextClearanceState,
-    PlanClearanceReload, PlanScriptInjection, PlanStalledChallengeReload,
+    CLEARANCE_NAVIGATION_GRACE, DescribeClearanceNote, MAX_CLEARANCE_RELOADS, NormalizeClearance,
+    NextClearanceState, PlanClearanceReload, PlanScriptInjection, PlanStalledChallengeReload,
     type ScriptInjectionAction,
 } from './ChallengeDecisions';
 import { TraceChallenge, type ChallengeTraceValue } from './ChallengeTrace';
@@ -279,6 +279,44 @@ export class ChallengeSession {
 
     /** Clearance value the last approved stalled reload used, so it is not replayed. */
     private lastReloadedClearance = '';
+
+    /**
+     * Emit the ONE line a poll round leaves behind.
+     *
+     * The round is the only gate between "the user solved the challenge" and the extraction script
+     * starting, and it used to be silent: a poller which never concluded left `Update()` hanging
+     * with nothing but a screenshot to explain why. One line per round — `cf=` says what the cookie
+     * check concluded, `doc=`/`age=`/`widget=`/`frames=`/`nav=` what the document looked like —
+     * turns a session into a file which can be grepped afterwards.
+     *
+     * Deliberately NOT gated by {@link IsStale}: unlike a decision, an observation is always worth
+     * recording, and a round which was superseded says exactly that right before it is refused.
+     * @param round - The round's readings, as the poller took them.
+     */
+    public TraceRound(round: {
+        generation: number;
+        isChallenge: boolean;
+        hasRealWidget: boolean | undefined;
+        frames?: string;
+        navigations?: number;
+        age?: number;
+        clearanceNote: string;
+        cleared: boolean;
+        site?: string;
+        turnstileSolved?: boolean;
+    }): void {
+        this.Trace('poll', {
+            doc: round.isChallenge ? 'challenge' : 'real',
+            age: this.FormatAge(round.age),
+            cf: DescribeClearanceNote(round.clearanceNote),
+            widget: round.hasRealWidget,
+            frames: round.frames,
+            nav: round.navigations,
+            token: round.turnstileSolved,
+            site: round.site,
+            cleared: round.cleared,
+        });
+    }
 
     /**
      * Read and classify the `cf_clearance` cookie of the current document.

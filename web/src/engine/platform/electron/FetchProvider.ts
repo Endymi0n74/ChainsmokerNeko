@@ -1,7 +1,8 @@
 import { FetchProvider } from '../FetchProviderCommon';
+import { SetChallengeTraceSink } from '../ChallengeTrace';
 import type { FeatureFlags } from '../../FeatureFlags';
 import type { IPC } from '../InterProcessCommunication';
-import { FetchProvider as Channels } from '../../../../../app/src/ipc/Channels';
+import { Diagnostics, FetchProvider as Channels } from '../../../../../app/src/ipc/Channels';
 
 // See: https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name
 const fetchApiSupportedPrefix = 'X-FetchAPI-';
@@ -47,6 +48,12 @@ export default class extends FetchProvider {
 
         super.Initialize(featureFlags);
 
+        // Persist every challenge decision: the `Diagnostics.App.WriteLog` channel appends it to the
+        // rotating `diagnostics.log` of the main process (which `HAKUNEKO_TRACE_DIR` can point at the
+        // workspace). Installed BEFORE the "already initialized" guard below, so a second call can
+        // never drop the sink. The NodeWebKit build has no such channel and keeps the console output.
+        SetChallengeTraceSink(this.Trace.bind(this));
+
         // Abuse the global Request type to check if system is already initialized
         if(globalThis.Request === FetchRequest) {
             return;
@@ -56,6 +63,16 @@ export default class extends FetchProvider {
         globalThis.Request = FetchRequest;
 
         this.ipc.Send(Channels.App.Initialize, fetchApiSupportedPrefix);
+    }
+
+    /**
+     * Appends one challenge trace line to the main process log, fire and forget.
+     *
+     * The renderer IPC is typed per channel namespace while its runtime is a plain channel string, so
+     * the (documented) widening below is the only way to reach the diagnostics channel from here.
+     */
+    private Trace(line: string): void {
+        void (this.ipc as unknown as IPC<string, string>).Send(Diagnostics.App.WriteLog, line).catch(() => {});
     }
 
     protected async FetchCore(request: Request): Promise<Response> {
