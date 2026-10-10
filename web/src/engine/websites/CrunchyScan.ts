@@ -5,7 +5,7 @@ import { RateLimit } from '../taskpool/RateLimit';
 import { DecoratableMangaScraper, type Chapter, Page } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
-import { AddStalledChallengeReload } from '../platform/ChallengeReload';
+import { SetChallengePolicy } from '../platform/ChallengePolicy';
 import { Fetch, FetchWindowScript } from '../platform/FetchProvider';
 import { Delay, SetTimeout, ClearTimeout } from '../BackgroundTimers';
 import { Exception } from '../Error';
@@ -28,7 +28,29 @@ AddAntiScrapingDetection(async invoke => {
     // window that successfully primes the shared Cloudflare session.
     return challenged ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?crunchyscan\.org/);
-AddStalledChallengeReload(/^https:\/\/(?:www\.)?crunchyscan\.org/);
+// CrunchyScan's whole challenge policy, declared in ONE place:
+//
+// - the stall was measured HERE first (CLOUDFLARE.md §7, and the reason `widgetGone` excludes this
+//   host in `PollForChallengeResolution`): Cloudflare issues a fresh `cf_clearance` for the
+//   interstitial but never redirects it;
+// - `stalledReload`: the age-driven poller covers the stall while the document is young and nothing
+//   was rendered. Unlike JapScan this site ASKS for it (its managed challenge resolves itself) —
+//   hence no `requireSolveToken`: its Turnstile lives in a sub-frame, so the response field is
+//   unreadable cross-origin and a clearance change is the only signal available;
+// - `clearanceReload`: once the cookie IS issued, the poller restarts THIS window (bounded at
+//   MAX_CLEARANCE_RELOADS) instead of waiting out the 30 s hold and extracting from a still-current
+//   challenge page — an empty result the connector answers with one more window (the reported
+//   series of 150 s timeouts, softened by `challengeSuspected`), then raises the Cloudflare error in
+//   that same window instead of a silent timeout.
+// - `stalledReloadBudget: 1`: its managed challenge can issue a fresh but unusable clearance on
+//   every reload, so ONE automatic retry is allowed and the window is then left stable for a manual
+//   intervention (the value the window budget used to carry as a hardcoded per-host conditional).
+SetChallengePolicy(/^https:\/\/(?:www\.)?crunchyscan\.org/, {
+    forkHandling: true,
+    stalledReload: true,
+    stalledReloadBudget: 1,
+    clearanceReload: true,
+});
 
 function CleanTitle(text: string) {
     return text.replace(/^\s*\(\s*adulte[^\)]*\)\s*/i, '');

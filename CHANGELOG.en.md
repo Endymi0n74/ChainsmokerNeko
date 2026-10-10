@@ -5,6 +5,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.22] - 2026-10-09
+
+### Fixed
+
+- **JapScan reader windows no longer send the `Electron/...` marker in their User-Agent**: only `japscan.*` reader windows now use the app's Chromium User-Agent without the Electron segment. Other sites keep the current User-Agent. A regression test covers both cases.
+
+## [3.0.21] - 2026-10-09
+
+### Fixed
+
+- **JapScan no longer reloads an interactive challenge before the user solves it**: when the DOM probe misses the visible Turnstile control, the time-driven poller interpreted `widget=false` as "no control will render" and issued `ReloadStalledCloudFlareChallenge: reload #1/3` after 12 seconds — resetting validation even though the `requireSolveToken` gate had correctly rejected the `cf_clearance` rotation. The new `ShouldUseStalledChallengeReload()` predicate disables only this age-only poller for sites that require proof of a solve; JapScan remains covered by the separate bounded, token-gated clearance path. CrunchyScan and its cross-origin subframe widget retain their previous behavior. A regression test reproduces the capture (active challenge, `widget=false`, `clr=rotated`, age 12.6 s), asserts no reload before a solve, then requires clearance reload #1/2 and extraction after resolution, all in one window.
+
 ## [3.0.20] - 2026-10-08
 
 ### Fixed

@@ -1,6 +1,6 @@
 import { vi, describe, expect, it, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { IsIncompleteReaderResult, IsVolumeChapter, JAPSCAN_CHALLENGE_DETECTION_SCRIPT, MergePageLinks, MIN_READER_PAGES_FOR_COMPLETE_RESULT, ShouldCompleteWithDRM } from './JapScan';
-import { ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from '../platform/ChallengeReload';
+import { GetClearanceValidationGrace, ShouldReloadAfterClearance, ShouldReloadStalledChallenge, ShouldRequireSolveToken, ShouldUseForkChallengeHandling, ShouldUseStalledChallengeReload } from '../platform/ChallengeReload';
 
 describe('JapScan page fallback helpers', () => {
     it('Should merge DRM pages before reader-only pages', () => {
@@ -106,7 +106,31 @@ describe('JapScan challenge registration', () => {
         // Managed Cloudflare challenges on JapScan issue a clearance without redirecting:
         // the bounded reload (which chains the fork handling) is what unpins the window.
         expect(ShouldReloadStalledChallenge('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
+        expect(ShouldUseStalledChallengeReload('https://www.japscan.foo/manga/blue-lock/')).toBe(false);
         expect(ShouldUseForkChallengeHandling('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
         expect(ShouldReloadStalledChallenge('https://example.com/manga/demo/')).toBe(false);
+        expect(ShouldUseStalledChallengeReload('https://example.com/manga/demo/')).toBe(false);
+    });
+
+    it('Should scope the clearance-driven reload to the sites which measured that stall', () => {
+        // A fresh cf_clearance issued while the challenge document stays current is restarted by
+        // the poller itself — only for the sites where that stall was actually observed: JapScan
+        // here, CrunchyScan in its own registration test. The other stalled-reload sites (Comix,
+        // MangaFire, MangaMoins) must keep exactly the challenge handling they had.
+        expect(ShouldReloadAfterClearance('https://www.japscan.foo/manga/-/')).toBe(true);
+        expect(ShouldReloadAfterClearance('https://japscan.lol/manga/blue-lock/')).toBe(true);
+        expect(GetClearanceValidationGrace('https://www.japscan.lol/manga/blue-lock/')).toBe(60_000);
+        expect(GetClearanceValidationGrace('https://www.crunchyscan.org/manga/demo/')).toBeUndefined();
+        // JapScan's widget renders INLINE (the challenge traces show `frames=child=0`, and the
+        // response field is matched in the parent document), so the poller can read the completed
+        // turnstile response: a clearance change without it is Cloudflare's render-time rotation
+        // and must not arm the two-reload cycle — the gate which kept killing windows on
+        // `survived 2/2 reloads, giving up` before the user could click.
+        expect(ShouldRequireSolveToken('https://www.japscan.foo/manga/-/')).toBe(true);
+        expect(ShouldRequireSolveToken('https://japscan.lol/manga/blue-lock/')).toBe(true);
+        expect(ShouldRequireSolveToken('https://example.com/manga/demo/')).toBe(false);
+        expect(ShouldReloadAfterClearance('https://comix.to/title/demo')).toBe(false);
+        expect(ShouldReloadAfterClearance('https://mangafire.to/filter')).toBe(false);
+        expect(ShouldReloadAfterClearance('https://www.mangamoins.com/manga/demo')).toBe(false);
     });
 });

@@ -3,7 +3,7 @@ import icon from './JapScan.webp';
 import { DecoratableMangaScraper, type Manga, Chapter, Page, type MangaPlugin } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
 import { AddAntiScrapingDetection, FetchRedirection } from '../platform/AntiScrapingDetection';
-import { AddStalledChallengeReload } from '../platform/ChallengeReload';
+import { SetChallengePolicy } from '../platform/ChallengePolicy';
 import { ExtractPagesFromReader } from './JapScan.Extract';
 import { DRMProvider } from './JapScan.DRM';
 import { TaskPool, Priority } from '../taskpool/TaskPool';
@@ -74,11 +74,35 @@ AddAntiScrapingDetection(async invoke => {
     const result = await invoke<boolean>(JAPSCAN_CHALLENGE_DETECTION_SCRIPT);
     return result ? FetchRedirection.Interactive : undefined;
 }, /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
-// Cloudflare's managed challenge on JapScan issues a fresh cf_clearance but never redirects
-// the interstitial (the same stall documented for CrunchyScan in CLOUDFLARE.md §7): without
-// the opt-in reload every extraction window pins on "Just a moment..." until its timeout.
-// `AddStalledChallengeReload` also registers the fork challenge handling (it chains both).
-AddStalledChallengeReload(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
+// JapScan's whole challenge policy, declared in ONE place (it used to be three registrations whose
+// order decided the outcome — `AddStalledChallengeReload` chained the fork handling, then
+// `AddClearanceReload` added the clearance path and its gate):
+//
+// - `forkHandling`: the fork window flow owns this site's windows (classification, budgets, pollers).
+// - `stalledReload` + `requireSolveToken`: the age-driven stalled reload stays REGISTERED (the site
+//   is one of the two that measured the managed stall) but is NOT allowed to run — it is
+//   time-driven, so it may reload the very widget the user is validating: its probe cannot tell
+//   "widget not mounted yet" from "probe missed the active control" (the reported `reload #1/3`
+//   right after the 12 s grace). Only the token-gated clearance path may restart this site.
+// - `clearanceReload`: Cloudflare issues a fresh `cf_clearance` for the interstitial and never
+//   redirects it (measured: the request which got the cookie still serves the challenge, the first
+//   reload leaves the interstitial, the second serves the reader). The poller therefore restarts
+//   the SAME window, bounded at two reloads, then reports an explicit Cloudflare error.
+// - `validationGrace` 60 s: JapScan rotates intermediate cookies while its validation POST is still
+//   running, so the fallback F5 waits for the site's server-side validation; an 8 s reload lands
+//   mid-validation and asks the user to solve another challenge.
+// - `requireSolveToken`: the widget renders INLINE (`frames=child=0`, response field readable in the
+//   parent document), so a `cf_clearance` change may only arm the reload cycle when the document's
+//   own `[name="cf-turnstile-response"]` is completed — otherwise Cloudflare's render-time rotation
+//   armed two reloads on a challenge nobody validated and the window died on `survived 2/2 reloads`
+//   while the interactive budget still had a minute left to click.
+SetChallengePolicy(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/, {
+    forkHandling: true,
+    stalledReload: true,
+    clearanceReload: true,
+    validationGrace: 60_000,
+    requireSolveToken: true,
+});
 
 export const MIN_READER_PAGES_FOR_COMPLETE_RESULT = 5;
 

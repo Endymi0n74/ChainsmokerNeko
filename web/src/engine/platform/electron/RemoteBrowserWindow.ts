@@ -4,6 +4,14 @@ import type { IRemoteBrowserWindow } from '../RemoteBrowserWindow';
 import type { IPC } from '../InterProcessCommunication';
 import { RemoteBrowserWindowController as Channels } from '../../../../../app/src/ipc/Channels';
 
+const JapScanHostname = /^(?:www\.)?japscan\.[a-z]{2,4}$/i;
+
+function GetBrowserWindowUserAgent(request: Request): string {
+    const userAgent = navigator.userAgent;
+    if (!JapScanHostname.test(new URL(request.url).hostname)) return userAgent;
+    return userAgent.replace(/\sElectron\/\d+(?:\.\d+){0,3}(?=\s|$)/i, '');
+}
+
 export default class RemoteBrowserWindow implements IRemoteBrowserWindow {
 
     private windowID = Number.NaN;
@@ -95,7 +103,7 @@ export default class RemoteBrowserWindow implements IRemoteBrowserWindow {
         */
 
         const loadOptions: LoadURLOptions = {
-            userAgent: navigator.userAgent,
+            userAgent: GetBrowserWindowUserAgent(request),
             httpReferrer: request.referrer,
         };
 

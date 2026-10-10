@@ -39,12 +39,49 @@ loads. The app therefore has **two layers**:
 | **Standard user-agent preserved** | The app keeps the `Electron/x.y.z` segment instead of stripping it (stripping triggered the challenge on MangaFire). |
 | **Shared session** | Remote windows share the app session; cookies (including `cf_clearance`) are injected into fetch requests, and the `partitioned` flag is removed from `Set-Cookie`. |
 | **Auto-resolution of managed challenges** | The challenge resolves itself in the background without a window flash (the window is hidden only for widget-less sites). |
-| **Opt-in per-site reload** | Only sites that opt in (CrunchyScan, JapScan) reload the page while the challenge is stuck — budget capped at **3 navigations** (**1** for CrunchyScan), always deferred while the document is younger than the **12 s render grace**. Two independent triggers: **(a)** the challenge never rendered a control — nothing a reload could reset, so this one fires deterministically (the widget-less JapScan interstitial; without it the stall lived on a fresh-`cf_clearance` gate that matched only about half of the checks), or **(b)** the current document issued a **fresh** `cf_clearance` while a control had already been seen (the documented CrunchyScan stall: reloading an unchanged cookie is useless and only resets the widget). Cookie read via the debugger (`Network.getCookies`) because `cf_clearance` is **httpOnly**. |
+| **Opt-in per-site reload** | Only sites that opt in (CrunchyScan, JapScan) use a time-driven stalled-challenge poller, capped at **3 navigations** (**1** for CrunchyScan) and deferred during the **12 s render grace**. This age-only path is **disabled for JapScan**: its Turnstile probe can miss the active inline control, so `widget=false` is not evidence that reloading is safe; JapScan waits for its completed response token before the separate same-window clearance path may act. CrunchyScan keeps the age-driven path because its widget is cross-origin and its measured managed challenge needs it. A third, independently opt-in path restarts the **same** window after a clearance is issued while the challenge document stays current (registered by **CrunchyScan and JapScan**, bounded at **2 reloads** then an explicit Cloudflare error instead of a silent 150 s timeout — see below). Cookie read via the debugger (`Network.getCookies`) because `cf_clearance` is **httpOnly**. |
 | **Challenge stall diagnostics** | Every poll prints `poll#N cf= widget= frames= age= nav= why= announce= dom= site= clr= cleared=`; `cdpFrames=` joins while no widget is found and lists the **debugger's** frame tree (`Page.getFrameTree`), which reaches frames no DOM query can see (a `challenges.cloudflare.com` frame with `frames=child=0` means a widget exists and a reload would reset a clickable control). Every window close prints its reason (`FetchWindow: closing window (<timeout / settled / failed / open failed>)`), and a window that vanishes **without** that call announces itself (`window closed without CloseWindow`, `renderer gone:`) — telling a crash or a manual close apart from the app's own cleanup. |
 
 These mechanisms are enough for MangaFire and Comix (validated live). For
 CrunchyScan, the widget-less "managed" challenge may not resolve from an
 untrusted IP/session — that is where the helper below comes in.
+
+> **Note on the clearance-driven restart (CrunchyScan, JapScan)** — On these two
+> hosts Cloudflare can issue a fresh `cf_clearance` for the interstitial and still
+> not redirect it, and the poller deliberately excludes them from the
+> "widget gone" heuristic because their Turnstile lives in a child frame. The
+> cookie change is then the only resolution signal, and both sites opt into
+> restarting the already-open window (≤ 2 reloads). A site which never showed that
+> stall (Comix, MangaFire, MangaMoins) keeps its previous challenge handling.
+>
+> The clearance reload requires Cloudflare's interstitial classification and a credible solve
+> signal. A cookie change alone cannot navigate a reader that still has a hidden Turnstile container
+> after resolution. **JapScan's age-only stalled-reload poller is disabled**: the screenshot showed
+> `widget=false` despite the interactive challenge still being present, followed by `reload #1/3`
+> just after the 12 s grace. Since that probe can miss the inline control, JapScan only reloads via
+> the token-gated clearance path after a completed Turnstile response. CrunchyScan retains the
+> time-driven poller for its cross-origin managed challenge. Both pollers still discard in-flight
+> stale probes when stopped, so an old result cannot reset a challenge the user just validated.
+>
+> Two properties of that restart were added after a test build failed on **both** sites:
+> - **One poller per document.** `DOMReady` stops the previous poller on every navigation —
+>   including a round which was mid-flight awaiting the debugger, which used to re-arm itself
+>   and survive: four such rounds shared one window, so a single clearance event spent both
+>   reloads **and** the error within 1.5 s.
+> - **The judgement is paced.** `PlanClearanceReload` never reloads — and never fails — a
+>   challenge document younger than the **12 s render grace** (trace: `only 950ms old, waiting
+>   12000ms before judging it`), and the memory of the issued clearance lives on the *window*,
+>   because the poller the reload rebuilds re-baselines the cookie and can no longer see the
+>   change that justified it. That is what preserves the measured "F5 twice" sequence across
+>   the navigation it performs itself.
+>
+> **Budgets, decoded from the prebuilt DRM modules** (their call sites are obfuscated, so these are
+> the actual arguments they pass): CrunchyScan asks for the platform default — **2.5 s delay, 60 s
+> timeout** — while JapScan passes an explicit **30 s** (`FetchWindowPreloadScript(…, 0, 30000)`,
+> mirrored by its `DRM_WINDOW_BUDGET_MS`). The whole bounded restart (three poll rounds, two reloads,
+> then the explicit error) costs **~33 s** measured (guard test in `FetchProviderCommon_test.ts`),
+> i.e. it fits both budgets — and on CrunchyScan the flow is classified *Interactive*, which replaces
+> that timeout with the **150 s** interactive one anyway. No window budget had to be raised.
 
 ---
 

@@ -3,6 +3,18 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.22] - 2026-10-09
+
+### Fix
+
+- **JapScan ne reçoit plus le marqueur `Electron/...` dans le User-Agent de sa fenêtre de lecture** : la fenêtre utilise désormais la même chaîne Chromium que l’application, sans le segment Electron, uniquement sur `japscan.*`. Les autres sites conservent le User-Agent actuel. Un test vérifie les deux cas.
+
+## [3.0.21] - 2026-10-09
+
+### Fix
+
+- **JapScan ne recharge plus un défi interactif avant que l’utilisateur l’ait résolu** : lorsque le probe DOM rate le contrôle Turnstile visible, le poller temporel interprétait `widget=false` comme « aucun contrôle ne sera rendu » et lançait `ReloadStalledCloudFlareChallenge: reload #1/3` après 12 s — ce qui réinitialisait la validation même si la rotation de `cf_clearance` avait correctement été refusée par le gate `requireSolveToken`. Le nouveau prédicat `ShouldUseStalledChallengeReload()` désactive uniquement ce poller âge-seul pour les sites qui exigent une preuve de résolution; JapScan reste couvert par la voie clearance séparée, bornée et protégée par le token. CrunchyScan et ses widgets en sous-frame conservent leur comportement précédent. Un test reproduit la capture (défi actif, `widget=false`, `clr=rotated`, âge 12,6 s), vérifie zéro rechargement avant solve, puis exige le reload clearance #1/2 et l’extraction après résolution, le tout dans une seule fenêtre.
+
 ## [3.0.20] - 2026-10-08
 
 ### Fix

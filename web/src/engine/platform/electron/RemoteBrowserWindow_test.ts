@@ -11,7 +11,10 @@ describe('RemoteBrowserWindow (electron)', () => {
     let log: MockInstance<typeof console.log>;
     let warn: MockInstance<typeof console.warn>;
 
+    const chromiumUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.212 Electron/43.3.0 Safari/537.36';
+
     beforeEach(() => {
+        vi.stubGlobal('navigator', { userAgent: chromiumUserAgent });
         listen = vi.fn();
         send = vi.fn((channel: unknown) => channel === Channels.App.OpenWindow ? windowID : undefined);
         log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -20,6 +23,7 @@ describe('RemoteBrowserWindow (electron)', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
     });
 
     const createTestee = (): RemoteBrowserWindow => new RemoteBrowserWindow({ Listen: listen, Send: send } as unknown as IPC<Channels.App, Channels.Web>);
@@ -46,6 +50,22 @@ describe('RemoteBrowserWindow (electron)', () => {
 
         expect(log).toHaveBeenCalledWith('[ReaderWindow:42] [info] [JapScan] /manga/demo/12/ -> 42 pages (drm: 42, dom: 0, total: 42)');
         expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('Should use a Chrome-like user agent for JapScan reader windows only', async () => {
+        const testee = createTestee();
+        await testee.Open(new Request('https://www.japscan.lol/manga/demo/12/'));
+
+        const loadCall = send.mock.calls.find(([channel]) => channel === Channels.App.LoadURL);
+        expect(JSON.parse(loadCall?.[3] as string).userAgent).toBe(chromiumUserAgent.replace(' Electron/43.3.0', ''));
+    });
+
+    it('Should preserve the default user agent for other reader windows', async () => {
+        const testee = createTestee();
+        await testee.Open(new Request('https://example.com/manga/demo/12/'));
+
+        const loadCall = send.mock.calls.find(([channel]) => channel === Channels.App.LoadURL);
+        expect(JSON.parse(loadCall?.[3] as string).userAgent).toBe(chromiumUserAgent);
     });
 
     it('Should preserve the warning level of relayed diagnostics', async () => {
