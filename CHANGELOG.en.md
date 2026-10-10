@@ -5,6 +5,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.21] - 2026-10-10
+
+### Fixed
+
+- **The Comix connector works again**: comix.to's 9 October build re-bundled its assets — the site's HTTP client is no longer exposed by a chunk named `env-<hash>.js`, it now ships inside `tmonyg-<hash>.js` chunks, and **no `env-*.js` file is loaded by the page anymore** (verified on `/browse`, the title page and the reader). Since the connector located the client solely from the presence of `/env-` in the script name (`performance.getEntriesByType('resource')…find(url => url.includes('/env-'))`), that guard threw `Comix: env chunk not loaded` **before any attempt**, on every title, chapter and page listing — hence the "Plugin failed to load items" message. The connector scripts still locate the client **by shape** (the bag of `get/post/put/patch/delete` verbs, falling back to a raw axios instance), but now search it **among the scripts `.js` already loaded by the page**, the URL containing `/env-` remaining the first candidate tested — a future build bringing the chunk name back stays covered. Importing an already-evaluated module returns its cached namespace: the scan never re-executes a chunk. Validated against the live site and then inside the application (1,032 chapters, 183 pages, image of 64,546 bytes — exactly the value expected by the e2e fixture), and from the UI: a 20/20 chapter list and a downloaded chapter.
+
+### Changed
+
+- **Back to the 3.0.20 base**: the additions made after 3.0.20 (refactor of the Cloudflare challenge state owner, trace persistence on disk, replay harness) are withdrawn from the product branch by decision — the history stays reachable through the `challenge/trace-persistante` and `backup/pre-rollback-3.0.22` branches. JapScan keeps its plugin-window flow.
+
 ## [3.0.20] - 2026-10-08
 
 ### Fixed

@@ -45,18 +45,32 @@ const imageHostCooldowns = new Map<string, number>();
  * full axios response or directly to the payload, hence the adaptive unwrapping.
  */
 const ScriptAxios = `
-    const __envURL = performance.getEntriesByType('resource').map(entry => entry.name).find(url => url.includes('/env-'));
-    if (!__envURL) throw new Error('Comix: env chunk not loaded');
-    const __envModule = await import(__envURL);
-    const __values = [__envModule, __envModule.default]
-        .filter(chunk => chunk && typeof chunk === 'object')
-        .flatMap(chunk => Object.values(chunk));
     const __isHTTPClient = client => client && typeof client === 'object'
         && ['get', 'post', 'put', 'patch', 'delete'].every(method => typeof client[method] === 'function');
     const __isAxiosInstance = client => client && typeof client === 'object'
         && typeof client.request === 'function' && !!client.interceptors;
-    const __client = __values.find(__isHTTPClient) ?? __values.find(__isAxiosInstance);
-    if (!__client) throw new Error('Comix: http client not found in env chunk');
+    const __importClient = async url => {
+        try {
+            const chunk = await import(url);
+            const values = [chunk, chunk.default]
+                .filter(part => part && typeof part === 'object')
+                .flatMap(part => Object.values(part));
+            return values.find(__isHTTPClient) ?? values.find(__isAxiosInstance) ?? null;
+        } catch { return null; }
+    };
+    // The bundler renames its chunks on every deploy (the client once lived in 'env-<hash>.js',
+    // it now ships inside 'tmonyg-<hash>.js'), so the URL cannot be recognized by name anymore.
+    // Scan the scripts the page has already loaded and keep the one exposing the HTTP verbs
+    // (shape), with a raw axios instance as fallback. Importing an already-evaluated module URL
+    // returns the cached namespace, so the scan never re-executes a chunk.
+    const __scripts = performance.getEntriesByType('resource').map(entry => entry.name).filter(url => url.endsWith('.js'));
+    const __envURL = __scripts.find(url => url.includes('/env-'));
+    let __client = __envURL ? await __importClient(__envURL) : null;
+    for (const url of __scripts) {
+        if (__client) break;
+        __client = await __importClient(url);
+    }
+    if (!__client) throw new Error('Comix: http client not found in the loaded scripts');
     const __get = async (url, config) => {
         const response = await __client.get(url, config);
         const isAxiosResponse = response && typeof response === 'object'

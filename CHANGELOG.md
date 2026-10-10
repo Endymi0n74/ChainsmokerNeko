@@ -3,6 +3,16 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.21] - 2026-10-10
+
+### Fix
+
+- **Le connecteur Comix fonctionne de nouveau** : le build du 9 octobre de comix.to a regroupé ses bundles — le client HTTP du site n'est plus exposé dans un chunk nommé `env-<hash>.js`, il est désormais embarqué dans des chunks `tmonyg-<hash>.js`, et **aucun fichier `env-*.js` n'est plus chargé par la page** (vérifié sur `/browse`, la fiche titre et le lecteur). Comme le connecteur localisait la cliente par la seule présence de `/env-` dans le nom du script (`performance.getEntriesByType('resource')…find(url => url.includes('/env-'))`), ce garde jetait `Comix: env chunk not loaded` **avant tout essai**, sur chacune des listes de titres, de chapitres et de pages — d'où le message « Plugin failed to load items ». Les scripts du connecteur cherchent toujours la cliente **par forme** (le sac de verbes `get/post/put/patch/delete`, à défaut une instance axios brute), mais la recherchent désormais **dans les scripts `.js` déjà chargés par la page**, l'URL contenant `/env-` restant le premier candidat testé — un retour du nom de chunk dans un futur build reste donc couvert. L'import d'un module déjà évalué renvoie son namespace en cache : le balayage ne ré-exécute aucun chunk. Validation sur le site réel puis dans l'application (1 032 chapitres, 183 pages, image 64 546 octets — la valeur exacte attendue par le fixture e2e), et depuis l'interface : liste 20/20 chapitres et chapitre téléchargé.
+
+### Modifié
+
+- **Retour à la base 3.0.20** : les ajouts effectués après la 3.0.20 (refactor du propriétaire de l'état de challenge Cloudflare, persistance de la trace sur disque, harnais de rejeu) sont retirés de la branche produit sur décision — l'historique reste accessible via les branches `challenge/trace-persistante` et `backup/pre-rollback-3.0.22`. JapScan conserve son flux par fenêtre de plugin.
+
 ## [3.0.20] - 2026-10-08
 
 ### Fix
