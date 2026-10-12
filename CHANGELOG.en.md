@@ -5,11 +5,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.23] - 2026-10-12
+
+### Fixed
+
+- **Comix: navigation windows stay visible during extraction, and decoded responses are captured at the source**: the connector no longer calls the site's HTTP client from the loaded chunks; a preload executed before the site's modules records decoded response objects as the SPA handles them, pagination driven by `history.pushState`/`popstate` — comix.to's short-lived token protocol therefore does not need to be reproduced. The title, chapter and page windows stay visible and wait up to 150 s for the decoded response, giving the user time to solve the rotating-image puzzle on `/@waf/challenge`; if the page is still on the verification screen when that budget expires, the connector reports an explicit error ("complete it in this window and retry") instead of returning an empty list. E2E fixture budgets raised from 15 s to 180 s, matching the navigation window.
+
+- **Validation**: `npm run check` clean (versions 3.0.23) · real e2e run **15/15 across three files** (Comix 5/5, GedeComix 5/5, PornComix 5/5) on 12 October, without human intervention during that run: the healthy path is validated, solving the puzzle by a person is not — no automatic CAPTCHA bypass is claimed.
+
 ## [3.0.21] - 2026-10-10
 
 ### Fixed
 
-- **The Comix connector works again**: comix.to's 9 October build re-bundled its assets — the site's HTTP client is no longer exposed by a chunk named `env-<hash>.js`, it now ships inside `tmonyg-<hash>.js` chunks, and **no `env-*.js` file is loaded by the page anymore** (verified on `/browse`, the title page and the reader). Since the connector located the client solely from the presence of `/env-` in the script name (`performance.getEntriesByType('resource')…find(url => url.includes('/env-'))`), that guard threw `Comix: env chunk not loaded` **before any attempt**, on every title, chapter and page listing — hence the "Plugin failed to load items" message. The connector scripts still locate the client **by shape** (the bag of `get/post/put/patch/delete` verbs, falling back to a raw axios instance), but now search it **among the scripts `.js` already loaded by the page**, the URL containing `/env-` remaining the first candidate tested — a future build bringing the chunk name back stays covered. Importing an already-evaluated module returns its cached namespace: the scan never re-executes a chunk. Validated against the live site and then inside the application (1,032 chapters, 183 pages, image of 64,546 bytes — exactly the value expected by the e2e fixture), and from the UI: a 20/20 chapter list and a downloaded chapter.
+- **The Comix connector works again**: the site's HTTP client is no longer exposed by a chunk named `env-<hash>.js`, it now ships inside `tmonyg-<hash>.js` chunks, and **no `env-*.js` file is loaded by the page anymore** (verified on `/browse`, the title page and the reader). Since the connector located the client solely from the presence of `/env-` in the script name (`performance.getEntriesByType('resource')…find(url => url.includes('/env-'))`), that guard threw `Comix: env chunk not loaded` **before any attempt**, on every title, chapter and page listing — hence the "Plugin failed to load items" message. The connector scripts still locate the client **by shape** (the bag of `get/post/put/patch/delete` verbs, falling back to a raw axios instance), but now search it **among the scripts `.js` already loaded by the page**, the URL containing `/env-` remaining the first candidate tested — a future build bringing the chunk name back stays covered. Importing an already-evaluated module returns its cached namespace: the scan never re-executes a chunk. Validated against the live site and then inside the application (1,032 chapters, 183 pages, image of 64,546 bytes — exactly the value expected by the e2e fixture), and from the UI: a 20/20 chapter list and a downloaded chapter.
 
 ### Changed
 

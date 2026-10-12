@@ -3,6 +3,14 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.23] - 2026-10-12
+
+### Fix
+
+- **Comix : les fenêtres de navigation restent visibles pendant l'extraction, et les réponses décodées sont capturées à la source** : le connecteur n'appelle plus la cliente HTTP du site depuis les chunks chargés ; un preload exécuté avant les modules du site enregistre les objets de réponse décodés au fil du rendu de la SPA, la pagination étant pilotée par `history.pushState`/`popstate` — le protocole de jeton éphémère de comix.to n'a donc pas besoin d'être reproduit. Les fenêtres de la fiche, des chapitres et des pages restent visibles et attendent la réponse décodée jusqu'à 150 s, laissant à l'utilisateur le temps de résoudre le puzzle rotatif de `/@waf/challenge` ; si la page est encore sur l'écran de vérification à la fin du délai, le connecteur renvoie une erreur explicite (« complete it in this window and retry ») au lieu de rendre une liste vide. Budgets du fixture e2e portés de 15 s à 180 s, cohérents avec la fenêtre de navigation.
+
+- **Validation** : `npm run check` 0/0 (versions 3.0.23) · run e2e réel **15/15 sur trois fichiers** (Comix 5/5, GedeComix 5/5, PornComix 5/5) le 12 octobre, sans intervention humaine pendant ce run : le parcours sain est validé, la résolution du puzzle par une personne ne l'est pas — aucun contournement automatique de CAPTCHA n'est revendiqué.
+
 ## [3.0.21] - 2026-10-10
 
 ### Fix
