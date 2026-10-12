@@ -208,6 +208,24 @@ const ScriptMangaTitle = `
     })()
 `;
 
+/**
+ * When the browser window vanishes while the extraction script is still running (window closed
+ * by the user, or destroyed by a challenge timer), the platform RESOLVES with `undefined`
+ * instead of rejecting — a rejection used to take Electron down through an unhandled promise
+ * (crash-safe path, commit `b50842fba`). Our scripts never resolve `undefined`, so receiving it
+ * can only mean the window died mid-extraction: report that explicitly instead of letting
+ * `Cannot read properties of undefined (reading 'map')` reach the download task's error tooltip.
+ *
+ * @param result - Value returned by the window script, possibly missing when the window died.
+ * @param stage - Which extraction was interrupted, used in the user-facing message.
+ */
+export function RequireWindowResult<T>(result: T | undefined, stage: string): T {
+    if(result === undefined || result === null) {
+        throw new Error(`Comix: the ${stage} window was closed before the site returned its data — retry, and complete any security check displayed in that window first`);
+    }
+    return result;
+}
+
 export default class extends DecoratableMangaScraper {
 
     public override ValidateMangaURL(url: string): boolean {
@@ -216,7 +234,7 @@ export default class extends DecoratableMangaScraper {
 
     public override async FetchManga(provider: MangaPlugin, url: string): Promise<Manga> {
         const request = new Request(url);
-        const title = await FetchWindowPreloadScript<string>(request, CapturePreloadScript, ScriptMangaTitle, 0, 180_000);
+        const title = RequireWindowResult(await FetchWindowPreloadScript<string>(request, CapturePreloadScript, ScriptMangaTitle, 0, 180_000), 'title');
         return new Manga(this, provider, new URL(url).pathname, title);
     }
 
@@ -235,12 +253,12 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async FetchMangas(provider: MangaPlugin): Promise<Manga[]> {
-        const entries = await FetchWindowPreloadScript<{ id: string; title: string }[]>(new Request(new URL('/browse', this.URI)), CapturePreloadScript, ScriptMangas, 750, FETCH_WINDOW_TIMEOUT_MS, true);
+        const entries = RequireWindowResult(await FetchWindowPreloadScript<{ id: string; title: string }[]>(new Request(new URL('/browse', this.URI)), CapturePreloadScript, ScriptMangas, 750, FETCH_WINDOW_TIMEOUT_MS, true), 'catalogue');
         return entries.map(({ id, title }) => new Manga(this, provider, id, title));
     }
 
     public override async FetchChapters(manga: Manga): Promise<Chapter[]> {
-        const chapters = await FetchWindowPreloadScript<APIChapter[]>(new Request(new URL(manga.Identifier, this.URI)), CapturePreloadScript, ScriptChapters, 0, FETCH_WINDOW_TIMEOUT_MS, true);
+        const chapters = RequireWindowResult(await FetchWindowPreloadScript<APIChapter[]>(new Request(new URL(manga.Identifier, this.URI)), CapturePreloadScript, ScriptChapters, 0, FETCH_WINDOW_TIMEOUT_MS, true), 'chapters');
         return chapters.map(({ id, number, name, group }) => {
             const title = [number, name && `- ${name}`, group && `[${group}]`].joinTitleSegments();
             return new Chapter(this, manga, `${manga.Identifier}/${id}-chapter-${number}`, title);
@@ -248,7 +266,7 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {
-        const images = await FetchWindowPreloadScript<string[]>(new Request(new URL(chapter.Identifier, this.URI)), CapturePreloadScript, ScriptPages, 0, FETCH_WINDOW_TIMEOUT_MS, true);
+        const images = RequireWindowResult(await FetchWindowPreloadScript<string[]>(new Request(new URL(chapter.Identifier, this.URI)), CapturePreloadScript, ScriptPages, 0, FETCH_WINDOW_TIMEOUT_MS, true), 'reader');
         return images.map(image => new Page(this, chapter, new URL(image)));
     }
 

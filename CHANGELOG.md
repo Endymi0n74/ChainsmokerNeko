@@ -3,6 +3,14 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.24] - 2026-10-12
+
+### Fix
+
+- **Comix : plus de `Cannot read properties of undefined (reading 'map')` quand la fenêtre disparaît pendant l'extraction** : relevé lors de la validation de la 3.0.22 (chapitre 18.1 de *Kamudo*). Quand la fenêtre de navigation disparaît alors que le script d'extraction est encore en vol (fermeture par l'utilisateur, ou destruction par le minuteur d'un défi), la plateforme **résout la requête avec `undefined`** au lieu de la rejeter — comportement voulu depuis `b50842fba`, une promesse rejetée non gérée ayant fait planter Electron — et `FetchPages` enchaînait sur `images.map(...)`, d'où le `TypeError` affiché dans la tâche de téléchargement. Le connecteur vérifie désormais chaque résultat de fenêtre (`RequireWindowResult`, sur le catalogue, la fiche, les chapitres et le lecteur) et remonte une erreur explicite invitant à réessayer et, si nécessaire, à résoudre le contrôle de sécurité affiché dans la fenêtre, au lieu d'un plantage obscur. +3 tests unitaires.
+
+- **Validation** : `npm run check` 0/0 (versions 3.0.24) · web **2 367 tests / 43 fichiers** (+3 `Comix_test`) · bundle win32-x64 local reconstruit et marqueurs vérifiés.
+
 ## [3.0.23] - 2026-10-12
 
 ### Fix

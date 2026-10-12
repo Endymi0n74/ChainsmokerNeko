@@ -5,6 +5,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.24] - 2026-10-12
+
+### Fixed
+
+- **Comix: no more `Cannot read properties of undefined (reading 'map')` when the window disappears mid-extraction**: reported while validating 3.0.22 (Kamudo chapter 18.1). When the navigation window vanishes while the extraction script is still in flight (closed by the user, or destroyed by a challenge timer), the platform **resolves the request with `undefined`** instead of rejecting — intended behaviour since `b50842fba`, where an unhandled rejection crashed Electron — and `FetchPages` then called `images.map(...)`, producing the `TypeError` shown on the download task. The connector now validates every window result (`RequireWindowResult` for catalogue, title, chapters and reader) and reports an explicit error asking the user to retry and, if needed, complete the security check shown in the window, instead of an obscure crash. +3 unit tests.
+
+- **Validation**: `npm run check` clean (versions 3.0.24) · web **2,367 tests / 43 files** (+3 `Comix_test`) · local win32-x64 bundle rebuilt with its markers verified.
+
 ## [3.0.23] - 2026-10-12
 
 ### Fixed
