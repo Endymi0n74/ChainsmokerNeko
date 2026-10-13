@@ -5,6 +5,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.25] - 2026-10-14
+
+### Fixed
+
+- **Cloudflare import: JapScan puzzle detection**: the `cf_clearance` test no longer relies on the raw HTML alone, which does not contain the puzzle injected by JavaScript. A hidden window loads the page and reads the rendered DOM (`#jc-overlay` visible, title "Just a moment"). The diagnosis tells apart a Cloudflare challenge, the JapScan puzzle, and only embedded Cloudflare scripts (inconclusive).
+- **Cloudflare import: pasted value cleaned up**: `cf_clearance=…`, quotes and the trailing `;` copied from DevTools are stripped before injection instead of being stored verbatim.
+- **Cloudflare import: editable domain**: a "Domain" field in the settings, pre-filled with `japscan.foo` (instead of `crunchyscan.org`).
+
+### Changed
+
+- **JapScan: `/mangas/` and `/bds/` listings run in parallel**, and the chapter list is shared between concurrent calls for the same manga (a single visible window). The time gain has not been measured live.
+- **Comix: chapter list shared** between concurrent calls, the existing one-hour cache is unchanged.
+
+### Validation
+
+- `tsc --noEmit` for web and electron, targeted unit tests (JapScan, Comix, Cloudflare, ChallengePolicy) green. The JapScan and Comix e2e tests are not validated (initialisation failure and timeout, see MEMORY.md): the release must be validated in the application before any push or tag.
+
 ## [3.0.24] - 2026-10-12
 
 ### Fixed

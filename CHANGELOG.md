@@ -3,6 +3,23 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.25] - 2026-10-14
+
+### Fix
+
+- **Import Cloudflare : détection du puzzle JapScan** : le test de `cf_clearance` ne se fie plus au seul HTML brut, qui ne contient pas le puzzle injecté par JavaScript. Une fenêtre cachée charge la page et lit le DOM rendu (`#jc-overlay` visible, titre « Just a moment »). Le diagnostic distingue un défi Cloudflare, le puzzle JapScan et de simples scripts Cloudflare embarqués (résultat non concluant).
+- **Import Cloudflare : valeur collée nettoyée** : `cf_clearance=…`, les guillemets et le `;` final copiés depuis DevTools sont retirés avant l'injection, au lieu d'être stockés tels quels.
+- **Import Cloudflare : domaine modifiable** : champ « Domain » dans les paramètres, pré-rempli avec `japscan.foo` (au lieu de `crunchyscan.org`).
+
+### Modifié
+
+- **JapScan : listes `/mangas/` et `/bds/` en parallèle**, et liste des chapitres partagée entre appels concurrents pour un même manga (une seule fenêtre visible). Le gain de temps n'a pas été mesuré en conditions réelles.
+- **Comix : liste des chapitres partagée** entre appels concurrents, sans changer le cache d'une heure existant.
+
+### Validation
+
+- `tsc --noEmit` web et electron, tests unitaires ciblés (JapScan, Comix, Cloudflare, ChallengePolicy) verts. Les e2e JapScan et Comix ne sont pas validés (échec d'initialisation et timeout, voir MEMORY.md) : la release doit être validée dans l'application avant tout push ou tag.
+
 ## [3.0.24] - 2026-10-12
 
 ### Fix
