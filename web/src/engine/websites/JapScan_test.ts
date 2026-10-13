@@ -1,6 +1,39 @@
 import { vi, describe, expect, it, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { IsIncompleteReaderResult, IsVolumeChapter, JAPSCAN_CHALLENGE_DETECTION_SCRIPT, MergePageLinks, MIN_READER_PAGES_FOR_COMPLETE_RESULT, ShouldCompleteWithDRM } from './JapScan';
 import { ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from '../platform/ChallengeReload';
+import type * as FetchProviderModule from '../platform/FetchProvider';
+import { FetchCSS, FetchWindowScript } from '../platform/FetchProvider';
+import type { MangaPlugin } from '../providers/MangaPlugin';
+import JapScanScraper from './JapScan';
+
+vi.mock('../platform/FetchProvider', async importOriginal => ({
+    ...await importOriginal<typeof FetchProviderModule>(),
+    FetchCSS: vi.fn(),
+    FetchWindowScript: vi.fn(),
+}));
+
+describe('JapScan catalogue refresh', () => {
+
+    it('should walk the /mangas/ and /bds/ listings side by side', async () => {
+        const requested: string[] = [];
+        let release: () => void = () => undefined;
+        const gate = new Promise<void>(resolve => release = resolve);
+        vi.mocked(FetchWindowScript).mockResolvedValue(undefined);
+        vi.mocked(FetchCSS).mockImplementation(async (request: Request) => {
+            const url = new URL(request.url);
+            requested.push(url.pathname + url.search);
+            await gate;
+            return [];
+        });
+        const listing = new JapScanScraper().FetchMangas({} as MangaPlugin);
+        // Both first pages must be in flight before either listing has answered.
+        await vi.waitFor(() => expect(requested).toHaveLength(2));
+        expect([...requested].sort()).toEqual(['/bds/?p=1', '/mangas/?p=1']);
+        release();
+        expect(await listing).toEqual([]);
+    });
+
+});
 
 describe('JapScan page fallback helpers', () => {
     it('Should merge DRM pages before reader-only pages', () => {
