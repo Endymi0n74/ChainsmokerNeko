@@ -4,10 +4,41 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
-import { session } from 'electron';
+import { session, BrowserWindow } from 'electron';
 import type { IPC, Callback } from './InterProcessCommunication';
 import { CloudFlareImport as Channels } from '../../../src/ipc/Channels';
 import { CloudFlareSession } from './CloudFlareSession';
+
+/** Time the hidden window gets to run the page scripts and show JapScan's puzzle, if any. */
+const RenderedCheckBudget = 10_000;
+const RenderedPollInterval = 1_000;
+
+interface Diagnosis {
+    blocked: boolean;
+    inconclusive: boolean;
+    reason: string;
+    title: string;
+}
+
+/** DOM state read from the hidden window after its scripts ran. */
+interface RenderedPage {
+    /** `#jc-overlay` is rendered and visible (hidden by CSS once solved). */
+    overlay: boolean;
+    title: string;
+}
+
+/** Evaluated in the hidden window: the overlay counts only when CSS actually shows it. */
+export const RenderedPageScript = `
+    (() => {
+        const overlay = document.querySelector('#jc-overlay');
+        let visible = false;
+        if (overlay) {
+            const style = window.getComputedStyle(overlay);
+            visible = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0 && overlay.offsetHeight > 0;
+        }
+        return { overlay: visible, title: document.title || '' };
+    })()
+`;
 
 interface BrowserProfile {
     name: string;
@@ -68,12 +99,24 @@ export class CloudFlareImport {
         return host.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     }
 
+    /**
+     * Accepts the bare cookie value, but also the forms copied from DevTools or a log line
+     * (`cf_clearance=...`, `cf_clearance :"..."`, a trailing `;` or surrounding quotes).
+     * Anything else would be stored verbatim and never match Cloudflare's cookie.
+     */
+    private CleanClearanceValue(value: string): string {
+        let cleaned = value.trim().replace(/^cf_clearance\s*[:=]\s*/i, '');
+        cleaned = cleaned.split(';')[0].trim();
+        return cleaned.replace(/^["']+|["']+$/g, '').trim();
+    }
+
     private async SetClearance(host: string, value: string): Promise<string> {
         const domain = this.NormalizeHost(host);
-        if (!domain || !value.trim()) {
+        const cookieValue = this.CleanClearanceValue(value);
+        if (!domain || !cookieValue) {
             return 'Invalid host or cookie value.';
         }
-        await this.InjectCookie(domain, value.trim());
+        await this.InjectCookie(domain, cookieValue);
         return `cf_clearance injected for ${domain}.`;
     }
 
@@ -101,24 +144,32 @@ export class CloudFlareImport {
             if (cookies.length === 0) {
                 return `No cf_clearance cookie for ${domain} yet — import it from the browser or inject a value first.`;
             }
+            const userAgent = session.defaultSession.getUserAgent();
             const response = await session.defaultSession.fetch(url, {
                 method: 'GET',
                 redirect: 'follow',
                 signal: AbortSignal.timeout(20000),
                 headers: {
-                    'User-Agent': session.defaultSession.getUserAgent(),
+                    'User-Agent': userAgent,
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                     'Accept-Language': 'en-US,en;q=0.9',
                 },
             });
             const body = await response.text();
-            if (this.IsCloudflareChallenge(response.status, response.headers, body)) {
-                return `Still blocked — Cloudflare challenge detected (HTTP ${response.status}, ${body.length} bytes). Re-import or paste a fresh cf_clearance.`;
+            const htmlDiagnosis = this.DiagnoseResponse(response.status, response.headers, body);
+            // JapScan's puzzle is injected by JavaScript, so the raw HTML cannot show it: read the rendered DOM too.
+            const diagnosis = htmlDiagnosis.blocked ? htmlDiagnosis : this.JudgeRendered(await this.CheckRenderedPage(url), htmlDiagnosis);
+            const details = `HTTP ${response.status}, ${body.length} bytes, title "${diagnosis.title}", User-Agent: ${userAgent}`;
+            if (diagnosis.blocked) {
+                return `Still blocked — ${diagnosis.reason} (${details}). Re-import or paste a fresh cf_clearance, or solve the challenge in the plugin window.`;
+            }
+            if (diagnosis.inconclusive) {
+                return `Inconclusive — ${diagnosis.reason} (${details}). Open the site in the plugin window to confirm.`;
             }
             if (response.status >= 400) {
-                return `Reached the site but got HTTP ${response.status} (${body.length} bytes) — likely still protected.`;
+                return `Reached the site but got ${details} — likely still protected.`;
             }
-            return `Unblocked — the real page loaded (HTTP ${response.status}, ${body.length} bytes).`;
+            return `Unblocked — the real page loaded (${details}).`;
         } catch (error) {
             const name = (error as { name?: string })?.name;
             const message = (error as { message?: string })?.message;
@@ -129,23 +180,72 @@ export class CloudFlareImport {
         }
     }
 
-    /** Detects a Cloudflare challenge interstitial from the response status, headers and body. */
-    private IsCloudflareChallenge(status: number, headers: Headers, body: string): boolean {
+    /**
+     * Classifies a response so the test reports what blocks the request: a Cloudflare
+     * interstitial (challenge markers or a Cloudflare error status), the JapScan puzzle, or
+     * only the Cloudflare scripts that every proxied page embeds, which prove nothing on their own.
+     */
+    private DiagnoseResponse(status: number, headers: Headers, body: string): Diagnosis {
         const lower = body.toLowerCase();
-        const markers = [
-            'just a moment',
-            'cf-chl-',
-            'challenge-platform',
-            'challenges.cloudflare.com',
-            'cf-turnstile',
-            'checking your browser',
-            'attention required',
-        ];
-        if (markers.some(marker => lower.includes(marker))) {
-            return true;
+        const title = (body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '').replace(/\s+/g, ' ').trim().slice(0, 120) || 'none';
+        const interstitial = ['just a moment', 'cf-chl-', 'checking your browser', 'attention required'].filter(marker => lower.includes(marker));
+        const embedded = ['challenge-platform', 'challenges.cloudflare.com', 'cf-turnstile'].filter(marker => lower.includes(marker));
+        const cloudflareStatus = (headers.get('server') ?? '').toLowerCase() === 'cloudflare' && [403, 429, 503].includes(status);
+        if (interstitial.length > 0 || cloudflareStatus) {
+            const markers = cloudflareStatus ? [...interstitial, `server status ${status}`] : interstitial;
+            return { blocked: true, inconclusive: false, reason: `Cloudflare challenge (${markers.join(', ')})`, title };
         }
-        const server = headers.get('server')?.toLowerCase() ?? '';
-        return server === 'cloudflare' && (status === 403 || status === 503 || status === 429);
+        if (lower.includes('jc-overlay')) {
+            return { blocked: true, inconclusive: false, reason: 'JapScan puzzle (#jc-overlay) in the page', title };
+        }
+        if (embedded.length > 0 && status < 400) {
+            return { blocked: false, inconclusive: true, reason: `no Cloudflare interstitial, only embedded scripts (${embedded.join(', ')}) which normal proxied pages carry too`, title };
+        }
+        return { blocked: false, inconclusive: false, reason: '', title };
+    }
+
+    /**
+     * Loads the page in a hidden window sharing the app session and reads the DOM once its
+     * scripts ran, polling until the puzzle overlay is visible or the budget is spent.
+     * Errors propagate to `TestClearance`, which reports them as a failed test.
+     */
+    private async CheckRenderedPage(url: string): Promise<RenderedPage> {
+        const win = new BrowserWindow({
+            show: false,
+            webPreferences: {
+                sandbox: true,
+                session: session.defaultSession,
+            },
+        });
+        try {
+            await win.loadURL(url);
+            const deadline = Date.now() + RenderedCheckBudget;
+            let page: RenderedPage;
+            do {
+                page = await win.webContents.executeJavaScript(RenderedPageScript, true) as RenderedPage;
+                if (page.overlay) {
+                    break;
+                }
+                await new Promise(resolve => setTimeout(resolve, RenderedPollInterval));
+            } while (Date.now() < deadline);
+            return page;
+        } finally {
+            win.destroy();
+        }
+    }
+
+    /** The rendered DOM overrides the raw HTML: a visible puzzle or a challenge title means still blocked. */
+    private JudgeRendered(page: RenderedPage, html: Diagnosis): Diagnosis {
+        if (page.overlay) {
+            return { blocked: true, inconclusive: false, reason: 'JapScan puzzle (#jc-overlay) visible in the rendered page', title: html.title };
+        }
+        if (/just a moment|un instant|attention required|checking your browser/i.test(page.title)) {
+            return { blocked: true, inconclusive: false, reason: `Cloudflare challenge in the rendered page (title "${page.title}")`, title: html.title };
+        }
+        if (html.inconclusive) {
+            return { ...html, reason: `${html.reason}; no JapScan puzzle visible in the rendered page after ${RenderedCheckBudget / 1000} s` };
+        }
+        return html;
     }
 
     private async ImportFromBrowser(host: string): Promise<string> {

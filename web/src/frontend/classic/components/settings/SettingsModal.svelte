@@ -69,7 +69,7 @@
     }
 
     // Cloudflare clearance import: reuse the cf_clearance cookie from the real browser.
-    let cfHost = $state('crunchyscan.org');
+    let cfHost = $state('japscan.foo');
     let cfManualValue = $state('');
     let cfImporting = $state(false);
     let cfStatus = $state('');
@@ -179,6 +179,13 @@
                         automatically. Otherwise paste the value from DevTools
                         (Application → Cookies → {cfHost} → cf_clearance).
                     </p>
+                    <div class="autodl-actions cf-manual">
+                        <TextInput
+                            labelText="Domain"
+                            placeholder="e.g. japscan.foo"
+                            bind:value={cfHost}
+                        />
+                    </div>
                     <div class="autodl-actions">
                         <Button
                             kind="primary"
