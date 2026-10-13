@@ -529,6 +529,7 @@ export { default as NoIndexScan } from './NoIndexScan';
 export { default as Noromax } from './Noromax';
 export { default as NoxManga } from './NoxManga';
 export { default as NyxScans } from './NyxScans';
+export { default as Okutoon } from './Okutoon';
 export { default as OlympusScanlation } from './OlympusScanlation';
 export { default as OmegaScans } from './OmegaScans';
 export { default as OnePieceTube } from './OnePieceTube';
