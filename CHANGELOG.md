@@ -11,14 +11,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - **Import Cloudflare : valeur collée nettoyée** : `cf_clearance=…`, les guillemets et le `;` final copiés depuis DevTools sont retirés avant l'injection, au lieu d'être stockés tels quels.
 - **Import Cloudflare : domaine modifiable** : champ « Domain » dans les paramètres, pré-rempli avec `japscan.foo` (au lieu de `crunchyscan.org`).
 
-### Modifié
-
-- **JapScan : listes `/mangas/` et `/bds/` en parallèle**, et liste des chapitres partagée entre appels concurrents pour un même manga (une seule fenêtre visible). Le gain de temps n'a pas été mesuré en conditions réelles.
-- **Comix : liste des chapitres partagée** entre appels concurrents, sans changer le cache d'une heure existant.
-
 ### Validation
 
-- `tsc --noEmit` web et electron, tests unitaires ciblés (JapScan, Comix, Cloudflare, ChallengePolicy) verts. Les e2e JapScan et Comix ne sont pas validés (échec d'initialisation et timeout, voir MEMORY.md) : la release doit être validée dans l'application avant tout push ou tag.
+- `tsc --noEmit` web et electron, tests unitaires web (2367) et electron (44) verts. La perf JapScan/Comix (listes en parallèle, liste partagée) a été retirée par revert : elle n'était pas validée. Les e2e JapScan et Comix échouent encore (défi Cloudflare en direct dans le profil de test, voir MEMORY.md) : la release doit être validée dans l'application avant tout push ou tag.
 
 ## [3.0.24] - 2026-10-12
 
