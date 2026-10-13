@@ -113,8 +113,6 @@ export default class extends DecoratableMangaScraper {
     // Cache chapter lists to avoid re-opening browser windows on every refresh
     readonly #chapterCache = new Map<string, { chapters: Chapter[]; ts: number }>();
     readonly #CACHE_TTL = 3600_000; // 1 hour
-    // Chapter list extractions in flight, so concurrent callers for one manga share a single window
-    readonly #pendingChapters = new Map<string, Promise<Chapter[]>>();
 
     public override ValidateMangaURL(url: string): boolean {
         try {
@@ -168,13 +166,10 @@ export default class extends DecoratableMangaScraper {
             // with the same error as before.
         }
 
-        // Both listings are independent paginated walks over the same cleared session, so they
-        // run side by side instead of one after the other (wall-time gain not measured live).
-        const [mangas, bds] = await Promise.all([
-            Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/mangas/?p={page}', 1, 1, 500), 2500),
-            Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/bds/?p={page}', 1, 1, 500), 2500),
-        ]);
-        return [...mangas, ...bds];
+        return [
+            ... await Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/mangas/?p={page}', 1, 1, 500), 2500),
+            ... await Common.FetchMangasMultiPageCSS.call(this, provider, 'div.mangas-list div.manga-block a', Common.PatternLinkGenerator('/bds/?p={page}', 1, 1, 500), 2500),
+        ];
     }
 
     public override async FetchChapters(manga: Manga): Promise<Chapter[]> {
@@ -183,7 +178,7 @@ export default class extends DecoratableMangaScraper {
         if (cached && Date.now() - cached.ts < this.#CACHE_TTL) {
             return cached.chapters;
         }
-        const chapters = await this.ShareChapterList(key, () => this.chaptersTaskPool.Add(async () => {
+        const chapters = await this.chaptersTaskPool.Add(async () => {
             const listURL = new URL(manga.Identifier, this.URI);
             const startedAt = Date.now();
             try {
@@ -195,22 +190,13 @@ export default class extends DecoratableMangaScraper {
                 RecordTimeout({ stage: 'chapter-list', label: 'DRMProvider.CreateChapterList', budgetMs: DRM_WINDOW_BUDGET_MS, elapsedMs: Date.now() - startedAt, error, url: listURL.href });
                 throw error;
             }
-        }, Priority.Normal));
+        }, Priority.Normal);
         // An extraction which ran against a still-challenged document comes back empty: caching
         // it would pin "0 items" for the whole TTL without a single retry in between.
         if (chapters.length > 0) {
             this.#chapterCache.set(key, { chapters, ts: Date.now() });
         }
         return chapters;
-    }
-
-    private ShareChapterList(key: string, extract: () => Promise<Chapter[]>): Promise<Chapter[]> {
-        let pending = this.#pendingChapters.get(key);
-        if (!pending) {
-            pending = extract().finally(() => this.#pendingChapters.delete(key));
-            this.#pendingChapters.set(key, pending);
-        }
-        return pending;
     }
 
     public override async FetchPages(chapter: Chapter): Promise<Page[]> {

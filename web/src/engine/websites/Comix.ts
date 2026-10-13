@@ -228,11 +228,6 @@ export function RequireWindowResult<T>(result: T | undefined, stage: string): T 
 
 export default class extends DecoratableMangaScraper {
 
-    // Chapter lists cost a visible window per extraction: cache them for an hour, like JapScan does.
-    readonly #chapterCache = new Map<string, { chapters: Chapter[]; ts: number }>();
-    readonly #pendingChapters = new Map<string, Promise<Chapter[]>>();
-    readonly #CACHE_TTL = 3600_000;
-
     public override ValidateMangaURL(url: string): boolean {
         return /^https:\/\/(?:www\.)?comix\.to\/title\/[^/]+$/.test(url);
     }
@@ -263,27 +258,6 @@ export default class extends DecoratableMangaScraper {
     }
 
     public override async FetchChapters(manga: Manga): Promise<Chapter[]> {
-        const key = manga.Identifier;
-        const cached = this.#chapterCache.get(key);
-        if (cached && Date.now() - cached.ts < this.#CACHE_TTL) {
-            return cached.chapters;
-        }
-        // Each extraction opens a visible window: concurrent callers for the same manga share it.
-        let pending = this.#pendingChapters.get(key);
-        if (!pending) {
-            pending = this.ExtractChapters(manga).finally(() => this.#pendingChapters.delete(key));
-            this.#pendingChapters.set(key, pending);
-        }
-        const chapters = await pending;
-        // An extraction which ran against a still-challenged document comes back empty: caching
-        // it would pin "0 items" for the whole TTL without a single retry in between.
-        if (chapters.length > 0) {
-            this.#chapterCache.set(key, { chapters, ts: Date.now() });
-        }
-        return chapters;
-    }
-
-    private async ExtractChapters(manga: Manga): Promise<Chapter[]> {
         const chapters = RequireWindowResult(await FetchWindowPreloadScript<APIChapter[]>(new Request(new URL(manga.Identifier, this.URI)), CapturePreloadScript, ScriptChapters, 0, FETCH_WINDOW_TIMEOUT_MS, true), 'chapters');
         return chapters.map(({ id, number, name, group }) => {
             const title = [number, name && `- ${name}`, group && `[${group}]`].joinTitleSegments();

@@ -1,25 +1,20 @@
 ﻿import { TestFixture } from '../../../test/WebsitesFixture';
 
-// Manual solve budget: the Cloudflare / JapScan puzzle is resolved by the user in the visible reader window.
-const MANUAL_SOLVE_TIMEOUT = 300_000;
-
 // CASE: Single Reader (Manga)
 new TestFixture({
     plugin: {
         id: 'japscan',
-        title: 'JapScan',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        title: 'JapScan'
     },
     container: {
         url: 'https://www.japscan.foo/manga/jujutsu-kaisen/',
         id: '/manga/jujutsu-kaisen/',
-        title: 'Jujutsu Kaisen',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        title: 'Jujutsu Kaisen'
     },
     child: {
         id: '/manga/jujutsu-kaisen/1/',
         title: 'Chapitre 1: Esprit à double-face',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        timeout: 30_000
     },
     entry: {
         index: 2,
@@ -32,19 +27,17 @@ new TestFixture({
 new TestFixture({
     plugin: {
         id: 'japscan',
-        title: 'JapScan',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        title: 'JapScan'
     },
     container: {
         url: 'https://www.japscan.foo/manhwa/king-game/',
         id: '/manhwa/king-game/',
-        title: 'King Game',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        title: 'King Game'
     },
     child: {
         id: '/manhwa/king-game/1/',
         title: 'Chapitre 1',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        timeout: 30_000
     },
     entry: {
         index: 0,
@@ -57,14 +50,12 @@ new TestFixture({
 new TestFixture({
     plugin: {
         id: 'japscan',
-        title: 'JapScan',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        title: 'JapScan'
     },
     container: {
         url: 'https://www.japscan.foo/manga/dreamland/',
         id: '/manga/dreamland/',
-        title: 'Dreamland',
-        timeout: MANUAL_SOLVE_TIMEOUT
+        title: 'Dreamland'
     },
     child: {
         id: '/manga/dreamland/volume-24/',
@@ -73,7 +64,7 @@ new TestFixture({
     },
     entry: {
         index: 0,
-        size: 194_063, // measured on the first live run
+        size: 100_000, // placeholder — will be adjusted after first run
         type: 'image/jpeg'
     }
 }).AssertWebsite();
