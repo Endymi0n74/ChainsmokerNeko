@@ -39,11 +39,12 @@ async function redist(electronVersion, electronPlatform, electronArchitecture) {
         // PowerShell natif au lieu de extract-zip (bug EACCES Windows)
         await run(`powershell -Command "Expand-Archive -Path '${tmpFile}' -DestinationPath '${electronDir}' -Force"`);
     } else {
-        // macOS/Linux : extract-zip (pas de PowerShell sur les runners CI).
+        // macOS/Linux : adm-zip (pas de PowerShell sur les runners CI).
         // Import lazy : sur Windows le module n'existe pas (le job CI bundles
         // réutilise l'artefact sans npm ci) et PowerShell est utilisé à la place.
-        const { default: extract } = await import('extract-zip');
-        await extract(tmpFile, { dir: electronDir });
+        const { default: AdmZip } = await import('adm-zip');
+        // keepOriginalPermission (3rd arg): restores the unix exec bits (electron, chrome-sandbox...)
+        new AdmZip(tmpFile).extractAllTo(electronDir, true, true);
     }
     
     return electronDir;

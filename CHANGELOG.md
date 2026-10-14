@@ -5,15 +5,22 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [3.0.25] - 2026-10-14
 
+### Ajout
+
+- **Connecteurs : ComicHubFree et Okutoon** : deux nouvelles sources de manga (avec tests e2e et icônes).
+
 ### Fix
 
+- **ComicHubFree** : l'ancien connecteur `MyComicList` est renommé et corrigé en `ComicHubFree`.
 - **Import Cloudflare : détection du puzzle JapScan** : le test de `cf_clearance` ne se fie plus au seul HTML brut, qui ne contient pas le puzzle injecté par JavaScript. Une fenêtre cachée charge la page et lit le DOM rendu (`#jc-overlay` visible, titre « Just a moment »). Le diagnostic distingue un défi Cloudflare, le puzzle JapScan et de simples scripts Cloudflare embarqués (résultat non concluant).
 - **Import Cloudflare : valeur collée nettoyée** : `cf_clearance=…`, les guillemets et le `;` final copiés depuis DevTools sont retirés avant l'injection, au lieu d'être stockés tels quels.
+- **Connecteurs : mises à jour de domaines** : domaines mis à jour pour JManga, KLMangash, Raw18, RawFree et Syosetu.
+- **Build Electron : dépendance vulnérable remplacée** : `extract-zip` est remplacé par `adm-zip` dans `app/electron`. `deploy-app.mjs` importait `extract-zip` sans le déclarer ; l'import est aligné sur la dépendance déclarée.
 - **Import Cloudflare : domaine modifiable** : champ « Domain » dans les paramètres, pré-rempli avec `japscan.foo` (au lieu de `crunchyscan.org`).
 
 ### Validation
 
-- `tsc --noEmit` web et electron, tests unitaires web (2367) et electron (44) verts. La perf JapScan/Comix (listes en parallèle, liste partagée) a été retirée par revert : elle n'était pas validée. Les e2e JapScan et Comix échouent encore (défi Cloudflare en direct dans le profil de test, voir MEMORY.md) : la release doit être validée dans l'application avant tout push ou tag.
+- `tsc --noEmit` web et electron, tests unitaires web (2373 réussis, 5 ignorés, 1 todo) et electron (44) verts. La perf JapScan/Comix (listes en parallèle, liste partagée) a été retirée par revert : elle n'était pas validée. Les e2e JapScan et Comix échouent encore (défi Cloudflare en direct dans le profil de test, voir MEMORY.md) : la release doit être validée dans l'application avant tout push ou tag.
 
 ## [3.0.24] - 2026-10-12
 
