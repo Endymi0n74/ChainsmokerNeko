@@ -12,11 +12,16 @@ import { FetchWindowScript } from '../platform/FetchProvider';
 import { RecordTimeout, EnterStage, LeaveStage } from '../TimeoutProbe';
 
 /**
- * Budget of the DRM provider's own window (`DRMProvider.CreateImageLinks` / `CreateChapterList`):
- * the prebuilt module hardcodes 30 s, which expires against the async `captcha_d.js` puzzle —
- * documented in `FetchPages`. Mirrored here so the probe reports the value the caller waited for.
+ * Budget of the DRM provider's `CreateImageLinks` window: the prebuilt module passes 30 s explicitly
+ * to `FetchWindowPreloadScript`. It expires against the async `captcha_d.js` puzzle — documented in
+ * `FetchPages`. Mirrored here so the probe reports the value the caller waited for.
  */
 export const DRM_WINDOW_BUDGET_MS = 30_000;
+/**
+ * Budget of the DRM provider's `CreateChapterList` window (and `Initialize`): both go through
+ * `FetchWindowScript` without a timeout, so the 60 s default of `FetchWindowPreloadScript` applies.
+ */
+export const DRM_CHAPTER_LIST_BUDGET_MS = 60_000;
 
 /**
  * JapScan's own anti-bot (the "Glisse pour remettre dans l'ordre" puzzle) is announced by
@@ -187,7 +192,7 @@ export default class extends DecoratableMangaScraper {
             } catch (error) {
                 // The chapter list goes through the DRM window as well: without this line a
                 // failure there was only visible as a generic error in the media list.
-                RecordTimeout({ stage: 'chapter-list', label: 'DRMProvider.CreateChapterList', budgetMs: DRM_WINDOW_BUDGET_MS, elapsedMs: Date.now() - startedAt, error, url: listURL.href });
+                RecordTimeout({ stage: 'chapter-list', label: 'DRMProvider.CreateChapterList', budgetMs: DRM_CHAPTER_LIST_BUDGET_MS, elapsedMs: Date.now() - startedAt, error, url: listURL.href });
                 throw error;
             }
         }, Priority.Normal);

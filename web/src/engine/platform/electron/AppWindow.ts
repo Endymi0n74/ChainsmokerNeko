@@ -88,14 +88,6 @@ export default class implements IAppWindow {
         }
     }
 
-    public async ClearCloudFlareCache(): Promise<string> {
-        try {
-            return await this.ipc.Send<string>(CloudFlareChannels.App.ClearCache);
-        } catch (error) {
-            return 'Failed to clear the Cloudflare cache: ' + String(error);
-        }
-    }
-
     public async CheckForUpdates(): Promise<IUpdateInfo | null> {
         try {
             return await this.ipc.Send<IUpdateInfo | null>(AppUpdateChannels.App.Check);

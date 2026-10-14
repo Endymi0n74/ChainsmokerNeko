@@ -7,7 +7,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { session, BrowserWindow } from 'electron';
 import type { IPC, Callback } from './InterProcessCommunication';
 import { CloudFlareImport as Channels } from '../../../src/ipc/Channels';
-import { CloudFlareSession } from './CloudFlareSession';
 
 /** Time the hidden window gets to run the page scripts and show JapScan's puzzle, if any. */
 const RenderedCheckBudget = 10_000;
@@ -92,7 +91,6 @@ export class CloudFlareImport {
         this.ipc.Listen<string>(Channels.App.ImportFromBrowser, this.ImportFromBrowser.bind(this) as Callback<string>);
         this.ipc.Listen<string>(Channels.App.SetClearance, this.SetClearance.bind(this) as Callback<string>);
         this.ipc.Listen<string>(Channels.App.TestClearance, this.TestClearance.bind(this) as Callback<string>);
-        this.ipc.Listen<string>(Channels.App.ClearCache, this.ClearCache.bind(this) as Callback<string>);
     }
 
     private NormalizeHost(host: string): string {
@@ -118,14 +116,6 @@ export class CloudFlareImport {
         }
         await this.InjectCookie(domain, cookieValue);
         return `cf_clearance injected for ${domain}.`;
-    }
-
-    /**
-     * Drops every cf_clearance cookie and the persisted snapshot, so a stale clearance
-     * can be re-warmed from scratch.
-     */
-    private async ClearCache(): Promise<string> {
-        return CloudFlareSession.Clear();
     }
 
     /**
