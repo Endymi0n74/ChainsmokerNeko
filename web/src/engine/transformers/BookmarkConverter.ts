@@ -18,6 +18,7 @@ export const legacyWebsiteIdentifierMap = new Map([
     [ 'galaxyaction', 'galaxymanga' ],
     [ 'instamanhwa', 'xmanhwa' ],
     [ 'kissaway', 'klmanga' ],
+    [ 'kisscomic', 'readcomicsonline' ],
     [ 'komikav', 'apkomik' ],
     [ 'lovehug', 'welovemanga' ],
     [ 'lyrascans', 'quantumscans' ],

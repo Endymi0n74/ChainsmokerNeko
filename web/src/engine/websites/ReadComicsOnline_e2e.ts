@@ -6,17 +6,17 @@ new TestFixture({
         title: 'Read Comics Online',
     },
     container: {
-        url: 'https://readcomicsonline.ru/comic/the-flash-2016',
-        id: '/comic/the-flash-2016',
-        title: 'The Flash (2016-)',
+        url: 'https://readcomicsonline.lol/comic/Action-Comics-2016',
+        id: '/comic/Action-Comics-2016',
+        title: 'Action Comics (2016)',
     },
     child: {
-        id: '/comic/the-flash-2016/annual2022',
-        title: '#Annual 2022',
+        id: '/comic/Action-Comics-2016/1103',
+        title: '#1103',
     },
     entry: {
         index: 0,
-        size: 980_510,
+        size: 641_222,
         type: 'image/webp',
     }
 }).AssertWebsite();
