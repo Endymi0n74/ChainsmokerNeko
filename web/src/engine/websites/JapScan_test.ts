@@ -14,12 +14,17 @@ describe('JapScan connector', () => {
         expect(connector.RequiresVisibleBrowserWindow).toBe(true);
     });
 
-    it('Should accept JapScan manga, manhwa, manhua, bd and comic URLs', () => {
+    it('Should accept JapScan manga, manhwa and bd URLs', () => {
+        // Same accepted sections as the shipped connector: the catalogue is scraped from
+        // `/mangas/` and `/bds/`, and a chapter list only exists under those sections.
         expect(connector.ValidateMangaURL('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
         expect(connector.ValidateMangaURL('https://japscan.to/manhwa/demo/')).toBe(true);
-        expect(connector.ValidateMangaURL('https://www.japscan.foo/manhua/demo/')).toBe(true);
         expect(connector.ValidateMangaURL('https://www.japscan.foo/bd/demo/')).toBe(true);
-        expect(connector.ValidateMangaURL('https://www.japscan.foo/comic/demo/')).toBe(true);
+    });
+
+    it('Should reject sections which carry no chapter list', () => {
+        expect(connector.ValidateMangaURL('https://www.japscan.foo/manhua/demo/')).toBe(false);
+        expect(connector.ValidateMangaURL('https://www.japscan.foo/comic/demo/')).toBe(false);
     });
 
     it('Should reject foreign hosts and non-manga paths', () => {
