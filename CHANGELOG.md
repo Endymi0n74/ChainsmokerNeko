@@ -3,6 +3,17 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.27] - 2026-10-17
+
+### Fix
+
+- **JapScan : chapitres vides et catalogue incomplet corrigés** : la 3.0.26 livrait, sous l'identifiant `japscan`, une implémentation réécrite de zéro (scripts DOM maison) qui ne remontait qu'une partie du catalogue et **aucun chapitre** — les liens de chapitres n'existent pas dans le HTML brut de la fiche manga, le site les injecte. Le connecteur principal reprend l'implémentation « sans DRM » réellement validée : catalogue en CSS (`/mangas/?p={page}` et `/bds/?p={page}`), fiche manga, et **liste des chapitres via la fenêtre du fournisseur DRM** (`CreateChapterList`) ; les pages restent extraites du lecteur sans repli DRM. La détection anti-bot du site (`#jc-overlay`) et l'opt-in de rechargement de challenge Cloudflare restent portés par `japscan` pour l'origine `japscan.*` (donc aussi pour `japscan-secours`). La **lecture (viewer)** est réparée par la même occasion : les pages provenaient de l'extraction maison, désormais remplacée par celle du lecteur.
+
+### Validation
+
+- `tsc --noEmit` web, `eslint` et `check:rules` verts. Tests unitaires web : 2380 réussis, 5 ignorés, 1 todo (2386).
+- **Validé dans l'application par l'utilisateur** (défi Cloudflare interactif) : catalogue complet et chapitres chargés sur `japscan`, **lecture (viewer) de nouveau fonctionnelle**.
+
 ## [3.0.26] - 2026-10-17
 
 ### Ajout

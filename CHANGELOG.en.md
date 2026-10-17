@@ -5,6 +5,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.27] - 2026-10-17
+
+### Fixed
+
+- **JapScan: empty chapter list and incomplete catalogue fixed**: 3.0.26 shipped, under the `japscan` identifier, a from-scratch rewrite (hand-written DOM scripts) that returned only part of the catalogue and **no chapters at all** — chapter links do not exist in the raw HTML of a manga page, the website injects them. The main connector now uses the "DRM-free" implementation that was actually validated: CSS catalogue (`/mangas/?p={page}` and `/bds/?p={page}`), manga page, and the **chapter list through the DRM provider window** (`CreateChapterList`); pages are still extracted from the reader without the DRM fallback. The website's anti-bot detection (`#jc-overlay`) and the Cloudflare stalled-challenge reload opt-in stay registered by `japscan` for the `japscan.*` origin (so `japscan-secours` benefits too). The **reader (viewer)** is fixed by the same change: pages came from the bespoke extraction, now replaced by the reader's own.
+
+### Validation
+
+- `tsc --noEmit` (web), `eslint` and `check:rules` pass. Web unit tests: 2380 passed, 5 skipped, 1 todo (2386).
+- **Validated in the application by the user** (interactive Cloudflare challenge): complete catalogue and chapters load on `japscan`, and the **reader (viewer) works again**.
+
 ## [3.0.26] - 2026-10-17
 
 ### Added
