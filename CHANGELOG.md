@@ -3,6 +3,22 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.26] - 2026-10-17
+
+### Ajout
+
+- **Connecteurs : JapScan (secours)** : l'ancien connecteur JapScan avec DRM est conservé sous l'identifiant `japscan-secours` (« JapScan (secours) »), en filet de sécurité si la lecture sans DRM venait à casser.
+
+### Fix
+
+- **JapScan : lecture sans DRM par défaut** : le connecteur principal `japscan` lit désormais directement les pages (sans DRM) et porte lui-même la détection anti-bot du site (défi Cloudflare/puzzle). L'ancien `JapScanLite` est supprimé. Les favoris existants en `japscan` pointent vers cette version.
+- **ReadComicsOnline : nouveau domaine `readcomicsonline.lol`** : `readcomicsonline.ru` est remplacé par `readcomicsonline.lol`. Les sélecteurs sont mis à jour (catalogue `/comics?sort=az`, chapitres et lecture) ; la liste des pages est lue depuis le payload Next.js `self.__next_f`, le lecteur ne gardant qu'une page à la fois dans le DOM.
+- **Suppression du connecteur `ReadComicOnline`** (`rcostation.xyz`, domaine injoignable), remplacé par `ReadComicsOnline`. Les favoris `kisscomic` migrent vers `readcomicsonline`.
+
+### Validation
+
+- `tsc --noEmit` web, `eslint` et `check:rules` verts. Tests unitaires web : 2379 réussis, 5 ignorés, 1 todo (2385 au total, −2 liés au retrait du connecteur `ReadComicOnline`). E2E `ReadComicsOnline_e2e` vert (5/5) contre le site live.
+
 ## [3.0.25] - 2026-10-14
 
 ### Ajout

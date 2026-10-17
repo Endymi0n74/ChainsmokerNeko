@@ -5,6 +5,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.26] - 2026-10-17
+
+### Added
+
+- **Connectors: JapScan (fallback)**: the former DRM-based JapScan connector is kept as `japscan-secours` ("JapScan (secours)"), as a safety net should DRM-free reading ever break.
+
+### Fixed
+
+- **JapScan: DRM-free reading by default**: the main `japscan` connector now reads pages directly (no DRM) and carries the website's own anti-bot detection (Cloudflare/puzzle challenge). The former `JapScanLite` is removed. Existing `japscan` bookmarks point to this version.
+- **ReadComicsOnline: new domain `readcomicsonline.lol`**: `readcomicsonline.ru` is replaced by `readcomicsonline.lol`. Selectors are updated (catalogue `/comics?sort=az`, chapters and reading); the page list is read from the Next.js `self.__next_f` payload, since the reader keeps only one page at a time in the DOM.
+- **Removed the `ReadComicOnline` connector** (`rcostation.xyz`, unreachable domain), replaced by `ReadComicsOnline`. `kisscomic` bookmarks migrate to `readcomicsonline`.
+
+### Validation
+
+- `tsc --noEmit` (web), `eslint` and `check:rules` pass. Web unit tests: 2379 passed, 5 skipped, 1 todo (2385 total, −2 due to the removal of the `ReadComicOnline` connector). `ReadComicsOnline_e2e` passes (5/5) against the live website.
+
 ## [3.0.25] - 2026-10-14
 
 ### Added
