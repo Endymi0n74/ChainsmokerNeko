@@ -3,6 +3,19 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.28] - 2026-10-21
+
+### Fix
+
+- **Comix : le refus explicite des applications tierces est maintenant signalé immédiatement** : catalogue, fiche, chapitres et lecteur vérifient le document dès son premier DOMReady, avant le traitement de challenge et l'extraction. Une page « Third-party apps are not supported » produit ainsi un message clair invitant à ouvrir comix.to dans un navigateur, au lieu d'attendre l'expiration de la fenêtre. Ce changement ne contourne pas la décision d'accès du site.
+
+### Validation
+
+- Contrôles workspace (versions, TypeScript web/NW/Electron, ESLint, Svelte, Vue et règles de codage) passés ; suite unitaire web : 2383 réussis, 5 ignorés, 1 todo; suite Electron : 42 réussis.
+- Test unitaire du cycle de fenêtre : le précontrôle rejette avant l'injection du script d'extraction et ferme la fenêtre.
+- Build de validation `npm run bundle:x64` (zip x64) : l'application packagée démarre, `GedeComix_e2e` et `PornComix_e2e` passent 5/5 chacune, et la 3.0.28 a été validée en usage réel (catalogue, chapitres, téléchargement, lecteur).
+- Comix n'est pas débloqué : selon les runs, le site sert la page de refus (désormais signalée immédiatement) ou une page de challenge qui ne se résout jamais et finit en expiration de 180 s. Aucun contournement n'est inclus.
+
 ## [3.0.27] - 2026-10-17
 
 ### Fix

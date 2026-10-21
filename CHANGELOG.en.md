@@ -5,6 +5,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.28] - 2026-10-21
+
+### Fixed
+
+- **Comix: explicitly denied third-party apps are now reported immediately**: catalogue, title, chapter and reader requests check the document on its first DOMReady, before challenge handling and extraction. A “Third-party apps are not supported” page now produces a clear message to open comix.to in a browser instead of waiting for the window to time out. This change does not bypass the site's access decision.
+
+### Validation
+
+- Workspace checks (versions, TypeScript web/NW/Electron, ESLint, Svelte, Vue and coding rules) pass; web unit suite: 2383 passed, 5 skipped, 1 todo; Electron suite: 42 passed.
+- Window-flow unit test: the guard rejects before the extraction script is injected and closes the window.
+- Validation build `npm run bundle:x64` (x64 zip): the packaged application starts, `GedeComix_e2e` and `PornComix_e2e` both pass 5/5, and 3.0.28 was validated in real use (catalogue, chapters, download, reader).
+- Comix remains blocked: depending on the run, the site serves the denial page (now reported immediately) or a challenge page that never resolves and ends in a 180 s timeout. No bypass is included.
+
 ## [3.0.27] - 2026-10-17
 
 ### Fixed
