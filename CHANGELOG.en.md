@@ -16,7 +16,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Workspace checks (versions, TypeScript web/NW/Electron, ESLint, Svelte, Vue and coding rules) pass; web unit suite: 2383 passed, 5 skipped, 1 todo; Electron suite: 42 passed.
 - Window-flow unit test: the guard rejects before the extraction script is injected and closes the window.
 - Validation build `npm run bundle:x64` (x64 zip): the packaged application starts, `GedeComix_e2e` and `PornComix_e2e` both pass 5/5, and 3.0.28 was validated in real use (catalogue, chapters, download, reader).
-- Comix remains blocked: depending on the run, the site serves the denial page (now reported immediately) or a challenge page that never resolves and ends in a 180 s timeout. No bypass is included.
+- Comix: the automated e2e profile receives the denial page (now reported immediately) or a challenge page that never resolves and ends in a 180 s timeout; in a normal user session, comix.to opens with this build. No bypass is included.
 
 ## [3.0.27] - 2026-10-17
 

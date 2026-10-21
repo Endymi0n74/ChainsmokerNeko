@@ -14,7 +14,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Contrôles workspace (versions, TypeScript web/NW/Electron, ESLint, Svelte, Vue et règles de codage) passés ; suite unitaire web : 2383 réussis, 5 ignorés, 1 todo; suite Electron : 42 réussis.
 - Test unitaire du cycle de fenêtre : le précontrôle rejette avant l'injection du script d'extraction et ferme la fenêtre.
 - Build de validation `npm run bundle:x64` (zip x64) : l'application packagée démarre, `GedeComix_e2e` et `PornComix_e2e` passent 5/5 chacune, et la 3.0.28 a été validée en usage réel (catalogue, chapitres, téléchargement, lecteur).
-- Comix n'est pas débloqué : selon les runs, le site sert la page de refus (désormais signalée immédiatement) ou une page de challenge qui ne se résout jamais et finit en expiration de 180 s. Aucun contournement n'est inclus.
+- Comix : le profil e2e automatisé reçoit la page de refus (désormais signalée immédiatement) ou une page de challenge qui ne se résout jamais et finit en expiration de 180 s ; en session utilisateur normale, comix.to s'ouvre avec cette version. Aucun contournement n'est inclus.
 
 ## [3.0.27] - 2026-10-17
 
