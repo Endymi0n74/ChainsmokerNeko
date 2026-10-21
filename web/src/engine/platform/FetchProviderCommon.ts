@@ -1177,7 +1177,7 @@ export abstract class FetchProvider {
         pollerId = await SetTimeout(poll, 4000);
     }
 
-    private async FetchWindowPreloadScriptUpstream<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000): Promise<T> {
+    private async FetchWindowPreloadScriptUpstream<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000, accessGuard?: { script: string; errorMessage: string }): Promise<T> {
         const invocations: {
             name: string;
             info: string;
@@ -1211,6 +1211,18 @@ export abstract class FetchProvider {
 
             win.DOMReady.Subscribe(async () => {
                 invocations.push({ name: 'DOMReady', info: `Window: ${win}` });
+                if(accessGuard) {
+                    try {
+                        if(await win.ExecuteScript<boolean>(accessGuard.script)) {
+                            ClearTimeout(cancellation);
+                            await destroy('access guard rejected page');
+                            reject(new Error(accessGuard.errorMessage));
+                            return;
+                        }
+                    } catch(error) {
+                        console.warn('[KUMO] FetchWindow: access guard probe failed, continuing:', error?.message ?? error);
+                    }
+                }
                 try {
                     const redirect = await CheckAntiScrapingDetection(win, request.url);
                     invocations.push({ name: 'performRedirectionOrFinalize()', info: `Mode: ${FetchRedirection[ redirect ]}` });
@@ -1267,9 +1279,9 @@ export abstract class FetchProvider {
      * @param delay - The time [ms] to wait after the window was fully loaded and before the {@link script} will be injected
      * @param timeout - The maximum time [ms] to wait for the result before a timeout error is thrown (excluding the {@link delay})
      */
-    public async FetchWindowPreloadScript<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000, show = false): Promise<T> {
+    public async FetchWindowPreloadScript<T extends void | JSONElement>(request: Request, preload: string, script: string, delay = 0, timeout = 60_000, show = false, accessGuard?: { script: string; errorMessage: string }): Promise<T> {
         if (!ShouldUseForkChallengeHandling(request.url)) {
-            return this.FetchWindowPreloadScriptUpstream(request, preload, script, delay, timeout);
+            return this.FetchWindowPreloadScriptUpstream(request, preload, script, delay, timeout, accessGuard);
         }
 
         const invocations: {
@@ -1434,6 +1446,25 @@ export abstract class FetchProvider {
                     settled = false;
                     invocations.push({ name: 'ScriptRecovery', info: `Document replaced while attempt=${scriptAttempts} was pending, re-dispatching` });
                     console.warn(`[KUMO] runScript: document replaced while attempt=${scriptAttempts} was pending, re-dispatching for`, request?.url);
+                }
+
+                // Site access refusals must be surfaced before challenge handling or extraction;
+                // otherwise a document which closes/replaces its initial frame looks like a fetch timeout.
+                if (accessGuard) {
+                    try {
+                        if (await win.ExecuteScript<boolean>(accessGuard.script)) {
+                            settled = true;
+                            ClearTimeout(cancellation);
+                            await destroy('access guard rejected page');
+                            reject(new Error(accessGuard.errorMessage));
+                            return;
+                        }
+                    } catch (error) {
+                        // A transient document replacement can interrupt this read-only probe.
+                        // Do not turn that race into a false site-access denial; normal challenge
+                        // detection and the extraction flow still get their chance to run.
+                        console.warn('[KUMO] access guard probe failed, continuing:', error?.message ?? error);
+                    }
                 }
 
                 // Re-baseline the clearance for the document that just loaded (before any

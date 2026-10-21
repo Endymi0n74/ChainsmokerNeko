@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { RequireWindowResult } from './Comix';
+import { IsComixUnsupportedPage, RequireWindowResult } from './Comix';
+
+describe('IsComixUnsupportedPage', () => {
+
+    it('should recognize the explicit third-party-app denial regardless of case or placement', () => {
+        expect(IsComixUnsupportedPage('Third-party apps are not supported', '')).toBe(true);
+        expect(IsComixUnsupportedPage('Comix', "We don't support third-party apps or extensions for this site.")).toBe(true);
+        expect(IsComixUnsupportedPage('The Spark in Your Eyes', 'A normal manga page')).toBe(false);
+    });
+
+});
 
 describe('RequireWindowResult', () => {
 

@@ -266,6 +266,8 @@ describe('PlanStalledChallengeReload', () => {
 class FakeWindow {
 
     public opened = 0;
+    public closed = 0;
+    public accessGuardResult: boolean | Error = false;
     public readonly domReady: (() => Promise<void>)[] = [];
     public readonly beforeNavigate: ((uri: URL) => Promise<null>)[] = [];
     public readonly injected: string[] = [];
@@ -296,7 +298,7 @@ class FakeWindow {
     }
 
     public async Close(): Promise<void> {
-        return undefined;
+        this.closed++;
     }
 
     public async SendDebugCommand<T>(): Promise<T> {
@@ -305,6 +307,9 @@ class FakeWindow {
 
     public ExecuteScript<T>(script: string): Promise<T> {
         this.injected.push(script);
+        if (script.includes('/*ACCESS-GUARD*/')) {
+            return this.accessGuardResult instanceof Error ? Promise.reject(this.accessGuardResult) : Promise.resolve(this.accessGuardResult as T);
+        }
         if (script.includes(SCRIPT_MARKER)) {
             // The script under test hangs until the test settles it by hand.
             return new Promise<T>((resolve, reject) => this.pending.push({ resolve: value => resolve(value as T), reject }));
@@ -543,6 +548,53 @@ describe('FetchWindowPreloadScript (script recovery)', () => {
         // ...and the abandoned first attempt cannot settle or fail the request anymore.
         fake.pending[0].reject(new Error('Render frame was disposed'));
         await waitFor('stale attempt discarded', () => logged().includes('attempt=1 superseded, discarding its failure'), () => windowState(fake));
+    });
+
+    it('Should reject an explicit page access denial during the first document check', async () => {
+        const fake = new FakeWindow();
+        harness.window = fake;
+        const provider = new TestProvider();
+        provider.Initialize({ VerboseFetchWindow: { Value: false } } as unknown as FeatureFlags);
+        const denial = 'Third-party apps are not supported';
+        const fetch = provider.FetchWindowPreloadScript<{ links: string[] }>(
+            new Request('https://www.japscan.lol/manga/demo/12/'),
+            '',
+            `${SCRIPT_MARKER} void 0;`,
+            0,
+            5_000,
+            false,
+            { script: '/*ACCESS-GUARD*/', errorMessage: denial },
+        );
+        await waitFor('DOMReady subscription', () => fake.domReady.length === 1, () => windowState(fake));
+        fake.accessGuardResult = true;
+        fake.Load();
+        await expect(fetch).rejects.toThrow(denial);
+        expect(fake.injected).toContain('/*ACCESS-GUARD*/');
+        expect(fake.pending).toHaveLength(0);
+        expect(fake.closed).toBe(1);
+        expect(logged()).toContain('access guard rejected page');
+    });
+
+    it('Should continue normal extraction if a transient navigation interrupts the guard probe', async () => {
+        const fake = new FakeWindow();
+        harness.window = fake;
+        const provider = new TestProvider();
+        provider.Initialize({ VerboseFetchWindow: { Value: false } } as unknown as FeatureFlags);
+        const fetch = provider.FetchWindowPreloadScript<{ links: string[] }>(
+            new Request('https://www.japscan.lol/manga/demo/12/'),
+            '',
+            `${SCRIPT_MARKER} void 0;`,
+            0,
+            5_000,
+            false,
+            { script: '/*ACCESS-GUARD*/', errorMessage: 'denied' },
+        );
+        await waitFor('DOMReady subscription', () => fake.domReady.length === 1, () => windowState(fake));
+        fake.accessGuardResult = new Error('Execution context was destroyed');
+        fake.Load();
+        await waitFor('script injection after guard probe race', () => fake.pending.length === 1, () => windowState(fake));
+        fake.pending[0].resolve({ links: [ 'https://example.com/1.jpg' ] });
+        await expect(fetch).resolves.toEqual({ links: [ 'https://example.com/1.jpg' ] });
     });
 
     it('Should still fail the fetch when the script errors without a navigation', async () => {
