@@ -3,6 +3,22 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.31] - 2026-10-23
+
+### Fix
+
+- **KuManga : la lecture ne rendait plus aucune page** (correctif amont `5d627bc2`) : la liste des pages était lue dans la variable globale `pUrl` du lecteur, après une requête `HEAD` sur le lien de chapitre. Le site ne l'alimente plus, d'où un chapitre vide. Le connecteur interroge désormais l'API du lecteur lui-même (`imageGallery().images`), sur l'URL vers laquelle le lien de chapitre redirige (`/c/…` → `/leer/…`), et joint le `Referer` du site aux images. La liste des chapitres est lue en un seul passage sur la fiche (`a.media-chapter__link`).
+
+### Modifié
+
+- **KuManga : le catalogue n'est plus proposé** : l'API de recherche du site (`searchengine_master2.php`, derrière un jeton calculé dans la page) n'est plus utilisée ; le connecteur déclare `MangasNotSupported`. Les titres restent accessibles par URL et par les favoris existants, mais plus par la liste des médias. Le chargement de `/mangalist` à l'initialisation déclenche le défi Cloudflare du site.
+
+### Validation
+
+- Contrôles workspace verts : versions (3.0.31 dans les manifests), TypeScript web/Electron/NW, ESLint, svelte-check (0 erreur, 0 avertissement), vue-tsc et règles de codage.
+- Suite unitaire web : **2402 réussis**, 5 ignorés, 1 todo ; Electron **42** ; NW **1**.
+- Builds `vite` du client web et du paquet Electron (main + preload) verts ; les bundles Windows, Linux et macOS sont construits par la CI sur le tag.
+
 ## [3.0.30] - 2026-10-23
 
 ### Ajouté

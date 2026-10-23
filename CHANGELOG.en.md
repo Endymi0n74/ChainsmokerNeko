@@ -5,6 +5,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.31] - 2026-10-23
+
+### Fixed
+
+- **KuManga returned no pages at all** (upstream fix `5d627bc2`): the page list was read from the reader's `pUrl` global after a `HEAD` request on the chapter link. The site no longer populates it, which left every chapter empty. The connector now asks the reader itself (`imageGallery().images`), on the URL the chapter link redirects to (`/c/…` → `/leer/…`), and sends the site `Referer` with the images. The chapter list is read in a single pass on the title page (`a.media-chapter__link`).
+
+### Changed
+
+- **KuManga no longer offers a catalogue**: the site search API (`searchengine_master2.php`, behind a token computed in the page) is no longer used and the connector declares `MangasNotSupported`. Titles remain reachable by URL and through existing bookmarks, but no longer from the media list. Loading `/mangalist` at initialisation triggers the site's Cloudflare challenge.
+
+### Validation
+
+- Workspace checks green: versions (3.0.31 across the manifests), TypeScript web/Electron/NW, ESLint, svelte-check (0 errors, 0 warnings), vue-tsc and coding rules.
+- Web unit suite: **2402 passed**, 5 skipped, 1 todo; Electron **42**; NW **1**.
+- `vite` builds of the web client and the Electron package (main + preload) green; Windows, Linux and macOS bundles are built by CI on the tag.
+
 ## [3.0.30] - 2026-10-23
 
 ### Added
