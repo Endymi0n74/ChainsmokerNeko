@@ -839,3 +839,11 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 - Le `.gitignore` d'`origin/master` ne couvre pas les artefacts du fork : `app/electron/.user-data/`, `app/electron/.tmp/`, `app/electron/.npmrc` et `.tmp/` apparaissent désormais en untracked sur `master`.
 - `node_modules` et le lockfile du checkout restent ceux du fork (Electron 43.3.0…) : rebâtir (`npx npm@11.6.0 ci --engine-strict=false`) avant tout build lancé depuis `master`.
 - Retenu : un commit de type « snapshot de fork » sur `master` coûte 202 commits de retard et une réécriture de branche ; tout travail fork va sur `chainsmoker`, `master` ne reçoit que des fast-forwards puis `git push fork master`.
+
+## Addendum 27 — 23 octobre 2026 : rien à réintégrer depuis la 3.0.30, portes re-passées
+
+- **Écart upstream nul** : `git merge-base --is-ancestor origin/master chainsmoker` → vrai. Le tip amont est toujours `f00b48e4` (« fix : CatharsisWorld » , 22 oct. 20:06) et il est déjà contenu par le merge `bab03167` de la 3.0.30 (23 oct. 06:56). Aucun commit, donc aucune fusion à refaire : ne pas relancer `git merge origin/master` « pour vérifier », il ne produirait qu'un merge vide.
+- **Portes re-passées sur `chainsmoker` = `7d2cb57f`** (3.0.30 + commits de doc) : `check:versions` 3.0.30 - `tsc --noEmit` web 0 / Electron 0 / NW 0 - `eslint` web+Electron+NW 0 - `svelte-check` 0 erreur 0 avertissement - `vue-tsc` 0 - `check:rules` 0.
+- **Tests** : web **2402 réussis / 5 ignorés / 1 todo (2408)**, Electron **42/42**, NW **1/1** — identiques au relevé de la 3.0.30.
+- **Builds** : `vite build` web OK (`web/build` 9,2 Mo) puis `build-app.mjs` + main/preload Electron OK (`main.js` 284 020 o, `preload.js` 261 o).
+- **Effet de bord à connaître** : le build réécrit `app/electron/build/package.json` (fins de ligne), qui est **suivi par git** → il apparaît modifié après chaque build sans qu'aucun contenu ne change ; `git checkout -- app/electron/build/package.json` le remet propre (ne pas le commiter).
