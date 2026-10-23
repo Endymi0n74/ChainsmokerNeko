@@ -1,8 +1,9 @@
-﻿import '../AllPornComic_e2e';
+import '../AllPornComic_e2e';
 import '../AmuyScan_e2e';
 import '../Anikiga_e2e';
 import '../ApollComics_e2e';
 import '../AquaManga_e2e';
+import '../AverisFansub_e2e';
 import '../BakaMH_e2e';
 import '../BrainRotComics_e2e';
 import '../Cocomic_e2e';
@@ -37,6 +38,7 @@ import '../KissmangaIN_e2e';
 import '../KlikManga_e2e';
 import '../Kmansin09_e2e';
 import '../KSGroupScans_e2e';
+import '../KuroiManga_e2e';
 import '../LaviniaFansub_e2e';
 import '../LerMangas_e2e';
 import '../LHTranslation_e2e';
@@ -87,12 +89,14 @@ import '../NinjaScans_e2e';
 import '../NiveraFansub_e2e';
 import '../NocturneSummer_e2e';
 import '../NoIndexScan_e2e';
+import '../NonaFansub_e2e';
 import '../Opiatoon_e2e';
 import '../PinkSeaUnicorn_e2e';
 import '../PortalYaoi_e2e';
 import '../RuyaMangaNet_e2e';
 import '../RuyaManga_e2e';
 import '../S2Manga_e2e';
+import '../Sacguzellik_e2e';
 import '../SamuraiScan_e2e';
 import '../ShinobiScans_e2e';
 import '../SiiManga_e2e';
@@ -126,6 +130,3 @@ import '../YaoiScan_e2e';
 import '../YuriVerso_e2e';
 import '../ZinMangaNet_e2e';
 import '../ZinManga_e2e';
-
-// Imports from origin/master not yet ported to this base (no plugin source here):
-// ArthurScan, AverisFansub, BarManga, KuroiManga, NonaFansub, Sacguzellik
