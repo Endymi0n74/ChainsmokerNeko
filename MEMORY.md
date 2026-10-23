@@ -816,3 +816,26 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 - **Aniverse** (nouveau connecteur, rebrand de RaijinScans) : `Aniverse_e2e` **5/5** — fiche, chapitre 183 et premiere page (`image/jpeg`, 239 931 o). Il passe par `FetchNextJS` : la reecriture des helpers Next.js de l'amont est donc **validee en reel**.
 - **MangaDusleri** (nouveau connecteur) : **echec reproductible 2/2** (`Should get initialized website plugin` en timeout 25 s, puis `RemoteBrowserWindowController::LoadURL` -> `ERR_FAILED (-2) loading 'https://mangadusleri.mom/'`). Le reseau n'est pas en cause : `curl` 200, `net.fetch` Electron 200 (139 524 o en 0,8 s), et aucune marqueur Cloudflare dans la page (`cdn-cgi/challenge-platform`, `challenges.cloudflare.com`, `challenge-form`, `cf-chl-` : 0 occurrence) -> pas de faux positif de `IsCloudFlareChallengePage`. Mais la **navigation Electron** du site est instable **hors application aussi** (fenetre Electron nue : `https://mangadusleri.mom/` ne commite pas, `/latest.php?page=1` -> `ERR_FAILED`) -> limite cote site / anti-automatisation ; connecteur **non valide**, sans regression du fork.
 - Harnais : worktree sur `chainsmoker` (`50ff10d3`), `npm ci` via `npx npm@11.6.0`, `npm run build --workspace=web` et `--workspace=app/electron`, puis `node node_modules/vitest/vitest.mjs run --config test/vitest.websites.ts <Site>_e2e` (tuer `electron.exe` et le port 5000 avant chaque run).
+
+---
+
+## Addendum 26 — 23 octobre 2026 : `master` réaligné sur l'upstream (zéro commit fork)
+
+### Ce qui bloquait
+
+- `master` (local et fork) portait `4dd09da7` (« chore(dead-code): remove 7 unused artifacts (knip+tsc) (#1) »), qui n'était pas un petit commit : `git show --stat` liste **tout l'arbre du fork** (CHANGELOG, AGENTS.md, MEMORY.md, CLOUDFLARE.md, docs, connecteurs 3.0.4…) posé sur un upstream de septembre. Divergence mesurée : *ahead 1, behind 202* -> `git pull` en `ff-only` refusait et SYNC.md §2 était inapplicable.
+- Le checkout principal portait **55 fichiers non commités** du harnais e2e host-guard / local-only / pre-commit (`scripts/e2e-hosts.mjs` 425 l., `scripts/e2e-hosts-fixtures.mjs`, `test/WebsitesHostGuard.ts` 279 l., `test/LocalOnlyGuard.ts`, `test/SignalShutdown.ts`, `test/E2EExitCode_test.ts`, `.githooks/pre-commit`, `scripts/pre-commit.mjs`, `scripts/install-hooks.mjs`, `web/vite.assets.ts`, `web/static/sample-websites/**`, `PuppeteerGlobal.ts` +498 l.…). Vérifié : **absents de tout commit, de toute ref et de tout stash**, et absents de `chainsmoker` (0 octet). Réaligner `master` imposait de les sortir de l'arbre sans les perdre — d'où l'accord utilisateur explicite avant d'agir.
+
+### Ce qui a été fait
+
+- Travail parqué dans la branche locale **`wip/host-guard-e2e` = `a2f29a5c`** (53 fichiers, +4565/−45) commitée **telle quelle** par-dessus `4dd09da7` : aucun contenu réécrit. Branche **locale seule, non poussée** ; à rebaser sur `chainsmoker` quand le harnais sera repris (il entrera en conflit : `PuppeteerGlobal.ts`, `WebsitesFixture.ts`, `vite.config.ts`, `MEMORY.md` ont divergé depuis).
+- Tag d'archive **`archive/master-fork-snapshot`** = `4dd09da7`, poussé sur le fork : l'ancien snapshot reste récupérable même si la branche est réécrite.
+- `master` local remis sur `origin/master` (`f00b48e4`, 22 oct.) ; `fork/master` réécrit par `push --force-with-lease` (`+ 4dd09da7...f00b48e4 master -> master (forced update)`). Contrôlé juste après : `git pull --ff-only` -> « Already up to date », `git push fork master` -> « Everything up-to-date ». La procédure SYNC.md §2 s'applique désormais sans force.
+- `chainsmoker` (`17f89b80`) **non touché**.
+
+### Conséquences à connaître
+
+- Le checkout principal étant sur `master` (= upstream pur), les docs fork-only (`MEMORY.md`, `AGENTS.md`, `SYNC.md`, `LESSONS.md`, `CLOUDFLARE.md`, `ROADMAP.md`, `BENCHMARKS.md`) **n'existent plus que sur `chainsmoker`** : pour travailler, `git checkout chainsmoker` (ou un worktree comme `.worktrees/<nom>`).
+- Le `.gitignore` d'`origin/master` ne couvre pas les artefacts du fork : `app/electron/.user-data/`, `app/electron/.tmp/`, `app/electron/.npmrc` et `.tmp/` apparaissent désormais en untracked sur `master`.
+- `node_modules` et le lockfile du checkout restent ceux du fork (Electron 43.3.0…) : rebâtir (`npx npm@11.6.0 ci --engine-strict=false`) avant tout build lancé depuis `master`.
+- Retenu : un commit de type « snapshot de fork » sur `master` coûte 202 commits de retard et une réécriture de branche ; tout travail fork va sur `chainsmoker`, `master` ne reçoit que des fast-forwards puis `git push fork master`.

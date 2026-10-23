@@ -17,6 +17,8 @@ Points d'ancrage de sécurité (ne jamais supprimer) :
 
 - Tag `3.0.4` : release courante de la ligne produit.
 - Le commit de fusion `7d94f3a14` : première intégration fork-first (historique conservé).
+- Tag `archive/master-fork-snapshot` (`4dd09da7`, 23 oct. 2026) : dernier snapshot du fork avant que `master` ne redevienne un miroir vierge. Seul `archive/*` conservé — ne pas supprimer.
+- Branche locale `wip/host-guard-e2e` (`a2f29a5c`, 23 oct. 2026) : harnais e2e host-guard / pre-commit parqué hors de `master`, jamais poussé. À rebaser sur `chainsmoker` quand ce travail reprend.
 
 > Nettoyage du 2026-09-05 : les tags `3.0.0` … `3.0.3` et `archive/*` ont été **retirés du fork**
 > (releases + tags) pour ne garder que `3.0.4`. Les snapshots archivés des PRs fermées ne sont
@@ -38,6 +40,12 @@ git push fork master
 
 Si `git pull` refuse (upstream a réécrit son historique) : ne rien forcer, investiguer
 d'abord (`git log --oneline master..origin/master`).
+
+> Cas rencontré une fois (23 oct. 2026) : `master` portait un commit fork écrasé (`4dd09da7`)
+> et 202 commits de retard. Réalignement fait par `reset --hard origin/master` + un
+> `push --force-with-lease` unique, l'ancien tip étant préservé par le tag
+> `archive/master-fork-snapshot` (détail : `MEMORY.md`, addendum 26). Ne jamais laisser
+> un commit fork sur `master` : c'est ce qui rend cette réécriture nécessaire.
 
 ## 3. Intégrer l'upstream dans `chainsmoker` (procédure fork-first)
 
