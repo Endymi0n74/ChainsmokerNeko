@@ -1,6 +1,7 @@
 # Mémoire du projet — ChainsmokerNeko (fork Haruneko)
 
 > Fichier de contexte pour les sessions Freebuff. À lire en début de session.
+> Session 23 oct. 2026 (**3.0.30 en préparation** — sync amont de 111 commits sur `chainsmoker`, voir addendum 25 : helpers NextJS réécrits, 81 commits de connecteurs, 28 connecteurs corrigés, 19 nouveaux sites, 9 sites morts retirés par l'amont, CrunchyScan / YaoiScanFR / HentaiScantrad conservés par le fork, couche plateforme et CI inchangées, dépendances et lockfile inchangés ; version 3.0.30 dans les 3 manifests, CHANGELOG FR+EN, contrôles workspace verts, tests web 2402 / Electron 42, builds web et Electron OK). Ancienne erreur à ne pas répéter : le tag `3.0.29` avait été posé sur `master` (snapshot squashé en 3.0.4, 0 artefact) — la ligne produit est `chainsmoker`, jamais `master`.
 > Session 17 oct. 2026 (**3.0.27 PUBLIÉE** — correctif JapScan, voir addendum 23 : retour à l'implémentation « sans DRM » validée, la 3.0.26 publiée ne remontait qu'une partie du catalogue, **aucun chapitre** et cassait la lecture ; validé en réel par l'utilisateur puis publié). Avant : **3.0.26 publiée** le 17 oct. — addendum 22 : JapScan sans DRM en principal + `japscan-secours`, ReadComicsOnline sur `readcomicsonline.lol`, retrait de `ReadComicOnline`.
 > Session 14 oct. 2026 (**3.0.25 PUBLIÉE** — voir « Dernière mise à jour » ci-dessous. États de la session : bump 3.0.25 commité (`8df4ebd83`) sur la perf JapScan/Comix `117dc73f1` (non validée, gain non mesuré) → **revert** `95166e3a1` (nouveau commit, pas de réécriture). Tests : tsc web/electron verts, unitaires web 2367 + electron 44 verts. E2E `JapScan_e2e` + `Comix_e2e` : **19 échecs / 30** après revert aussi (Comix Violet Scans 4/5, JapScan 15/15 : timeout 25 s du plugin, profil de test sans `cf_clearance`, site en défi Cloudflare/puzzle live). Le revert ne change pas l'échec : cause environnementale probable, non réglée. **Puis publication à la demande explicite de l'utilisateur** : push `fork/chainsmoker` (`a73b8557b`), tag `3.0.25` — 1er build CI **échoué** (`npm ci` : `Missing: adm-zip@0.6.1 from lock file`, le commit de release avait ajouté `adm-zip` à `app/electron/package.json` sans le lockfile racine) → lockfile régénéré en local (`npm install --package-lock-only --engine-strict=false`, diff minime : +`adm-zip@0.6.1`, − chaîne `extract-zip`/`yauzl`, versions 3.0.5→3.0.25), `npm ci --dry-run` vert, fix commité `46c6745d7`, tag **déplacé** dessus (retag forcé, ancien `d88da69e7` remplacé car aucune release n'existait), run tag `38528979179` **vert** (5/5 jobs), 10 artefacts, **Latest** à 07:45:01 Z, API `releases/latest` = 3.0.25 → auto-update opérationnelle. Run branche `38528886258` échoué sur « Install NSIS » (transitoire) → rerun lancé. **Validation live JapScan/Comix toujours NON faite** (reste bloquant documenté). Hors release : ReadComicOnline + mapping `kisscomic` non committés. GedeComix/PornComix non relancés depuis le revert.
 >
@@ -770,3 +771,36 @@ fork maintient). Une fusion naïve casse le build. Politique appliquée lors du 
 - **✅ Validé en réel par l'utilisateur (21 oct., capture)** : la build 3.0.28 du zip tourne en réel — en-tête « ChainsmokerNeko v3.0.28 », bibliothèque 122/122 médias, 20/20 items sur *The Sweet Sixty Princess*, téléchargement du chapitre 20 lancé avec barre verte pleine et lecteur affichant les pages. Le build packagé est donc sain (catalogue, chapitres, téléchargement, viewer).
 - **Publication 3.0.28 (21 oct., 19:30:42 Z)** : commits `826e8d6b6` (fix) et `60324a916` (release) poussés sur `fork/chainsmoker` (`cfdfa8a9a..60324a916`) + tag annoté `3.0.28` → `60324a916`. CI run tag `39659875987` **verte** (Typecheck & Build, Windows x64, Linux, macOS, Publish release) ; run branche `39659872589` également lancé. API `releases/latest` = **3.0.28**, release non brouillon, **10 artefacts** (3 zips + 3 NSIS Windows, AppImage x64, .deb amd64, 2 DMG). Zip x64 publié téléchargé et contrôlé : `resources/app/package.json` = `3.0.28`, `DownloadTask.js` contient le précontrôle, `HakuNeko.js` les deux formulations de refus et le message d'erreur ; sha256 du zip livré `FD6588181CA78D50C6502AA6C107A9637EC58E7D342BDE6EA5C5C74EEF7920E4`. `origin`/`master` intacts.
 - **Retour utilisateur du 21 oct. après publication** : « j'ouvre comix avec cette version » — sur la 3.0.28 publiée, comix.to s'ouvre normalement dans sa session (capture : bookmarks 122/122, panneau `What's new` 3.0.28). **Conclusion corrigée** : le refus « Third-party apps are not supported » n'est pas global, il vise le profil e2e automatisé (user-data neuf, CDP, sans cookies ni session) ; le précontrôle ne s'est pas déclenché sur la session réelle et ne bloque donc pas Comix. Libellés corrigés dans `CHANGELOG.md` / `CHANGELOG.en.md` (l'entrée 3.0.28 déjà publiée garde l'ancienne formulation dans `What's new` jusqu'à la prochaine version).
+
+---
+
+## Addendum 25 — 23 octobre 2026 : sync amont (111 commits) et preparation de la 3.0.30
+
+### Piege de branche (a ne pas repeter)
+
+- `master` (local + fork) = **snapshot squashe** (`4dd09da7`, PR #1, version **3.0.4**) ; la ligne produit est `chainsmoker` (`a52c7ea4`, **3.0.28**). Le tag `3.0.29` avait ete pose sur `master` : release publiee, `latest`, **0 artefact**, arbre en 3.0.4. A supprimer en publiant la 3.0.30.
+- Le checkout principal porte ~40 fichiers non commites (harnais e2e host-guard / local-only / pre-commit) absents de `chainsmoker` : travail unique a preserver. Le merge a donc ete fait dans un **worktree** `haruneko/.worktrees/3.0.30` (exclu par `.git/info/exclude`), sans toucher a l'arbre sale.
+
+### Merge
+
+- `git merge origin/master` : **111 commits**, **37 conflits**, 225 fichiers changes.
+- Politique appliquee : plugins en conflit -> **amont** (domaines et API plus recents : JManga, KLManga(.sh), Raw18, Raw FREE, MiuRaw, Syosetu, Toonkor, Voratoon, DuaLeoTruyen **V5**, CatharsisWorld reecrit) ; couche plateforme (`FetchProviderCommon`) et CI (`push-ci.yml`) -> **fork** ; dependances, versions et lockfile -> **fork** (Electron 43.3.0, NW.js 0.116.0-sdk). Les workflows amont `create-release`, `continuous-deployment` et `pull-request-deploy` ne sont pas repris.
+- Fichiers supprimes par l'amont mais maintenus par le fork -> restaures depuis HEAD : `CrunchyScan*` (5 fichiers) et `YaoiScanFR.ts` **avec `YaoiScanFR.webp` et `YaoiScanFR_e2e.ts`**. Le webp oublie fait echouer `vite build` (`Could not resolve './YaoiScanFR.webp'`) alors que `tsc` passe : restaurer l'icone AVEC le connecteur.
+- Rename/rename `MangaKiss` -> `HentaiScantrad` (fork) contre `NonaFansub` (amont) : les deux connecteurs coexistent. `git checkout --ours/--theirs` **ne resout pas** ce cas (les deux fichiers gardent des marqueurs `<<<<<<<<` a huit caracteres, styles rename/rename) -> reecrire chaque fichier depuis `HEAD:<path>` / `MERGE_HEAD:<path>` puis `git add`.
+- `_index.ts` : union des deux cotes, purge des exports dont la cible n'existe plus (6 : ManhwaList, MgJinx, MerlinShoujo, NoraNoFansub, PhenixScans, PhiliaScans), puis reajout de `CrunchyScan` et `YaoiScanFR`. **Ne pas lancer `web/scripts/website-index.mjs`** : il reexporte `registry` (cycle d'import avec `_index`) et ~20 connecteurs que le fork garde volontairement non enregistres.
+- `decorators/WordPressMadara_e2e.ts` importait `../ArthurScan_e2e` et `../BarManga_e2e`, supprimes par l'amont -> deux imports retires (sinon `tsc` TS2882).
+
+### Chaine locale (pieges)
+
+- Node local **26.7.0**, hors du `engines` de `@fluentui/web-components` (`^22 || ^24`) -> `--engine-strict=false`.
+- npm **11.19.0** casse l'installation des dependances git (`EALLOWSCRIPTS` : `--allow-scripts is not allowed in project-scoped installs`, pendant la preparation de `pdfkit`/`websocket-rpc`) -> installer avec `npx -y npm@11.6.0 ci --engine-strict=false` (version de la CI). `ELECTRON_CACHE=D:/Codex/haruneko/.electron-cache` reutilise le zip Electron 43.3.0.
+
+### Portes
+
+- `check:versions` 3.0.30 - `tsc --noEmit` web 0 / Electron 0 / NW 0 - `eslint .` 0 - `svelte-check` 0 erreur 0 avertissement - `vue-tsc` 0 - `check:rules` 0.
+- Unitaires : web **2402 reussis / 5 ignores / 1 todo (2408)**, Electron **42/42**, package nw **1/1**.
+- `npm run build --workspace=web` et `--workspace=app/electron` OK (main.js 283,66 ko, preload.js 0,26 ko).
+
+### Reste a faire
+
+- Commit `chore(release): version 3.0.30`, push `fork/chainsmoker`, tag annote `3.0.30`, suppression de la release **et** du tag distants `3.0.29`, CI -> 10 artefacts, puis completer cet addendum (SHA, run, hashes).

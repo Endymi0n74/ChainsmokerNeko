@@ -3,6 +3,40 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.30] - 2026-10-23
+
+### Ajouté
+
+- **Synchronisation amont** (111 commits, du 23 septembre au 22 octobre 2026), dont 81 commits de connecteurs.
+- **Nouveaux connecteurs** : Aftertoon, Aniverse, CGBum, ImperioManhwa, KomikRealm, MangaDusleri, MangaKoma, Mangitto, MugiwaraNoStreaming, Niadd (7 langues), NovaFansub, Novelcool (7 langues, qui remplacent les variantes `legacy/`), OrckuMangas, PornhwaPro, Sacguzellik, SleptManga, TopToonJP et Yukomik, avec les gabarits `NiaddBase` et `QwikMangas`.
+- **Extraction Next.js réécrite** : `FetchNextJS` lit désormais l'intégralité des payloads flight (Next.js 15 et 16, y compris les blocs binaires base64) au lieu de la seule première ligne `self.__next_f.push`, et un nouveau `FetchNextProps` expose les `pageProps` de `__NEXT_DATA__`. Utilisée par FlameComics, GanGanOnline, PixivComics, SenManga, SoraRaw et le gabarit MangakBase.
+- **Progression de téléchargement affichée immédiatement** : une tâche qui démarre apparaît sans attendre le premier cycle de rafraîchissement de la vue classique.
+
+### Fix
+
+- **28 connecteurs corrigés** par l'amont : mise à jour de domaine (JManga, KLManga(.sh), MiuRaw, Raw18, Raw FREE, Syosetu, Toonkor, Voratoon), API et en-têtes (RoseNeko… ), sélecteurs, ordre des chapitres et descrambling (CatharsisWorld, DuaLeoTruyen, KomikIndo, SekteKomik, Wnacg, Kairatoon).
+- **CatharsisWorld** : les requêtes sont signées et le jeton lecteur (`cap-widget`) est renouvelé pour les chapitres protégés.
+- **DuaLeoTruyen** : déchiffrement des URL de pages en **V5** (flux SHA-256 + HMAC) et prise en charge des planches rendues en `<canvas>`.
+- **Toonkor** : titre de chapitre lu sur `span.ep-n` (les épisodes nus ne cassaient plus la liste).
+- **i18n** : les clés de la visite de démarrage sont rangées côté `frontend.classic` (`ILocale`/`en_US`) ; aucune locale Crowdin n'est touchée.
+
+### Retiré
+
+- **Connecteurs supprimés par l'amont** (sites morts ou remplacés) : DigitalTeam, KaliScan, Manhwa68, MgJinx, NineManga (7 variantes), PhenixScans, RaijinScans (remplacé par Aniverse), SapphireScan, ainsi que les gabarits `MadTheme` et `NineMangaBase`.
+
+### Conservé (spécifique au fork)
+
+- **CrunchyScan**, **YaoiScanFR** et **HentaiScantrad** restent maintenus par le fork : l'amont supprime les deux premiers et renomme `MangaKiss` en `NonaFansub`, mais le fork garde son propre connecteur `HentaiScantrad` en plus du nouveau `NonaFansub`.
+- **Couche plateforme inchangée** : détection de challenge Cloudflare, rechargement des défis bloqués et garde d'accès (`FetchProviderCommon`, `ChallengeReload`) restent la version du fork ; l'upstream réécrit ce fichier, ses hunks non conflictuels ont été écartés.
+- **CI inchangée** : `push-ci.yml` (bundles 3 OS + release) reste la référence, les nouveaux workflows amont (`create-release`, `continuous-deployment`, `pull-request-deploy`) ne sont pas repris.
+- **Dépendances et lockfile inchangés** : Electron 43.3.0, NW.js 0.116.0-sdk et les versions npm du fork sont conservées pour ne pas mêler un lot de montées de version à la synchronisation des connecteurs.
+
+### Validation
+
+- Controles workspace verts : versions (3.0.30 dans les trois manifests), TypeScript web/Electron/NW, ESLint, svelte-check, vue-tsc et regles de codage.
+- Suite unitaire web : **2402 reussis**, 5 ignores, 1 todo ; suite Electron : **42 reussis**.
+- Builds `vite` du client web et du paquet Electron (main + preload) verts ; les bundles Windows, Linux et macOS sont construits par la CI sur le tag.
+
 ## [3.0.28] - 2026-10-21
 
 ### Fix
