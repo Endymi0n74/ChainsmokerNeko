@@ -5,6 +5,41 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 🇫🇷 [Version française](CHANGELOG.md) · 🇬🇧 English
 
+## [3.0.32] - 2026-11-02
+
+### Added
+
+- **Upstream synchronisation** (34 commits, 23 October to 1 November 2026), including 29 connector commits.
+- **New connectors**: Bacami, DesireScans, Ritto, XComic and YuriOnline.
+- **Mgread replaces LikeManga**: the site moved to `mgread.io` and the connector follows the upstream rename (`24b84237`, `a777c56f`).
+
+### Fixed
+
+- **MangaDex reading was blocked by the proof-of-work anti-bot protection** (upstream `511f5134`): the connector reports the `div#results-inprogress` page to the anti-scraping detection, which then triggers the automatic challenge redirection.
+- **FalcoScan returned no pages at all** (upstream `3596a577`).
+- **TopManhua connector rewritten**, the site no longer uses Madara (upstream `2dc0d127`).
+- **Atsumaru chapter naming and sorting** — the scanlator name is added when there is more than one source and sorting uses `number` instead of `index` (upstream `86c45599`).
+- **Okutoon chapter CSS selector updated** (upstream `a2e53cb5`).
+- **MangaPeakBase handles a missing token**, sites that do not use one (RoliaScans) read their chapters again (upstream `7b3da174`).
+- **ManhwaIndo connector rewritten** (upstream `db13d750`).
+- **CoolMic clearer error message** (upstream `f9b0078e`).
+- **Bacami manga list fixed** (upstream `c739b118`).
+- **Domains updated** for several connectors (upstream `195ed88e`, `674cb37b`, `5e1925f6`).
+- **MD5 hashing** is now exposed through `HashUTF8('MD5', …)` in `Crypto.ts`, used by iqiyi, YomuComics and the MangaToonBase template (upstream `aed434ba`).
+
+### Changed
+
+- **Connectors removed upstream are kept**: KomikIndo (renamed KomikIndoId upstream), SamuraiScan, OrigamiOrpheans and StarlightScan stay declared in the fork.
+- **LikeManga is no longer exported by the registry**, Mgread takes over: same site, migrated domain. The file is kept but the entry is dropped to avoid a duplicate.
+- **Dependencies unchanged**: the upstream “updated package dependencies” commit (`e17b2b39`) is not taken, manifests and `package-lock.json` stay those of 3.0.31.
+- **Platform/Electron layer kept as a whole**: `Common.ts`, `BloatGuard.ts` and the manifests keep the fork version.
+- **`isMissingLastItemFrom` replaced by `isLastItemDifferentFromNonEmpty`** in `Common.ts`: the `ArrayExtensions` helper was renamed upstream with identical semantics.
+
+### Validation
+
+- Workspace checks green: versions (3.0.32 across the manifests), TypeScript web/Electron/NW, ESLint, svelte-check (0 errors, 0 warnings), vue-tsc and coding rules.
+- Web unit suite: **2413 passed**, 5 skipped, 1 todo.
+
 ## [3.0.31] - 2026-10-23
 
 ### Fixed

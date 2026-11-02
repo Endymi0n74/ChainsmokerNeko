@@ -3,6 +3,41 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.32] - 2026-11-02
+
+### Ajouté
+
+- **Synchronisation amont** (34 commits, du 23 octobre au 1er novembre 2026), dont 29 commits de connecteurs.
+- **Nouveaux connecteurs** : Bacami, DesireScans, Ritto, XComic et YuriOnline.
+- **Mgread** remplace LikeManga : le site a migré sur `mgread.io`, le connecteur suit le renommage amont (`24b84237`, `a777c56f`).
+
+### Fix
+
+- **MangaDex : la lecture était bloquée par la protection anti-bot proof-of-work** (amont `511f5134`) : le connecteur déclare la page `div#results-inprogress` à la détection anti-scraping, qui déclenche alors la redirection automatique du défi.
+- **FalcoScan : plus aucune page n'était lue** (amont `3596a577`).
+- **TopManhua : connecteur réécrit**, le site n'utilise plus Madara (amont `2dc0d127`).
+- **Atsumaru : noms et tri des chapitres** — le nom du scantrad est ajouté lorsqu'il y a plusieurs sources et le tri se fait sur `number` et non `index` (amont `86c45599`).
+- **Okutoon : sélecteur CSS des chapitres mis à jour** (amont `a2e53cb5`).
+- **MangaPeakBase : jeton absent géré**, les sites qui n'en utilisent pas (RoliaScans) relisent leurs chapitres (amont `7b3da174`).
+- **ManhwaIndo : connecteur réécrit** (amont `db13d750`).
+- **CoolMic : message d'erreur explicite** (amont `f9b0078e`).
+- **Bacami : liste des mangas corrigée** (amont `c739b118`).
+- **Domaines mis à jour** pour plusieurs connecteurs (amont `195ed88e`, `674cb37b`, `5e1925f6`).
+- **Hachage MD5** désormais exposé par `HashUTF8('MD5', …)` dans `Crypto.ts`, utilisé par iqiyi, YomuComics et le gabarit MangaToonBase (amont `aed434ba`).
+
+### Modifié
+
+- **Connecteurs retirés par l'amont et conservés** : KomikIndo (renommé KomikIndoId en amont), SamuraiScan, OrigamiOrpheans et StarlightScan restent déclarés dans le fork.
+- **LikeManga n'est plus exposé dans le registre** au profit de Mgread, même site au domaine migré ; le fichier est conservé mais l'entrée est retirée pour éviter un doublon.
+- **Dépendances inchangées** : le commit amont « updated package dependencies » (`e17b2b39`) n'est pas repris, les manifests et le `package-lock.json` restent ceux de la 3.0.31.
+- **Couche plateforme/Electron conservée en bloc** : `Common.ts`, `BloatGuard.ts` et les manifests gardent la version du fork.
+- **`isMissingLastItemFrom` remplacé par `isLastItemDifferentFromNonEmpty`** dans `Common.ts` : l'extension d'`ArrayExtensions` a été renommée en amont, la sémantique est identique.
+
+### Validation
+
+- Contrôles workspace verts : versions (3.0.32 dans les manifests), TypeScript web/Electron/NW, ESLint, svelte-check (0 erreur, 0 avertissement), vue-tsc et règles de codage.
+- Suite unitaire web : **2413 réussis**, 5 ignorés, 1 todo.
+
 ## [3.0.31] - 2026-10-23
 
 ### Fix

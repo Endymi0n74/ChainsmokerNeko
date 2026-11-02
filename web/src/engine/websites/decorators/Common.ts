@@ -308,7 +308,7 @@ export async function FetchMangasMultiPageCSS<E extends HTMLElement>(this: Manga
         if (mangas.length === 0 || maxPages > 0 && ++pageCount >= maxPages) {
             break;
         }
-        if (generate.isExhaustive || mangaList.isMissingLastItemFrom(mangas)) {
+        if (generate.isExhaustive || mangaList.isLastItemDifferentFromNonEmpty(mangas)) {
             mangaList.push(...mangas); // TODO: Broadcast event that mangalist for provider has been updated?
         } else {
             break;
@@ -407,7 +407,7 @@ export async function FetchChaptersMultiPageCSS<E extends HTMLElement>(this: Man
         await reducer;
         reducer = throttle > 0 ? Delay(throttle) : Promise.resolve();
         const chapters = await FetchChaptersSinglePageCSS.call(this, manga, query, () => uri, extract as InfoExtractor<HTMLElement>);
-        if (generate.isExhaustive || chapterList.isMissingLastItemFrom(chapters)) {
+        if (generate.isExhaustive || chapterList.isLastItemDifferentFromNonEmpty(chapters)) {
             chapterList.push(...chapters); // TODO: Broadcast event that chapterlist for manga has been updated?
         } else {
             break;
