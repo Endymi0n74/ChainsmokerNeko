@@ -1,6 +1,6 @@
 ﻿import { TestFixture } from '../../../test/WebsitesFixture';
 
-new TestFixture( {
+new TestFixture({
     plugin: {
         id: 'fbsquads',
         title: 'Fleur Blanche Squads'

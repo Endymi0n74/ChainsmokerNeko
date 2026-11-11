@@ -20,12 +20,16 @@ import * as Common from './decorators/Common';
             });
 
             const sources = divs.map(div => div.querySelector('img')?.src || '');
-
             if (!sources.some(src => src === '')) {
                 clearInterval(intervalId);
+                clearTimeout(timeoutId);
                 resolve(sources);
             }
         }, 250);
+        const timeoutId = setTimeout(() => {
+            clearInterval(intervalId);
+            resolve(divs.map(div => div.querySelector('img')?.src).filter(Boolean));
+        }, 15000);
     });
 `, 1500)
 @Common.ImageAjax(true)

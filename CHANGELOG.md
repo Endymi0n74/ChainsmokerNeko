@@ -3,6 +3,12 @@
 Toutes les modifications notables de **ChainsmokerNeko** sont documentées dans ce fichier.
 Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [3.0.33] - 2026-11-11
+
+### Fix
+
+- **JapScan :** centralise la politique de challenge pour appliquer les mêmes hôtes à la détection et à la récupération Cloudflare; les deux traitements restent distincts.
+
 ## [3.0.32] - 2026-11-02
 
 ### Ajouté

@@ -1,6 +1,6 @@
 {
     "name": "ChainsmokerNeko",
-    "version": "3.0.31",
+    "version": "3.0.33",
     "main": "main.js",
     "url": "./web/index.html",
     "node-remote": [

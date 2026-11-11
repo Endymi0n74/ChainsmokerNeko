@@ -282,7 +282,7 @@ export default class extends DecoratableMangaScraper {
         const [, mangaSlug] = chapter.Parent.Identifier.split('/');
         const [, chapterNumber] = chapter.Identifier.split('/');
 
-        if (!this.#readerToken || this.#readerToken.expiresAt < Date.now()) {
+        if (!this.#readerToken || this.#readerToken.expiresAt <= Date.now()) {
             this.#readerToken = await FetchWindowScript<ReaderToken>(new Request(new URL(`/manga/${mangaSlug}/chapter/${chapterNumber}`, this.URI)), `JSON.parse(sessionStorage.getItem('catharsis_reader_pass'));`, 2500);
         }
     }
@@ -304,9 +304,8 @@ export default class extends DecoratableMangaScraper {
     public override async FetchImage(page: Page<PageData>, priority: Priority, signal: AbortSignal): Promise<Blob> {
         const [chapterId] = page.Parent.Identifier.split('/');
 
-        const {buffer, scrambleKey, xorByte} = await this.imageTaskPool.Add(async () => {
-
-            //get page ticket https://newcatharsis.dig-it.info/api/mangas/chapters/chapterID/page-ticket
+        const { buffer, scrambleKey, xorByte } = await this.imageTaskPool.Add(async () => {
+            // Le ticket et l'image partagent la limite pour éviter un pic d'appels serveur.
             const { scrambleKey, signedToken, xorByte } = await this.FetchAPI<TicketResponse>(`./mangas/chapters/${chapterId}/page-ticket`, {
                 pageIndex: page.Parameters.index,
                 sessionToken: page.Parameters.chapterSessionToken,
@@ -314,7 +313,7 @@ export default class extends DecoratableMangaScraper {
                 g: true
             });
 
-            const buffer = (await Fetch(new Request(new URL(`./mangas/pages/${signedToken}`, this.apiURL), {
+            const buffer = await Fetch(new Request(new URL(`./mangas/pages/${signedToken}`, this.apiURL), {
                 headers: {
                     Referer: page.Parameters.Referer,
                     'Sec-Fetch-Dest': 'empty',
@@ -322,8 +321,8 @@ export default class extends DecoratableMangaScraper {
                     'Sec-Fetch-Site': 'same-origin',
                     'X-Catharsis-Reader': '1',
                 },
-            }))).arrayBuffer();
-            return { buffer: await buffer, scrambleKey, xorByte };
+            }));
+            return { buffer: await buffer.arrayBuffer(), scrambleKey, xorByte };
         }, priority, signal);
 
         const blob = await Common.GetTypedData(DecryptXOR(new Uint8Array(buffer), new Uint8Array([xorByte])).buffer);

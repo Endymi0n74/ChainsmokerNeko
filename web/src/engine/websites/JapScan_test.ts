@@ -1,5 +1,5 @@
 import { vi, describe, expect, it, beforeEach, afterEach, type MockInstance } from 'vitest';
-import JapScan, { JAPSCAN_CHALLENGE_DETECTION_SCRIPT } from './JapScan';
+import JapScan, { JAPSCAN_CHALLENGE_DETECTION_SCRIPT, JAPSCAN_CHALLENGE_POLICY } from './JapScan';
 import { ShouldReloadStalledChallenge, ShouldUseForkChallengeHandling } from '../platform/ChallengeReload';
 
 describe('JapScan connector', () => {
@@ -104,11 +104,13 @@ describe('JapScan challenge detection', () => {
 });
 
 describe('JapScan challenge registration', () => {
-    it('Should opt into the stalled-challenge reload and keep the fork challenge handling', () => {
-        // Managed Cloudflare challenges on JapScan issue a clearance without redirecting:
-        // the bounded reload (which chains the fork handling) is what unpins the window.
+    it('Should register both challenge handlers for JapScan hosts only', () => {
+        // JapScan's puzzle detector and Cloudflare recovery share this named host policy,
+        // while their resolution logic remains separate.
+        expect(JAPSCAN_CHALLENGE_POLICY.test('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
         expect(ShouldReloadStalledChallenge('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
         expect(ShouldUseForkChallengeHandling('https://www.japscan.foo/manga/blue-lock/')).toBe(true);
         expect(ShouldReloadStalledChallenge('https://example.com/manga/demo/')).toBe(false);
+        expect(ShouldUseForkChallengeHandling('https://example.com/manga/demo/')).toBe(false);
     });
 });

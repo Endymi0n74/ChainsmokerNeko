@@ -41,6 +41,8 @@ import { RateLimit } from '../taskpool/RateLimit';
  * yet at that point. `JapScan.Extract.ts` (`isBlocked`) keeps its own fall-through so the scroll
  * loop stays paused until the site declares itself done.
  */
+export const JAPSCAN_CHALLENGE_POLICY = /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}(?:\/|$)/;
+
 export const JAPSCAN_CHALLENGE_DETECTION_SCRIPT = `
     (() => {
         try {
@@ -78,12 +80,12 @@ export const JAPSCAN_CHALLENGE_DETECTION_SCRIPT = `
 AddAntiScrapingDetection(async invoke => {
     const result = await invoke<boolean>(JAPSCAN_CHALLENGE_DETECTION_SCRIPT);
     return result ? FetchRedirection.Interactive : undefined;
-}, /^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
+}, JAPSCAN_CHALLENGE_POLICY);
 // Cloudflare's managed challenge on JapScan issues a fresh cf_clearance but never redirects
 // the interstitial (the same stall documented for CrunchyScan in CLOUDFLARE.md §7): without
 // the opt-in reload every extraction window pins on "Just a moment..." until its timeout.
 // `AddStalledChallengeReload` also registers the fork challenge handling (it chains both).
-AddStalledChallengeReload(/^https:\/\/(?:www\.)?japscan\.[a-z]{2,4}/);
+AddStalledChallengeReload(JAPSCAN_CHALLENGE_POLICY);
 
 @Common.ImageAjax(true)
 export default class extends DecoratableMangaScraper {
@@ -98,7 +100,7 @@ export default class extends DecoratableMangaScraper {
     public override ValidateMangaURL(url: string): boolean {
         try {
             const u = new URL(url);
-            if (!/((www\.)?japscan\.)[a-z]{2,4}/.test(u.hostname)) return false;
+            if (!JAPSCAN_CHALLENGE_POLICY.test(`${u.origin}/`)) return false;
             const p = u.pathname.split('/').filter(Boolean);
             return p.length >= 2 && ['manga', 'manhwa', 'bd'].includes(p[0]);
         } catch {
